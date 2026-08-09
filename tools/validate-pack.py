@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -59,6 +60,27 @@ def validate_required_files() -> None:
     missing = [path for path in REQUIRED if not (ROOT / path).is_file()]
     if missing:
         fail("missing required files: " + ", ".join(missing))
+
+
+def validate_vendor_pdf_boundary() -> None:
+    vendor_pdfs = sorted((ROOT / "docs/vendor").glob("*.pdf"))
+    if (ROOT / ".git").exists():
+        result = subprocess.run(
+            ["git", "ls-files", "--", "docs/vendor/*.pdf"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        tracked = [line for line in result.stdout.splitlines() if line]
+        if tracked:
+            fail("vendor PDFs must not be tracked: " + ", ".join(tracked))
+    elif vendor_pdfs:
+        fail("vendor PDFs must not be included in an extracted development pack")
+
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    if "docs/vendor/*.pdf" not in gitignore:
+        fail(".gitignore must protect local vendor PDFs")
 
 
 def validate_parseable_files() -> None:
@@ -428,6 +450,7 @@ def write_checksums() -> None:
 
 def main() -> int:
     validate_required_files()
+    validate_vendor_pdf_boundary()
     validate_parseable_files()
     validate_workspace_and_runtime()
     validate_architecture()

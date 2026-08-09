@@ -3,6 +3,10 @@
 Do not commit vendor PDFs unless redistribution terms explicitly permit it.
 Pin, hash, and review local copies instead.
 
+`docs/vendor/*.pdf` is intentionally ignored by Git, excluded from exported
+archives, and rejected by pack validation if tracked. Changing those guardrails
+requires prior owner documentation of permissive redistribution rights.
+
 ## Required sources
 
 - Vishay VEML7700 datasheet, document 84286, Rev. 1.8, 28-Nov-2024:

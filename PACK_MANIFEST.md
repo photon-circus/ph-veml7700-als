@@ -41,6 +41,8 @@ release or a calibrated optical support claim.
   and deterministic SHA-256 inventory.
 - manifest, validation, agent, and automation guardrails that prevent Cargo
   registry publication and registry-credential use.
+- Git ignore, archive exclusion, and tracked-file validation guardrails that
+  keep locally reviewed vendor PDFs outside the repository and development pack.
 
 ## Deliberate non-claims
 

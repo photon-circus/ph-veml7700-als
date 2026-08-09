@@ -13,3 +13,4 @@ Cargo.lock
 apps/hil-runner/.REAL_FIRMWARE_IMPLEMENTED
 hil/bench.real.toml
 hardware-evidence/runs/
+docs/vendor/*.pdf

@@ -36,6 +36,10 @@ This repository is contract-first. Read, in order:
   publication, invoke `cargo publish`, add registry credentials, or add a
   release workflow. Re-enabling publication requires a separate owner-reviewed
   contract change.
+- Vendor PDFs are local review inputs, not repository content. Never stage or
+  commit `docs/vendor/*.pdf` unless the owner has first documented permissive
+  redistribution rights and deliberately changes the ignore and validation
+  policy.
 
 ## Completion discipline
 
