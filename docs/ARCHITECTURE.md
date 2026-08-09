@@ -16,7 +16,7 @@ Governing maxim:
 
 ## 2. Family context, not framework inheritance
 
-Shared Photon Circus conventions include repository shape, linting, CI,
+Shared Photon Circus conventions include repository shape, linting, local CI,
 documentation, strict mock transports, behavioral models, package gates, and
 external `ph-hil` schemas.
 

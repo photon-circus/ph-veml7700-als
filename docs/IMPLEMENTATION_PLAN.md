@@ -3,7 +3,8 @@
 ## M0 — Contract and repository bootstrap
 
 - freeze source revisions and record hashes;
-- validate workspace, lints, CI, agent instructions, and documentation set;
+- validate workspace, lints, local CI runners, agent instructions, and
+  documentation set;
 - hard-disable Cargo publication and reject publish-enabled manifests in pack
   validation;
 - run pack validator.
@@ -65,7 +66,7 @@ Exit: monitor cannot be silently retargeted and enable-last is exact.
 - deterministic mock run and policy assessment;
 - mock evidence remains void.
 
-Exit: schema alignment passes in CI.
+Exit: schema alignment passes in the local CI runner.
 
 ## M7 — Physical digital/relative validation
 

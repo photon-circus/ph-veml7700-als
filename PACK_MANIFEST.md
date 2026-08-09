@@ -37,8 +37,8 @@ release or a calibrated optical support claim.
 - external schema-1 `ph-hil` boundary with 12 capabilities, deterministic mock
   transcript, core and calibrated-optical plan separation, Lua modules, offline
   policy, build hooks, and evidence directories;
-- CI, local gates, agent roles, contribution/security policy, release checklist,
-  and deterministic SHA-256 inventory.
+- cross-platform local CI runners, agent roles, contribution/security policy,
+  release checklist, and deterministic SHA-256 inventory;
 - manifest, validation, agent, and automation guardrails that prevent Cargo
   registry publication and registry-credential use.
 - Git ignore, archive exclusion, and tracked-file validation guardrails that
@@ -57,7 +57,8 @@ release or a calibrated optical support claim.
 ## Current software validation
 
 - `python3 tools/validate-pack.py` and publication-policy regression tests passed.
-- Every TOML and JSON file parsed; workflow YAML is parsed when PyYAML is present.
+- Every TOML and JSON file parsed; GitHub Actions workflow YAML is rejected while
+  the crate is under development.
 - Workspace, runtime dependency, no-std/unsafe, facade-state, fixed-address,
   byte-order, API-contract, monitor-domain, and rejected-feature guards passed.
 - Capability inventory, contracts, plan, mock manifest, transcript commands, and
@@ -69,6 +70,8 @@ release or a calibrated optical support claim.
   and package listing passed with Rust 1.92.0.
 - The deterministic mock harness build passed. Every retained core I²C capture
   has a policy decoder request.
+- Both local CI entry points are checked for the complete validation matrix;
+  `tools/check.sh` is also required to remain executable.
 - Core and calibrated-optical metadata gates were checked independently.
 - Relative Markdown links and per-file SHA-256 inventory passed.
 

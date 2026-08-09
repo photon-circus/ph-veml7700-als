@@ -7,6 +7,7 @@
 - [x] `python3 tools/validate-pack.py` passes;
 - [x] `tools/check.sh` or `tools/check.ps1` passes;
 - [x] all relative links resolve.
+- [x] GitHub Actions is disabled and the complete CI matrix runs locally.
 - [x] Cargo publication is disabled and automation contains no publish command
       or registry credential.
 

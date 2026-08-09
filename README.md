@@ -34,14 +34,18 @@ as a register bag. It separates:
 - `apps/hil-runner` and `hil/` — external `ph-hil` integration boundary;
 - `tools/validate-pack.py` — deterministic pack-consistency checks.
 
-## First commands
+## Local CI
+
+GitHub Actions is intentionally disabled while the crate is under development.
+Run the complete CI matrix on a trusted local machine:
 
 ```console
-python3 tools/validate-pack.py
-cargo fmt --all -- --check
-cargo test -p ph-veml7700-als --no-default-features
-cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
+./tools/check.sh
 ```
+
+On Windows PowerShell, run `tools/check.ps1`. The local runner covers pack and
+policy validation, formatting, tests, all features, Clippy, docs, embedded
+targets, dependency policy, package inspection, and the mock HIL build.
 
 This bootstrap is not a release or a physical support claim. Verify the pinned
 Vishay documentation, compile every target, implement the managed harness, and

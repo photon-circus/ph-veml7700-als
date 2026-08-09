@@ -40,6 +40,9 @@ This repository is contract-first. Read, in order:
   commit `docs/vendor/*.pdf` unless the owner has first documented permissive
   redistribution rights and deliberately changes the ignore and validation
   policy.
+- GitHub Actions is disabled while this crate is under development. Do not add
+  workflow YAML or depend on GitHub-hosted or GitHub-orchestrated runners. Run
+  the complete CI gate locally with `tools/check.sh` or `tools/check.ps1`.
 
 ## Completion discipline
 

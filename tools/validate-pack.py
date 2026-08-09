@@ -18,6 +18,24 @@ ROOT = Path(__file__).resolve().parents[1]
 PACK_EXCLUDED_DIRS = {".git", "__pycache__", "target"}
 PACK_EXCLUDED_FILES = {"Cargo.lock", "PACK_SHA256SUMS.txt"}
 
+LOCAL_CI_REQUIRED_MARKERS = [
+    "validate-pack.py",
+    "test_validate_pack.py",
+    "cargo fmt --all -- --check",
+    "cargo test -p ph-veml7700-als --no-default-features",
+    "cargo check -p ph-veml7700-als --all-features",
+    "cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings",
+    "cargo doc -p ph-veml7700-als --all-features --no-deps",
+    "thumbv6m-none-eabi",
+    "thumbv7em-none-eabihf",
+    "thumbv8m.main-none-eabihf",
+    "riscv32imc-unknown-none-elf",
+    "riscv32imac-unknown-none-elf",
+    "cargo deny check",
+    "cargo package -p ph-veml7700-als --list --allow-dirty",
+    "tools/ph-hil-build/Cargo.toml",
+]
+
 REQUIRED = [
     "AGENTS.md",
     "PACK_MANIFEST.md",
@@ -81,6 +99,26 @@ def validate_vendor_pdf_boundary() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     if "docs/vendor/*.pdf" not in gitignore:
         fail(".gitignore must protect local vendor PDFs")
+
+
+def validate_local_ci_boundary() -> None:
+    workflow_directory = ROOT / ".github/workflows"
+    active_workflows = sorted(
+        [*workflow_directory.glob("*.yml"), *workflow_directory.glob("*.yaml")]
+    )
+    if active_workflows:
+        fail(
+            "GitHub Actions must remain disabled during development: "
+            + ", ".join(path.relative_to(ROOT).as_posix() for path in active_workflows)
+        )
+
+    for relative in ["tools/check.sh", "tools/check.ps1"]:
+        source = (ROOT / relative).read_text(encoding="utf-8")
+        missing = [marker for marker in LOCAL_CI_REQUIRED_MARKERS if marker not in source]
+        if missing:
+            fail(f"local CI runner {relative} is incomplete: {', '.join(missing)}")
+    if (ROOT / "tools/check.sh").stat().st_mode & 0o111 == 0:
+        fail("tools/check.sh must remain executable")
 
 
 def validate_parseable_files() -> None:
@@ -451,6 +489,7 @@ def write_checksums() -> None:
 def main() -> int:
     validate_required_files()
     validate_vendor_pdf_boundary()
+    validate_local_ci_boundary()
     validate_parseable_files()
     validate_workspace_and_runtime()
     validate_architecture()
