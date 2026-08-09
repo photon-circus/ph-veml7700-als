@@ -17,7 +17,7 @@ Governing maxim:
 ## 2. Family context, not framework inheritance
 
 Shared Photon Circus conventions include repository shape, linting, CI,
-documentation, strict mock transports, behavioral models, release gates, and
+documentation, strict mock transports, behavioral models, package gates, and
 external `ph-hil` schemas.
 
 The crate deliberately omits a universal `DeviceCore`, internal transport trait,
@@ -139,3 +139,5 @@ Module paths are not semver API. Public imports come from crate root.
 - driver-owned retries;
 - GPIO interrupt integration;
 - dynamic allocation or executor coupling.
+- publication to a package registry; the crate is packageable for inspection
+  but Cargo publication is hard-disabled.

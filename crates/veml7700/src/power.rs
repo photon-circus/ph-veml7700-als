@@ -128,3 +128,58 @@ pub(crate) const fn decode_power_saving(
         mode: PowerSavingMode::from_word(word),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_power_saving_configuration_round_trips() {
+        for mode in [
+            PowerSavingMode::Mode1,
+            PowerSavingMode::Mode2,
+            PowerSavingMode::Mode3,
+            PowerSavingMode::Mode4,
+        ] {
+            for enabled in [false, true] {
+                let config = PowerSavingConfig::new(enabled, mode);
+                let decoded = decode_power_saving(config.encode()).unwrap();
+                assert_eq!(decoded.as_config(), config);
+            }
+        }
+    }
+
+    #[test]
+    fn every_reserved_power_saving_bit_is_rejected() {
+        for bit in 3_u32..16 {
+            let observed = 1_u16 << bit;
+            assert_eq!(
+                decode_power_saving(observed),
+                Err(PowerSavingDecodeError::ReservedBits { observed })
+            );
+        }
+    }
+
+    #[test]
+    fn documented_refresh_table_is_exact() {
+        let integrations = [
+            IntegrationTime::Ms100,
+            IntegrationTime::Ms200,
+            IntegrationTime::Ms400,
+            IntegrationTime::Ms800,
+        ];
+        let rows = [
+            (PowerSavingMode::Mode1, [600, 700, 900, 1_300]),
+            (PowerSavingMode::Mode2, [1_100, 1_200, 1_400, 1_800]),
+            (PowerSavingMode::Mode3, [2_100, 2_200, 2_400, 2_800]),
+            (PowerSavingMode::Mode4, [4_100, 4_200, 4_400, 4_800]),
+        ];
+        for (mode, expected) in rows {
+            for (integration, expected_ms) in integrations.into_iter().zip(expected) {
+                assert_eq!(mode.nominal_refresh_time_ms(integration), Some(expected_ms));
+            }
+            assert_eq!(mode.nominal_refresh_time_ms(IntegrationTime::Ms25), None);
+            assert_eq!(mode.nominal_refresh_time_ms(IntegrationTime::Ms50), None);
+        }
+    }
+}

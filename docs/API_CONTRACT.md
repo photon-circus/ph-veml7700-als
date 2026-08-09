@@ -6,6 +6,10 @@ change first.
 Crate policy: `#![no_std]`, `#![forbid(unsafe_code)]`,
 `#![deny(missing_docs)]`, async-first `embedded-hal-async`.
 
+Distribution policy: the v0.1 package can be built and inspected locally, but
+its Cargo manifest sets `publish = false`. Enabling registry publication is a
+separate owner-reviewed contract change.
+
 ## Constants and facade
 
 ```rust

@@ -47,6 +47,12 @@
 - **I-24:** source review, compiler success, or a logic capture alone is not an
   optical accuracy claim.
 
+## Distribution safety
+
+- **I-25:** Cargo publication remains hard-disabled. Repository automation may
+  build a package for inspection, but it owns no registry credential and cannot
+  publish the crate.
+
 ## Rejected shortcuts
 
 | Shortcut | Defect |

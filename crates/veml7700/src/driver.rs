@@ -1,25 +1,21 @@
 //! I²C resource ownership and VEML7700 operation sequencing.
 
 use embedded_hal_async::delay::DelayNs;
-use embedded_hal_async::i2c::{
-    Error as I2cError, ErrorKind, I2c, NoAcknowledgeSource,
-};
+use embedded_hal_async::i2c::{Error as I2cError, ErrorKind, I2c, NoAcknowledgeSource};
 
 use crate::config::{
     ConfigWord, ConfigurationSnapshot, MeasurementConfig, PowerState, ThresholdMonitorState,
 };
 use crate::error::{
-    BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage, Operation,
-    ProbeError, ThresholdMonitorError, ThresholdMonitorStage,
+    BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage, Operation, ProbeError,
+    ThresholdMonitorError, ThresholdMonitorStage,
 };
 use crate::id::DeviceId;
 use crate::measurement::{
-    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence,
-    SnapshotMeasurement, WhiteCounts,
+    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence, SnapshotMeasurement,
+    WhiteCounts,
 };
-use crate::power::{
-    PowerSavingConfig, PowerSavingSnapshot, decode_power_saving,
-};
+use crate::power::{PowerSavingConfig, PowerSavingSnapshot, decode_power_saving};
 use crate::register::Register;
 use crate::threshold::{ThresholdMonitorConfig, ThresholdStatus, Thresholds};
 use crate::timing::MeasurementTiming;
@@ -75,22 +71,22 @@ where
 
     /// Read the identity register without requiring a match.
     pub async fn read_device_id(&mut self) -> Result<DeviceId, Error<I2C::Error>> {
-        self.read_word(Register::DeviceId, Operation::Inspect, BusContext::ReadDeviceId)
-            .await
-            .map(DeviceId::from_raw)
+        self.read_word(
+            Register::DeviceId,
+            Operation::Inspect,
+            BusContext::ReadDeviceId,
+        )
+        .await
+        .map(DeviceId::from_raw)
     }
 
     /// Read and strictly decode the configuration register.
-    pub async fn read_configuration(
-        &mut self,
-    ) -> Result<ConfigurationSnapshot, Error<I2C::Error>> {
+    pub async fn read_configuration(&mut self) -> Result<ConfigurationSnapshot, Error<I2C::Error>> {
         self.read_configuration_for(Operation::Inspect).await
     }
 
     /// Read and strictly decode the power-saving register.
-    pub async fn read_power_saving(
-        &mut self,
-    ) -> Result<PowerSavingSnapshot, Error<I2C::Error>> {
+    pub async fn read_power_saving(&mut self) -> Result<PowerSavingSnapshot, Error<I2C::Error>> {
         self.read_power_saving_for(Operation::Inspect).await
     }
 
@@ -108,9 +104,7 @@ where
     ///
     /// The VEML7700 has no dedicated interrupt pin. This method makes no claim
     /// about flag-clearing side effects beyond the vendor's documented read.
-    pub async fn read_threshold_status(
-        &mut self,
-    ) -> Result<ThresholdStatus, Error<I2C::Error>> {
+    pub async fn read_threshold_status(&mut self) -> Result<ThresholdStatus, Error<I2C::Error>> {
         self.read_threshold_status_for(Operation::Inspect).await
     }
 
@@ -163,11 +157,8 @@ where
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
         }
-        self.write_configuration_for(
-            current.with_measurement(measurement),
-            Operation::Configure,
-        )
-        .await
+        self.write_configuration_for(current.with_measurement(measurement), Operation::Configure)
+            .await
     }
 
     /// Change active/shutdown state while preserving unrelated fields.
@@ -185,11 +176,8 @@ where
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
         }
-        self.write_configuration_for(
-            current.with_power_state(power_state),
-            Operation::Configure,
-        )
-        .await
+        self.write_configuration_for(current.with_power_state(power_state), Operation::Configure)
+            .await
     }
 
     /// Change power-saving cadence while preserving the configuration register.
@@ -250,12 +238,10 @@ where
         if timing.integration_time() != measurement.integration_time() {
             return Err(MeasureOnceError::Operation {
                 stage: MeasureStage::ValidateTiming,
-                source: Error::Configuration(
-                    ConfigurationError::TimingIntegrationMismatch {
-                        measurement: measurement.integration_time(),
-                        timing: timing.integration_time(),
-                    },
-                ),
+                source: Error::Configuration(ConfigurationError::TimingIntegrationMismatch {
+                    measurement: measurement.integration_time(),
+                    timing: timing.integration_time(),
+                }),
             });
         }
 
@@ -266,14 +252,10 @@ where
                 stage: MeasureStage::ObserveConfiguration,
                 source,
             })?;
-        if original_configuration.threshold_monitor
-            == ThresholdMonitorState::Enabled
-        {
+        if original_configuration.threshold_monitor == ThresholdMonitorState::Enabled {
             return Err(MeasureOnceError::Operation {
                 stage: MeasureStage::ObserveConfiguration,
-                source: Error::Configuration(
-                    ConfigurationError::ThresholdMonitorOwnsDomain,
-                ),
+                source: Error::Configuration(ConfigurationError::ThresholdMonitorOwnsDomain),
             });
         }
         let original_power_saving = self
@@ -390,7 +372,11 @@ where
             .restore_state(original_configuration, original_power_saving)
             .await
         {
-            return Err(MeasureOnceError::RestoreFailed { sample, stage, source });
+            return Err(MeasureOnceError::RestoreFailed {
+                sample,
+                stage,
+                source,
+            });
         }
         Ok(sample)
     }
@@ -483,7 +469,10 @@ where
             .restore_state(original_configuration, original_power_saving)
             .await
         {
-            Ok(()) => MeasureOnceError::Operation { stage: failed_stage, source },
+            Ok(()) => MeasureOnceError::Operation {
+                stage: failed_stage,
+                source,
+            },
             Err((recovery_stage, recovery_source)) => MeasureOnceError::RecoveryFailed {
                 failed_stage,
                 source,
@@ -511,7 +500,11 @@ where
         operation: Operation,
     ) -> Result<ConfigurationSnapshot, Error<I2C::Error>> {
         let word = self
-            .read_word(Register::Configuration, operation, BusContext::ReadConfiguration)
+            .read_word(
+                Register::Configuration,
+                operation,
+                BusContext::ReadConfiguration,
+            )
             .await?;
         ConfigWord::from_raw(word)
             .decode()
@@ -537,7 +530,11 @@ where
         operation: Operation,
     ) -> Result<PowerSavingSnapshot, Error<I2C::Error>> {
         let word = self
-            .read_word(Register::PowerSaving, operation, BusContext::ReadPowerSaving)
+            .read_word(
+                Register::PowerSaving,
+                operation,
+                BusContext::ReadPowerSaving,
+            )
             .await?;
         decode_power_saving(word)
             .map_err(|error| Error::Configuration(ConfigurationError::PowerSavingDecode(error)))
@@ -557,10 +554,7 @@ where
         .await
     }
 
-    async fn read_als_for(
-        &mut self,
-        operation: Operation,
-    ) -> Result<AlsCounts, Error<I2C::Error>> {
+    async fn read_als_for(&mut self, operation: Operation) -> Result<AlsCounts, Error<I2C::Error>> {
         self.read_word(Register::Als, operation, BusContext::ReadAls)
             .await
             .map(AlsCounts::from_counts)
@@ -586,9 +580,8 @@ where
                 BusContext::ReadThresholdStatus,
             )
             .await?;
-        ThresholdStatus::decode(word).map_err(|error| {
-            Error::Configuration(ConfigurationError::ThresholdStatusDecode(error))
-        })
+        ThresholdStatus::decode(word)
+            .map_err(|error| Error::Configuration(ConfigurationError::ThresholdStatusDecode(error)))
     }
 
     async fn read_thresholds_for(
@@ -596,10 +589,18 @@ where
         operation: Operation,
     ) -> Result<Thresholds, Error<I2C::Error>> {
         let low = self
-            .read_word(Register::LowThreshold, operation, BusContext::ReadLowThreshold)
+            .read_word(
+                Register::LowThreshold,
+                operation,
+                BusContext::ReadLowThreshold,
+            )
             .await?;
         let high = self
-            .read_word(Register::HighThreshold, operation, BusContext::ReadHighThreshold)
+            .read_word(
+                Register::HighThreshold,
+                operation,
+                BusContext::ReadHighThreshold,
+            )
             .await?;
         Thresholds::new(AlsCounts::from_counts(low), AlsCounts::from_counts(high))
             .ok_or(Error::Configuration(ConfigurationError::ReversedThresholds))
@@ -615,7 +616,11 @@ where
         self.i2c
             .write_read(I2C_ADDRESS, &[register.pointer()], &mut bytes)
             .await
-            .map_err(|source| Error::Bus { operation, context, source })?;
+            .map_err(|source| Error::Bus {
+                operation,
+                context,
+                source,
+            })?;
         Ok(u16::from_le_bytes(bytes))
     }
 
@@ -630,23 +635,28 @@ where
         self.i2c
             .write(I2C_ADDRESS, &[register.pointer(), low, high])
             .await
-            .map_err(|source| Error::Bus { operation, context, source })
+            .map_err(|source| Error::Bus {
+                operation,
+                context,
+                source,
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use embedded_hal_async::delay::DelayNs;
-    use embedded_hal_async::i2c::ErrorKind;
+    use embedded_hal_async::i2c::{ErrorKind, NoAcknowledgeSource};
     use futures::executor::block_on;
-    use std::vec;
 
     use super::{I2C_ADDRESS, Veml7700};
     use crate::testing::scripted_i2c::{Expectation, ScriptError, ScriptedI2c};
     use crate::{
-        AlsCounts, BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage,
-        MeasurementConfig, Operation, Persistence, PowerSavingConfig, PowerSavingMode,
-        ProbeError, ThresholdMonitorConfig, Thresholds, WhiteCounts,
+        AlsCounts, BusContext, ConfigurationError, Error, Gain, IntegrationTime, MeasureOnceError,
+        MeasureStage, MeasurementConfig, Operation, Persistence, PowerSavingConfig,
+        PowerSavingMode, PowerState, ProbeError, ThresholdMonitorConfig, ThresholdMonitorError,
+        ThresholdMonitorStage, Thresholds, WhiteCounts,
     };
 
     struct RecordingDelay {
@@ -656,6 +666,33 @@ mod tests {
     impl DelayNs for RecordingDelay {
         async fn delay_ns(&mut self, ns: u32) {
             self.elapsed_ns += u64::from(ns);
+        }
+    }
+
+    fn read_word(register: u8, value: u16) -> Expectation {
+        Expectation::WriteRead {
+            address: I2C_ADDRESS,
+            write: vec![register],
+            returns: value.to_le_bytes().to_vec(),
+            result: Ok(()),
+        }
+    }
+
+    fn read_failure(register: u8, error: ScriptError) -> Expectation {
+        Expectation::WriteRead {
+            address: I2C_ADDRESS,
+            write: vec![register],
+            returns: vec![0, 0],
+            result: Err(error),
+        }
+    }
+
+    fn write_word(register: u8, value: u16, result: Result<(), ScriptError>) -> Expectation {
+        let [low, high] = value.to_le_bytes();
+        Expectation::Write {
+            address: I2C_ADDRESS,
+            data: vec![register, low, high],
+            result,
         }
     }
 
@@ -719,11 +756,9 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let sample = block_on(sensor.measure_once(
-            &mut delay,
-            MeasurementConfig::safe_bright_start(),
-        ))
-        .unwrap();
+        let sample =
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
+                .unwrap();
         assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
         assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
         assert_eq!(sample.waited_us, 133_500);
@@ -738,22 +773,17 @@ mod tests {
         let mut sensor = Veml7700::new(bus);
         let result = block_on(sensor.measure_once_with_timing(
             &mut delay,
-            MeasurementConfig::new(
-                crate::Gain::Div8,
-                crate::IntegrationTime::Ms800,
-            ),
+            MeasurementConfig::new(crate::Gain::Div8, crate::IntegrationTime::Ms800),
             crate::MeasurementTiming::conservative(crate::IntegrationTime::Ms25),
         ));
         assert_eq!(
             result,
             Err(MeasureOnceError::Operation {
                 stage: MeasureStage::ValidateTiming,
-                source: Error::Configuration(
-                    ConfigurationError::TimingIntegrationMismatch {
-                        measurement: crate::IntegrationTime::Ms800,
-                        timing: crate::IntegrationTime::Ms25,
-                    },
-                ),
+                source: Error::Configuration(ConfigurationError::TimingIntegrationMismatch {
+                    measurement: crate::IntegrationTime::Ms800,
+                    timing: crate::IntegrationTime::Ms25,
+                },),
             })
         );
         assert_eq!(delay.elapsed_ns, 0);
@@ -794,10 +824,8 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let result = block_on(sensor.measure_once(
-            &mut delay,
-            MeasurementConfig::safe_bright_start(),
-        ));
+        let result =
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()));
         assert_eq!(
             result,
             Err(MeasureOnceError::Operation {
@@ -815,11 +843,8 @@ mod tests {
 
     #[test]
     fn threshold_monitor_is_enabled_only_after_its_domain_is_programmed() {
-        let thresholds = Thresholds::new(
-            AlsCounts::from_counts(100),
-            AlsCounts::from_counts(1_000),
-        )
-        .unwrap();
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
         let monitor = ThresholdMonitorConfig::new(
             MeasurementConfig::safe_bright_start(),
             thresholds,
@@ -894,8 +919,7 @@ mod tests {
             },
         ]);
         let mut sensor = Veml7700::new(bus);
-        block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start()))
-            .unwrap();
+        block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start())).unwrap();
         sensor.release().done();
     }
 
@@ -908,9 +932,8 @@ mod tests {
             result: Ok(()),
         }]);
         let mut sensor = Veml7700::new(bus);
-        let result = block_on(
-            sensor.set_measurement_config(MeasurementConfig::safe_bright_start()),
-        );
+        let result =
+            block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start()));
         assert_eq!(
             result,
             Err(Error::Configuration(
@@ -932,5 +955,435 @@ mod tests {
         let mut sensor = Veml7700::new(bus);
         assert_eq!(block_on(sensor.probe()), Err(ProbeError::Bus(failure)));
         sensor.release().done();
+    }
+
+    #[test]
+    fn probe_classifies_address_nack_and_wrong_identity() {
+        let nack = ScriptError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Address));
+        let mut absent = Veml7700::new(ScriptedI2c::new([read_failure(0x07, nack)]));
+        assert_eq!(block_on(absent.probe()), Err(ProbeError::NotPresent));
+        absent.release().done();
+
+        let mut wrong = Veml7700::new(ScriptedI2c::new([read_word(0x07, 0x0081)]));
+        assert_eq!(
+            block_on(wrong.probe()),
+            Err(ProbeError::WrongDevice { observed: 0x0081 })
+        );
+        wrong.release().done();
+    }
+
+    #[test]
+    fn snapshot_reads_provenance_before_sequential_channels() {
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        let snapshot = block_on(sensor.snapshot()).unwrap();
+        assert_eq!(snapshot.als, AlsCounts::from_counts(0x1234));
+        assert_eq!(snapshot.white, WhiteCounts::from_counts(0x5678));
+        assert_eq!(
+            snapshot.configuration,
+            crate::ConfigurationSnapshot::silicon_reset_default()
+        );
+        assert_eq!(
+            snapshot.coherence,
+            crate::MeasurementPairCoherence::SequentialRegisters
+        );
+        sensor.release().done();
+    }
+
+    #[test]
+    fn inspect_reads_the_complete_diagnostic_register_set() {
+        let bus = ScriptedI2c::new([
+            read_word(0x07, 0xC481),
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            read_word(0x02, 100),
+            read_word(0x01, 1_000),
+            read_word(0x06, 0x4000),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        let snapshot = block_on(sensor.inspect()).unwrap();
+        assert_eq!(snapshot.id.raw(), 0xC481);
+        assert_eq!(snapshot.thresholds.low.counts(), 100);
+        assert_eq!(snapshot.thresholds.high.counts(), 1_000);
+        assert!(!snapshot.threshold_status.low);
+        assert!(snapshot.threshold_status.high);
+        sensor.release().done();
+    }
+
+    #[test]
+    fn strict_decode_errors_preserve_semantic_context() {
+        let mut configuration = Veml7700::new(ScriptedI2c::new([read_word(0x00, 0x0004)]));
+        assert_eq!(
+            block_on(configuration.read_configuration()),
+            Err(Error::Configuration(
+                ConfigurationError::ConfigurationDecode(crate::ConfigDecodeError::ReservedBits {
+                    observed: 4
+                })
+            ))
+        );
+        configuration.release().done();
+
+        let mut power = Veml7700::new(ScriptedI2c::new([read_word(0x03, 0x0008)]));
+        assert_eq!(
+            block_on(power.read_power_saving()),
+            Err(Error::Configuration(ConfigurationError::PowerSavingDecode(
+                crate::PowerSavingDecodeError::ReservedBits { observed: 8 }
+            )))
+        );
+        power.release().done();
+
+        let mut status = Veml7700::new(ScriptedI2c::new([read_word(0x06, 0x0001)]));
+        assert_eq!(
+            block_on(status.read_threshold_status()),
+            Err(Error::Configuration(
+                ConfigurationError::ThresholdStatusDecode(
+                    crate::ThresholdStatusDecodeError::ReservedBits { observed: 1 }
+                )
+            ))
+        );
+        status.release().done();
+
+        let mut thresholds =
+            Veml7700::new(ScriptedI2c::new([read_word(0x02, 2), read_word(0x01, 1)]));
+        assert_eq!(
+            block_on(thresholds.read_thresholds()),
+            Err(Error::Configuration(ConfigurationError::ReversedThresholds))
+        );
+        thresholds.release().done();
+    }
+
+    #[test]
+    fn monitor_blocks_power_and_cadence_changes_before_write() {
+        let mut power = Veml7700::new(ScriptedI2c::new([read_word(0x00, 0x0002)]));
+        assert_eq!(
+            block_on(power.set_power_state(PowerState::Shutdown)),
+            Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain
+            ))
+        );
+        power.release().done();
+
+        let mut cadence = Veml7700::new(ScriptedI2c::new([
+            read_word(0x00, 0x0002),
+            read_word(0x03, 0x0000),
+        ]));
+        assert_eq!(
+            block_on(
+                cadence.set_power_saving(PowerSavingConfig::new(true, PowerSavingMode::Mode1,))
+            ),
+            Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain
+            ))
+        );
+        cadence.release().done();
+    }
+
+    #[test]
+    fn every_fresh_capture_stage_failure_is_restored_and_identified() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let stages = [
+            (
+                MeasureStage::DisablePowerSaving,
+                BusContext::WritePowerSaving,
+            ),
+            (
+                MeasureStage::PrepareMeasurement,
+                BusContext::WriteConfiguration,
+            ),
+            (
+                MeasureStage::ActivateMeasurement,
+                BusContext::WriteConfiguration,
+            ),
+            (MeasureStage::FreezeResult, BusContext::WriteConfiguration),
+            (MeasureStage::ReadAls, BusContext::ReadAls),
+            (MeasureStage::ReadWhite, BusContext::ReadWhite),
+        ];
+
+        for (failed_index, (stage, context)) in stages.into_iter().enumerate() {
+            let mut expectations = vec![read_word(0x00, 0x0001), read_word(0x03, 0x0000)];
+            for index in 0..=failed_index {
+                let result = (index != failed_index).then_some(()).ok_or(failure);
+                expectations.push(match index {
+                    0 => write_word(0x03, 0x0000, result),
+                    1 | 3 => write_word(0x00, 0x1001, result),
+                    2 => write_word(0x00, 0x1000, result),
+                    4 if result.is_err() => read_failure(0x04, failure),
+                    4 => read_word(0x04, 0x1234),
+                    5 => read_failure(0x05, failure),
+                    _ => unreachable!(),
+                });
+            }
+            expectations.push(write_word(0x03, 0x0000, Ok(())));
+            expectations.push(write_word(0x00, 0x0001, Ok(())));
+
+            let mut delay = RecordingDelay { elapsed_ns: 0 };
+            let mut sensor = Veml7700::new(ScriptedI2c::new(expectations));
+            assert_eq!(
+                block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+                Err(MeasureOnceError::Operation {
+                    stage,
+                    source: Error::Bus {
+                        operation: Operation::MeasureOnce,
+                        context,
+                        source: failure,
+                    },
+                })
+            );
+            assert_eq!(delay.elapsed_ns != 0, failed_index >= 3);
+            sensor.release().done();
+        }
+    }
+
+    #[test]
+    fn observation_failures_are_identified_without_cleanup_writes() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut configuration = Veml7700::new(ScriptedI2c::new([read_failure(0x00, failure)]));
+        assert_eq!(
+            block_on(
+                configuration.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)
+            ),
+            Err(MeasureOnceError::Operation {
+                stage: MeasureStage::ObserveConfiguration,
+                source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::ReadConfiguration,
+                    source: failure,
+                },
+            })
+        );
+        configuration.release().done();
+
+        let mut power = Veml7700::new(ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_failure(0x03, failure),
+        ]));
+        assert_eq!(
+            block_on(power.measure_once(&mut delay, MeasurementConfig::safe_bright_start())),
+            Err(MeasureOnceError::Operation {
+                stage: MeasureStage::ObservePowerSaving,
+                source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::ReadPowerSaving,
+                    source: failure,
+                },
+            })
+        );
+        power.release().done();
+    }
+
+    #[test]
+    fn cleanup_failure_reports_primary_and_recovery_errors() {
+        let primary = ScriptError::new(ErrorKind::Bus);
+        let recovery = ScriptError::new(ErrorKind::ArbitrationLoss);
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Err(primary)),
+            write_word(0x03, 0x0000, Err(recovery)),
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        assert_eq!(
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+            Err(MeasureOnceError::RecoveryFailed {
+                failed_stage: MeasureStage::DisablePowerSaving,
+                source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::WritePowerSaving,
+                    source: primary,
+                },
+                recovery_stage: MeasureStage::RestorePowerSaving,
+                recovery_source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::WritePowerSaving,
+                    source: recovery,
+                },
+            })
+        );
+        sensor.release().done();
+    }
+
+    #[test]
+    fn post_capture_restoration_failure_preserves_the_sample() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Err(failure)),
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        match block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start())) {
+            Err(MeasureOnceError::RestoreFailed {
+                sample,
+                stage,
+                source,
+            }) => {
+                assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
+                assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
+                assert_eq!(stage, MeasureStage::RestorePowerSaving);
+                assert_eq!(
+                    source,
+                    Error::Bus {
+                        operation: Operation::MeasureOnce,
+                        context: BusContext::WritePowerSaving,
+                        source: failure,
+                    }
+                );
+            }
+            other => panic!("unexpected result: {other:?}"),
+        }
+        sensor.release().done();
+    }
+
+    #[test]
+    fn configuration_restoration_failures_preserve_their_stage_and_sample_state() {
+        let primary = ScriptError::new(ErrorKind::Bus);
+        let recovery = ScriptError::new(ErrorKind::ArbitrationLoss);
+        let pre_capture = ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Err(primary)),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0001, Err(recovery)),
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(pre_capture);
+        assert_eq!(
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+            Err(MeasureOnceError::RecoveryFailed {
+                failed_stage: MeasureStage::DisablePowerSaving,
+                source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::WritePowerSaving,
+                    source: primary,
+                },
+                recovery_stage: MeasureStage::RestoreConfiguration,
+                recovery_source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::WriteConfiguration,
+                    source: recovery,
+                },
+            })
+        );
+        sensor.release().done();
+
+        let post_capture = ScriptedI2c::new([
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0001, Err(recovery)),
+        ]);
+        let mut sensor = Veml7700::new(post_capture);
+        match block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start())) {
+            Err(MeasureOnceError::RestoreFailed {
+                sample,
+                stage,
+                source,
+            }) => {
+                assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
+                assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
+                assert_eq!(stage, MeasureStage::RestoreConfiguration);
+                assert_eq!(
+                    source,
+                    Error::Bus {
+                        operation: Operation::MeasureOnce,
+                        context: BusContext::WriteConfiguration,
+                        source: recovery,
+                    }
+                );
+            }
+            other => panic!("unexpected result: {other:?}"),
+        }
+        sensor.release().done();
+    }
+
+    #[test]
+    fn every_threshold_programming_stage_failure_is_identified() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let monitor = ThresholdMonitorConfig::new(
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            thresholds,
+            Persistence::Four,
+            PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+        );
+        let stages = [
+            (
+                ThresholdMonitorStage::ObserveConfiguration,
+                BusContext::ReadConfiguration,
+            ),
+            (
+                ThresholdMonitorStage::DisableMonitor,
+                BusContext::WriteConfiguration,
+            ),
+            (
+                ThresholdMonitorStage::WriteLowThreshold,
+                BusContext::WriteLowThreshold,
+            ),
+            (
+                ThresholdMonitorStage::WriteHighThreshold,
+                BusContext::WriteHighThreshold,
+            ),
+            (
+                ThresholdMonitorStage::ApplyPowerSaving,
+                BusContext::WritePowerSaving,
+            ),
+            (
+                ThresholdMonitorStage::EnableMonitor,
+                BusContext::WriteConfiguration,
+            ),
+        ];
+        for (failed_index, (stage, context)) in stages.into_iter().enumerate() {
+            let mut expectations = vec![];
+            if failed_index == 0 {
+                expectations.push(read_failure(0x00, failure));
+            } else {
+                expectations.push(read_word(0x00, 0x0001));
+                for index in 1..=failed_index {
+                    let result = (index != failed_index).then_some(()).ok_or(failure);
+                    expectations.push(match index {
+                        1 => write_word(0x00, 0x0001, result),
+                        2 => write_word(0x02, 100, result),
+                        3 => write_word(0x01, 1_000, result),
+                        4 => write_word(0x03, 0x0003, result),
+                        5 => write_word(0x00, 0x1022, result),
+                        _ => unreachable!(),
+                    });
+                }
+            }
+            let mut sensor = Veml7700::new(ScriptedI2c::new(expectations));
+            assert_eq!(
+                block_on(sensor.arm_threshold_monitor(monitor)),
+                Err(ThresholdMonitorError {
+                    stage,
+                    source: Error::Bus {
+                        operation: Operation::ThresholdMonitor,
+                        context,
+                        source: failure,
+                    },
+                })
+            );
+            sensor.release().done();
+        }
     }
 }

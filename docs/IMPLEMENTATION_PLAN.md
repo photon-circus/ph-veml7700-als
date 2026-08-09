@@ -4,6 +4,8 @@
 
 - freeze source revisions and record hashes;
 - validate workspace, lints, CI, agent instructions, and documentation set;
+- hard-disable Cargo publication and reject publish-enabled manifests in pack
+  validation;
 - run pack validator.
 
 Exit: contracts reviewed enough to implement without guessing.

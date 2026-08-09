@@ -10,7 +10,12 @@ import sys
 import tomllib
 from pathlib import Path
 
+from pack_policy import automation_contains_publish_command, publication_is_hard_disabled
+
 ROOT = Path(__file__).resolve().parents[1]
+
+PACK_EXCLUDED_DIRS = {".git", "__pycache__", "target"}
+PACK_EXCLUDED_FILES = {"Cargo.lock", "PACK_SHA256SUMS.txt"}
 
 REQUIRED = [
     "AGENTS.md",
@@ -171,9 +176,29 @@ def validate_workspace_and_runtime() -> None:
     cargo = load_toml("crates/veml7700/Cargo.toml")
     if cargo["package"]["name"] != "ph-veml7700-als":
         fail("unexpected package name")
+    for manifest_path in ROOT.rglob("Cargo.toml"):
+        if "target" in manifest_path.relative_to(ROOT).parts:
+            continue
+        with manifest_path.open("rb") as handle:
+            manifest = tomllib.load(handle)
+        if "package" in manifest and not publication_is_hard_disabled(manifest):
+            fail(
+                "publication must remain hard-disabled with publish = false: "
+                + manifest_path.relative_to(ROOT).as_posix()
+            )
     dependencies = set(cargo.get("dependencies", {}))
     if dependencies != {"embedded-hal-async", "defmt"}:
         fail(f"unexpected runtime dependencies: {sorted(dependencies)}")
+
+    automation_paths = [ROOT / "tools/check.sh", ROOT / "tools/check.ps1"]
+    automation_paths.extend((ROOT / ".github/workflows").glob("*.yml"))
+    automation_paths.extend((ROOT / ".github/workflows").glob("*.yaml"))
+    for path in automation_paths:
+        if automation_contains_publish_command(path.read_text(encoding="utf-8")):
+            fail(
+                "publication command or credential is forbidden in automation: "
+                + path.relative_to(ROOT).as_posix()
+            )
 
     lib = (ROOT / "crates/veml7700/src/lib.rs").read_text(encoding="utf-8")
     for required in ["#![no_std]", "#![forbid(unsafe_code)]", "#![deny(missing_docs)]"]:
@@ -359,6 +384,19 @@ def validate_mock_image() -> None:
         fail(f"mock firmware image does not exist: {image.relative_to(ROOT)}")
 
 
+def is_pack_file(path: Path) -> bool:
+    relative = path.relative_to(ROOT)
+    if not path.is_file():
+        return False
+    if any(part in PACK_EXCLUDED_DIRS for part in relative.parts):
+        return False
+    if path.name in PACK_EXCLUDED_FILES:
+        return False
+    if relative.parent.as_posix() == "docs/vendor" and relative.suffix.lower() == ".pdf":
+        return False
+    return True
+
+
 def validate_checksums() -> None:
     entries: dict[str, str] = {}
     for line in (ROOT / "PACK_SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
@@ -369,7 +407,7 @@ def validate_checksums() -> None:
     expected_paths = sorted(
         path.relative_to(ROOT).as_posix()
         for path in ROOT.rglob("*")
-        if path.is_file() and path.name != "PACK_SHA256SUMS.txt"
+        if is_pack_file(path)
     )
     if sorted(entries) != expected_paths:
         fail("checksum inventory differs from pack file inventory")
@@ -377,6 +415,15 @@ def validate_checksums() -> None:
         observed = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
         if observed != expected:
             fail(f"checksum mismatch: {relative}")
+
+
+def write_checksums() -> None:
+    lines = []
+    for path in sorted((path for path in ROOT.rglob("*") if is_pack_file(path))):
+        relative = path.relative_to(ROOT).as_posix()
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {relative}\n")
+    (ROOT / "PACK_SHA256SUMS.txt").write_text("".join(lines), encoding="utf-8")
 
 
 def main() -> int:
@@ -400,6 +447,10 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
+        if sys.argv[1:] == ["--write-checksums"]:
+            write_checksums()
+        elif sys.argv[1:]:
+            fail("usage: validate-pack.py [--write-checksums]")
         raise SystemExit(main())
     except AssertionError as error:
         print(f"validation failed: {error}", file=sys.stderr)

@@ -7,6 +7,8 @@
 - [ ] `python tools/validate-pack.py` passes;
 - [ ] `tools/check.sh` or `tools/check.ps1` passes;
 - [ ] all relative links resolve.
+- [ ] Cargo publication is disabled and automation contains no publish command
+      or registry credential.
 
 ## Contracts
 
@@ -35,6 +37,6 @@
 ## Release
 
 - [ ] formatting, tests, Clippy, docs, doctests, cross-target checks pass;
-- [ ] cargo-deny, package listing, and publish dry-run pass;
+- [ ] cargo-deny and package construction/listing pass;
 - [ ] capability matrix reflects evidence rather than aspiration;
 - [ ] release checklist and changelog complete.

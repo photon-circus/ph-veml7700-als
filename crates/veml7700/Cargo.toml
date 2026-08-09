@@ -12,7 +12,7 @@ documentation = "https://docs.rs/ph-veml7700-als"
 homepage = "https://github.com/photon-circus/ph-veml7700-als"
 keywords = ["ambient-light", "veml7700", "embedded", "no-std", "i2c"]
 categories = ["embedded", "no-std", "hardware-support"]
-publish = true
+publish = false
 exclude = ["ARCHITECTURE.md", "RELEASE_CHECKLIST.md"]
 
 [dependencies]

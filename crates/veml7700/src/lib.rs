@@ -17,10 +17,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![cfg_attr(
-    test,
-    allow(clippy::std_instead_of_alloc, clippy::std_instead_of_core)
-)]
+#![cfg_attr(test, allow(clippy::std_instead_of_alloc, clippy::std_instead_of_core))]
 #![deny(clippy::correctness)]
 #![warn(
     clippy::suspicious,
@@ -72,26 +69,25 @@ pub use config::{
 };
 pub use driver::{I2C_ADDRESS, Veml7700};
 pub use error::{
-    BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage, Operation,
-    ProbeError, ThresholdMonitorError, ThresholdMonitorStage,
+    BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage, Operation, ProbeError,
+    ThresholdMonitorError, ThresholdMonitorStage,
 };
 pub use id::DeviceId;
 pub use illuminance::{MicroLux, NominalScale};
 pub use measurement::{
-    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence,
-    SnapshotMeasurement, WhiteCounts,
+    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence, SnapshotMeasurement,
+    WhiteCounts,
 };
-pub use power::{
-    PowerSavingConfig, PowerSavingDecodeError, PowerSavingMode, PowerSavingSnapshot,
-};
+pub use power::{PowerSavingConfig, PowerSavingDecodeError, PowerSavingMode, PowerSavingSnapshot};
 pub use threshold::{
     ThresholdMonitorConfig, ThresholdStatus, ThresholdStatusDecodeError, Thresholds,
 };
 pub use timing::{
-    INTEGRATION_TOLERANCE_PERCENT, MEASUREMENT_MARGIN_US, WAKE_UP_DELAY_US,
-    MeasurementTiming,
+    INTEGRATION_TOLERANCE_PERCENT, MEASUREMENT_MARGIN_US, MeasurementTiming, WAKE_UP_DELAY_US,
 };
 
+#[cfg(test)]
+extern crate alloc;
 #[cfg(test)]
 extern crate std;
 #[cfg(test)]

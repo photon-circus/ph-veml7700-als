@@ -36,3 +36,18 @@ impl DeviceId {
         self.raw == EXPECTED_DEVICE_ID
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expected_identity_components_and_support_match() {
+        let id = DeviceId::from_raw(0xC481);
+        assert_eq!(id.raw(), 0xC481);
+        assert_eq!(id.device_code(), 0x81);
+        assert_eq!(id.address_option_code(), 0xC4);
+        assert!(id.is_supported());
+        assert!(!DeviceId::from_raw(0x0081).is_supported());
+    }
+}

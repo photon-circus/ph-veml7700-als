@@ -1,7 +1,7 @@
 //! Strict ordered I²C expectation transport.
 
-use std::collections::VecDeque;
-use std::vec::Vec;
+use alloc::collections::VecDeque;
+use alloc::vec::Vec;
 
 use embedded_hal_async::i2c::{
     Error as I2cError, ErrorKind, ErrorType, I2c, Operation, SevenBitAddress,
@@ -45,7 +45,9 @@ pub(crate) struct ScriptedI2c {
 
 impl ScriptedI2c {
     pub(crate) fn new(expectations: impl IntoIterator<Item = Expectation>) -> Self {
-        Self { expectations: expectations.into_iter().collect() }
+        Self {
+            expectations: expectations.into_iter().collect(),
+        }
     }
 
     pub(crate) fn done(self) {
@@ -76,13 +78,13 @@ impl I2c<SevenBitAddress> for ScriptedI2c {
         panic!("standalone read was not expected")
     }
 
-    async fn write(
-        &mut self,
-        address: SevenBitAddress,
-        write: &[u8],
-    ) -> Result<(), Self::Error> {
+    async fn write(&mut self, address: SevenBitAddress, write: &[u8]) -> Result<(), Self::Error> {
         match self.next() {
-            Expectation::Write { address: expected, data, result } => {
+            Expectation::Write {
+                address: expected,
+                data,
+                result,
+            } => {
                 assert_eq!(address, expected, "I2C write address");
                 assert_eq!(write, data, "I2C write payload");
                 result

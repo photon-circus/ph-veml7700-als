@@ -77,19 +77,13 @@ mod tests {
     #[test]
     fn table_endpoints_match_vendor_values() {
         assert_eq!(
-            NominalScale::for_config(MeasurementConfig::new(
-                Gain::X2,
-                IntegrationTime::Ms800
-            ))
-            .micro_lux_per_count(),
+            NominalScale::for_config(MeasurementConfig::new(Gain::X2, IntegrationTime::Ms800))
+                .micro_lux_per_count(),
             4_200
         );
         assert_eq!(
-            NominalScale::for_config(MeasurementConfig::new(
-                Gain::Div8,
-                IntegrationTime::Ms25
-            ))
-            .micro_lux_per_count(),
+            NominalScale::for_config(MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms25))
+                .micro_lux_per_count(),
             2_150_400
         );
     }
@@ -102,16 +96,17 @@ mod tests {
             (IntegrationTime::Ms200, [16_800, 33_600, 134_400, 268_800]),
             (IntegrationTime::Ms100, [33_600, 67_200, 268_800, 537_600]),
             (IntegrationTime::Ms50, [67_200, 134_400, 537_600, 1_075_200]),
-            (IntegrationTime::Ms25, [134_400, 268_800, 1_075_200, 2_150_400]),
+            (
+                IntegrationTime::Ms25,
+                [134_400, 268_800, 1_075_200, 2_150_400],
+            ),
         ];
         let gains = [Gain::X2, Gain::X1, Gain::Div4, Gain::Div8];
 
         for (integration_time, expected) in rows {
             for (gain, expected_micro_lux) in gains.into_iter().zip(expected) {
-                let scale = NominalScale::for_config(MeasurementConfig::new(
-                    gain,
-                    integration_time,
-                ));
+                let scale =
+                    NominalScale::for_config(MeasurementConfig::new(gain, integration_time));
                 assert_eq!(scale.micro_lux_per_count(), expected_micro_lux);
             }
         }
@@ -128,10 +123,11 @@ mod tests {
 
     #[test]
     fn maximum_nominal_range_fits_u64() {
-        let scale = NominalScale::for_config(MeasurementConfig::new(
-            Gain::Div8,
-            IntegrationTime::Ms25,
-        ));
-        assert_eq!(scale.scale_counts(u16::MAX).as_micro_lux(), 140926464000_u64);
+        let scale =
+            NominalScale::for_config(MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms25));
+        assert_eq!(
+            scale.scale_counts(u16::MAX).as_micro_lux(),
+            140926464000_u64
+        );
     }
 }

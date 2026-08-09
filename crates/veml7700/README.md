@@ -19,4 +19,5 @@ async fn sample<I2C: I2c, D: DelayNs>(
 
 Nominal lux conversion does not compensate for a cover window, fixture geometry,
 source spectrum, part tolerance, or the vendor's application-dependent high-lux
-correction. See the repository contracts before publication.
+correction. See the repository contracts before distribution. Cargo registry
+publication is disabled in v0.1.

@@ -12,6 +12,7 @@ All notable changes to this project will be documented here.
 - Threshold-monitor configuration that owns gain, integration time, persistence,
   thresholds, and power-saving cadence as one monitored domain.
 - External schema-1 `ph-hil` integration scaffold.
+- Repository-enforced Cargo publication guardrails.
 
 ### Deferred
 

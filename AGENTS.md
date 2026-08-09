@@ -32,6 +32,10 @@ This repository is contract-first. Read, in order:
 - No public raw register access in v0.1.
 - The publishable crate does not depend on `ph-hil`; HIL integration is through
   public schema-1 files and CLI contracts.
+- Publication is hard-disabled. Agents and automation must not enable Cargo
+  publication, invoke `cargo publish`, add registry credentials, or add a
+  release workflow. Re-enabling publication requires a separate owner-reviewed
+  contract change.
 
 ## Completion discipline
 

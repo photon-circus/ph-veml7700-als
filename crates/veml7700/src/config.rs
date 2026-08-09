@@ -152,7 +152,11 @@ impl PowerState {
     }
 
     pub(crate) const fn from_word(word: u16) -> Self {
-        if word & 1 == 0 { Self::Active } else { Self::Shutdown }
+        if word & 1 == 0 {
+            Self::Active
+        } else {
+            Self::Shutdown
+        }
     }
 }
 
@@ -175,7 +179,11 @@ impl ThresholdMonitorState {
     }
 
     pub(crate) const fn from_word(word: u16) -> Self {
-        if word & (1 << 1) == 0 { Self::Disabled } else { Self::Enabled }
+        if word & (1 << 1) == 0 {
+            Self::Disabled
+        } else {
+            Self::Enabled
+        }
     }
 }
 
@@ -190,7 +198,10 @@ pub struct MeasurementConfig {
 impl MeasurementConfig {
     /// Construct a measurement configuration.
     pub const fn new(gain: Gain, integration_time: IntegrationTime) -> Self {
-        Self { gain, integration_time }
+        Self {
+            gain,
+            integration_time,
+        }
     }
 
     /// Vendor silicon reset-domain measurement fields: gain ×1 and 100 ms.
@@ -355,5 +366,79 @@ mod tests {
                 assert_eq!(ConfigWord(expected.encode()).decode(), Ok(expected));
             }
         }
+    }
+
+    #[test]
+    fn every_documented_configuration_field_combination_round_trips() {
+        let gains = [Gain::X1, Gain::X2, Gain::Div8, Gain::Div4];
+        let times = [
+            IntegrationTime::Ms25,
+            IntegrationTime::Ms50,
+            IntegrationTime::Ms100,
+            IntegrationTime::Ms200,
+            IntegrationTime::Ms400,
+            IntegrationTime::Ms800,
+        ];
+        let persistence_values = [
+            Persistence::One,
+            Persistence::Two,
+            Persistence::Four,
+            Persistence::Eight,
+        ];
+        let monitor_states = [
+            ThresholdMonitorState::Disabled,
+            ThresholdMonitorState::Enabled,
+        ];
+        let power_states = [PowerState::Active, PowerState::Shutdown];
+
+        for gain in gains {
+            for integration_time in times {
+                for persistence in persistence_values {
+                    for threshold_monitor in monitor_states {
+                        for power_state in power_states {
+                            let expected = ConfigurationSnapshot {
+                                measurement: MeasurementConfig::new(gain, integration_time),
+                                persistence,
+                                threshold_monitor,
+                                power_state,
+                            };
+                            assert_eq!(ConfigWord(expected.encode()).decode(), Ok(expected));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_reserved_configuration_bit_is_rejected() {
+        for bit in [2_u32, 3, 10, 13, 14, 15] {
+            let raw = 1_u16 << bit;
+            assert_eq!(
+                ConfigWord(raw).decode(),
+                Err(ConfigDecodeError::ReservedBits { observed: raw })
+            );
+        }
+    }
+
+    #[test]
+    fn every_reserved_integration_encoding_is_rejected() {
+        for observed in [4_u16, 5, 6, 7, 9, 10, 11, 13, 14, 15] {
+            assert_eq!(
+                ConfigWord(observed << 6).decode(),
+                Err(ConfigDecodeError::ReservedIntegrationTime { observed })
+            );
+        }
+    }
+
+    #[test]
+    fn public_configuration_accessors_match_the_selected_domain() {
+        let config = MeasurementConfig::new(Gain::X2, IntegrationTime::Ms800);
+        assert_eq!(config.gain(), Gain::X2);
+        assert_eq!(config.integration_time(), IntegrationTime::Ms800);
+        assert_eq!(IntegrationTime::Ms25.milliseconds(), 25);
+        assert_eq!(IntegrationTime::Ms800.milliseconds(), 800);
+        assert_eq!(Persistence::One.count(), 1);
+        assert_eq!(Persistence::Eight.count(), 8);
     }
 }

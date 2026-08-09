@@ -17,6 +17,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python tools/validate-pack.py
+      - run: python -m unittest tools/test_validate_pack.py
 
   fmt:
     runs-on: ubuntu-latest
@@ -95,8 +96,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.92.0
-      - run: cargo package -p ph-veml7700-als --list
-      - run: cargo publish -p ph-veml7700-als --dry-run
+      - run: cargo package -p ph-veml7700-als --list --allow-dirty
 
   hil-mock-build:
     runs-on: ubuntu-latest

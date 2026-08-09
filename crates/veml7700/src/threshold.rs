@@ -36,14 +36,10 @@ pub struct ThresholdStatus {
 }
 
 impl ThresholdStatus {
-    pub(crate) const fn decode(
-        word: u16,
-    ) -> Result<Self, ThresholdStatusDecodeError> {
+    pub(crate) const fn decode(word: u16) -> Result<Self, ThresholdStatusDecodeError> {
         let reserved = word & 0x3FFF;
         if reserved != 0 {
-            return Err(ThresholdStatusDecodeError::ReservedBits {
-                observed: reserved,
-            });
+            return Err(ThresholdStatusDecodeError::ReservedBits { observed: reserved });
         }
         Ok(Self {
             low: word & (1 << 15) != 0,
@@ -85,7 +81,12 @@ impl ThresholdMonitorConfig {
         persistence: Persistence,
         power_saving: PowerSavingConfig,
     ) -> Self {
-        Self { measurement, thresholds, persistence, power_saving }
+        Self {
+            measurement,
+            thresholds,
+            persistence,
+            power_saving,
+        }
     }
 }
 
@@ -101,7 +102,52 @@ mod tests {
         );
         assert_eq!(
             ThresholdStatus::decode(0xC000),
-            Ok(ThresholdStatus { low: true, high: true })
+            Ok(ThresholdStatus {
+                low: true,
+                high: true
+            })
+        );
+    }
+
+    #[test]
+    fn every_reserved_status_bit_is_rejected() {
+        for bit in 0_u32..14 {
+            let observed = 1_u16 << bit;
+            assert_eq!(
+                ThresholdStatus::decode(observed),
+                Err(ThresholdStatusDecodeError::ReservedBits { observed })
+            );
+        }
+    }
+
+    #[test]
+    fn all_documented_status_flag_combinations_decode() {
+        for (word, low, high) in [
+            (0x0000, false, false),
+            (0x4000, false, true),
+            (0x8000, true, false),
+            (0xC000, true, true),
+        ] {
+            assert_eq!(
+                ThresholdStatus::decode(word),
+                Ok(ThresholdStatus { low, high })
+            );
+        }
+    }
+
+    #[test]
+    fn thresholds_accept_equal_endpoints_and_reject_reversal() {
+        let equal = AlsCounts::from_counts(42);
+        assert_eq!(
+            Thresholds::new(equal, equal),
+            Some(Thresholds {
+                low: equal,
+                high: equal
+            })
+        );
+        assert_eq!(
+            Thresholds::new(AlsCounts::from_counts(43), AlsCounts::from_counts(42)),
+            None
         );
     }
 }

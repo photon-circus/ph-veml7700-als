@@ -94,7 +94,6 @@ pub struct FreshMeasurement {
     pub coherence: MeasurementPairCoherence,
 }
 
-
 /// Read-only diagnostic snapshot that does not claim fresh optical data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -109,4 +108,21 @@ pub struct DeviceSnapshot {
     pub thresholds: Thresholds,
     /// Observed polled threshold flags.
     pub threshold_status: ThresholdStatus,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_count_types_preserve_the_entire_word_domain() {
+        for counts in [0, 1, u16::MAX - 1, u16::MAX] {
+            assert_eq!(AlsCounts::from_counts(counts).counts(), counts);
+            assert_eq!(WhiteCounts::from_counts(counts).counts(), counts);
+            assert_eq!(
+                AlsCounts::from_counts(counts).is_saturated(),
+                counts == u16::MAX
+            );
+        }
+    }
 }

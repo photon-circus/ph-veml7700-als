@@ -28,7 +28,7 @@ as a register bag. It separates:
 
 ## Layout
 
-- `crates/veml7700` — publishable `ph-veml7700-als` crate;
+- `crates/veml7700` — packageable, publication-disabled `ph-veml7700-als` crate;
 - `docs/` — normative hardware, architecture, API, invariant, test, HIL, and
   implementation contracts;
 - `apps/hil-runner` and `hil/` — external `ph-hil` integration boundary;
@@ -37,7 +37,7 @@ as a register bag. It separates:
 ## First commands
 
 ```console
-python tools/validate-pack.py
+python3 tools/validate-pack.py
 cargo fmt --all -- --check
 cargo test -p ph-veml7700-als --no-default-features
 cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
@@ -46,3 +46,6 @@ cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
 This bootstrap is not a release or a physical support claim. Verify the pinned
 Vishay documentation, compile every target, implement the managed harness, and
 review sealed optical evidence before promoting capability status.
+
+Cargo registry publication is hard-disabled. Repository automation may build
+the package for inspection but contains no publish step or registry credential.
