@@ -1,0 +1,12 @@
+sys.reset@1
+veml7700.fixture@1
+veml7700.identity@1
+veml7700.config@1
+veml7700.measurement@1
+veml7700.scaling@1
+veml7700.power@1
+veml7700.cadence@1
+veml7700.threshold@1
+veml7700.white@1
+veml7700.recovery@1
+veml7700.optical@1

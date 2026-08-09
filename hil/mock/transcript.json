@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "capabilities": [
+    "sys.reset@1",
+    "veml7700.fixture@1",
+    "veml7700.identity@1",
+    "veml7700.config@1",
+    "veml7700.measurement@1",
+    "veml7700.scaling@1",
+    "veml7700.power@1",
+    "veml7700.cadence@1",
+    "veml7700.threshold@1",
+    "veml7700.white@1",
+    "veml7700.recovery@1",
+    "veml7700.optical@1"
+  ],
+  "commands": [
+    {
+      "command": "veml7700.fixture run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.fixture@1\",\"cases\":[{\"case\":\"fixture.safe-start\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"safe-state\"},{\"case\":\"fixture.no-interrupt-pin\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"safe-state\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.identity run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.identity@1\",\"cases\":[{\"case\":\"identity.fixed-address\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"identity.id-word\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"identity.byte-order\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.config run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.config@1\",\"cases\":[{\"case\":\"config.reset\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"config.typed-roundtrip\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"config.reserved-rejected\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"config.word-order\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.measurement run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.measurement@1\",\"cases\":[{\"case\":\"measurement.snapshot-qualified\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"measurement.fresh\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"measurement.pair-frozen\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"measurement.restored\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.scaling run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.scaling@1\",\"cases\":[{\"case\":\"scaling.table\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"computed-record\"},{\"case\":\"scaling.endpoints\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"computed-record\"},{\"case\":\"scaling.white-unscaled\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"computed-record\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.power run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.power@1\",\"cases\":[{\"case\":\"power.shutdown-retention\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"power.wake-delay\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"power.fresh-after-wake\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.cadence run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.cadence@1\",\"cases\":[{\"case\":\"cadence.mode1-100\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"cadence.mode2-200\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"cadence.mode4-800\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"cadence.no-25ms-extrapolation\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.threshold run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.threshold@1\",\"cases\":[{\"case\":\"threshold.low\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"threshold.high\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"threshold.persistence\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"threshold.domain-protected\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"},{\"case\":\"threshold.polled-only\",\"outcome\":\"pass\",\"source\":\"instrument\",\"witness\":\"logic-capture\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.white run",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.white@1\",\"cases\":[{\"case\":\"white.read\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"repeatable-light-only\"},{\"case\":\"white.distinct-type\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"repeatable-light-only\"},{\"case\":\"white.relative-response\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"repeatable-light-only\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.recovery interrupt",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.recovery@1\",\"cases\":[{\"case\":\"recovery.interrupted\",\"outcome\":\"pass\",\"source\":\"runner\",\"witness\":\"reset-boundary\"}]}"
+      }
+    },
+    {
+      "command": "veml7700.recovery verify",
+      "reply": {
+        "kind": "ok",
+        "payload": "json:{\"schema\":1,\"capability\":\"veml7700.recovery@1\",\"cases\":[{\"case\":\"recovery.after-reset\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"register-observation\"},{\"case\":\"recovery.no-cache\",\"outcome\":\"pass\",\"source\":\"device\",\"witness\":\"register-observation\"}]}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,936 @@
+//! I²C resource ownership and VEML7700 operation sequencing.
+
+use embedded_hal_async::delay::DelayNs;
+use embedded_hal_async::i2c::{
+    Error as I2cError, ErrorKind, I2c, NoAcknowledgeSource,
+};
+
+use crate::config::{
+    ConfigWord, ConfigurationSnapshot, MeasurementConfig, PowerState, ThresholdMonitorState,
+};
+use crate::error::{
+    BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage, Operation,
+    ProbeError, ThresholdMonitorError, ThresholdMonitorStage,
+};
+use crate::id::DeviceId;
+use crate::measurement::{
+    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence,
+    SnapshotMeasurement, WhiteCounts,
+};
+use crate::power::{
+    PowerSavingConfig, PowerSavingSnapshot, decode_power_saving,
+};
+use crate::register::Register;
+use crate::threshold::{ThresholdMonitorConfig, ThresholdStatus, Thresholds};
+use crate::timing::MeasurementTiming;
+
+/// Fixed 7-bit I²C address of the VEML7700.
+pub const I2C_ADDRESS: u8 = 0x10;
+
+/// Async VEML7700 driver owning one I²C resource.
+pub struct Veml7700<I2C> {
+    i2c: I2C,
+}
+
+impl<I2C> Veml7700<I2C> {
+    /// Construct an inert driver. Performs no I²C transaction.
+    pub const fn new(i2c: I2C) -> Self {
+        Self { i2c }
+    }
+
+    /// Return the exact owned I²C resource.
+    pub fn release(self) -> I2C {
+        self.i2c
+    }
+}
+
+impl<I2C> Veml7700<I2C>
+where
+    I2C: I2c,
+{
+    /// Probe the fixed address and validate the VEML7700 ID register.
+    pub async fn probe(&mut self) -> Result<DeviceId, ProbeError<I2C::Error>> {
+        let mut bytes = [0_u8; 2];
+        match self
+            .i2c
+            .write_read(I2C_ADDRESS, &[Register::DeviceId.pointer()], &mut bytes)
+            .await
+        {
+            Ok(()) => {
+                let id = DeviceId::from_raw(u16::from_le_bytes(bytes));
+                if id.is_supported() {
+                    Ok(id)
+                } else {
+                    Err(ProbeError::WrongDevice { observed: id.raw() })
+                }
+            }
+            Err(source) => match source.kind() {
+                ErrorKind::NoAcknowledge(NoAcknowledgeSource::Address) => {
+                    Err(ProbeError::NotPresent)
+                }
+                _ => Err(ProbeError::Bus(source)),
+            },
+        }
+    }
+
+    /// Read the identity register without requiring a match.
+    pub async fn read_device_id(&mut self) -> Result<DeviceId, Error<I2C::Error>> {
+        self.read_word(Register::DeviceId, Operation::Inspect, BusContext::ReadDeviceId)
+            .await
+            .map(DeviceId::from_raw)
+    }
+
+    /// Read and strictly decode the configuration register.
+    pub async fn read_configuration(
+        &mut self,
+    ) -> Result<ConfigurationSnapshot, Error<I2C::Error>> {
+        self.read_configuration_for(Operation::Inspect).await
+    }
+
+    /// Read and strictly decode the power-saving register.
+    pub async fn read_power_saving(
+        &mut self,
+    ) -> Result<PowerSavingSnapshot, Error<I2C::Error>> {
+        self.read_power_saving_for(Operation::Inspect).await
+    }
+
+    /// Read the latest ALS register without any freshness claim.
+    pub async fn read_als_snapshot(&mut self) -> Result<AlsCounts, Error<I2C::Error>> {
+        self.read_als_for(Operation::Snapshot).await
+    }
+
+    /// Read the latest white-channel register without any freshness claim.
+    pub async fn read_white_snapshot(&mut self) -> Result<WhiteCounts, Error<I2C::Error>> {
+        self.read_white_for(Operation::Snapshot).await
+    }
+
+    /// Read the polled threshold flags.
+    ///
+    /// The VEML7700 has no dedicated interrupt pin. This method makes no claim
+    /// about flag-clearing side effects beyond the vendor's documented read.
+    pub async fn read_threshold_status(
+        &mut self,
+    ) -> Result<ThresholdStatus, Error<I2C::Error>> {
+        self.read_threshold_status_for(Operation::Inspect).await
+    }
+
+    /// Read both raw threshold registers.
+    pub async fn read_thresholds(&mut self) -> Result<Thresholds, Error<I2C::Error>> {
+        self.read_thresholds_for(Operation::Inspect).await
+    }
+
+    /// Perform a read-only diagnostic sweep without claiming fresh optical data.
+    pub async fn inspect(&mut self) -> Result<DeviceSnapshot, Error<I2C::Error>> {
+        Ok(DeviceSnapshot {
+            id: self.read_device_id().await?,
+            configuration: self.read_configuration_for(Operation::Inspect).await?,
+            power_saving: self.read_power_saving_for(Operation::Inspect).await?,
+            thresholds: self.read_thresholds_for(Operation::Inspect).await?,
+            threshold_status: self.read_threshold_status_for(Operation::Inspect).await?,
+        })
+    }
+
+    /// Read configuration, ALS, and white registers as a diagnostic snapshot.
+    ///
+    /// The ALS and white registers are sequential transactions and may straddle
+    /// an autonomous refresh. In shutdown they may be retained old data.
+    pub async fn snapshot(&mut self) -> Result<SnapshotMeasurement, Error<I2C::Error>> {
+        let configuration = self.read_configuration_for(Operation::Snapshot).await?;
+        let power_saving = self.read_power_saving_for(Operation::Snapshot).await?;
+        let als = self.read_als_for(Operation::Snapshot).await?;
+        let white = self.read_white_for(Operation::Snapshot).await?;
+        Ok(SnapshotMeasurement {
+            als,
+            white,
+            configuration,
+            power_saving,
+            coherence: MeasurementPairCoherence::SequentialRegisters,
+        })
+    }
+
+    /// Change gain and integration time while preserving unrelated fields.
+    ///
+    /// An enabled threshold monitor prevents retargeting its measurement domain.
+    pub async fn set_measurement_config(
+        &mut self,
+        measurement: MeasurementConfig,
+    ) -> Result<(), Error<I2C::Error>> {
+        let current = self.read_configuration_for(Operation::Configure).await?;
+        if current.threshold_monitor == ThresholdMonitorState::Enabled
+            && current.measurement != measurement
+        {
+            return Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain,
+            ));
+        }
+        self.write_configuration_for(
+            current.with_measurement(measurement),
+            Operation::Configure,
+        )
+        .await
+    }
+
+    /// Change active/shutdown state while preserving unrelated fields.
+    ///
+    /// An enabled threshold monitor prevents changing its active monitored state.
+    pub async fn set_power_state(
+        &mut self,
+        power_state: PowerState,
+    ) -> Result<(), Error<I2C::Error>> {
+        let current = self.read_configuration_for(Operation::Configure).await?;
+        if current.threshold_monitor == ThresholdMonitorState::Enabled
+            && current.power_state != power_state
+        {
+            return Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain,
+            ));
+        }
+        self.write_configuration_for(
+            current.with_power_state(power_state),
+            Operation::Configure,
+        )
+        .await
+    }
+
+    /// Change power-saving cadence while preserving the configuration register.
+    ///
+    /// An enabled threshold monitor prevents changing its qualification cadence.
+    pub async fn set_power_saving(
+        &mut self,
+        power_saving: PowerSavingConfig,
+    ) -> Result<(), Error<I2C::Error>> {
+        let configuration = self.read_configuration_for(Operation::Configure).await?;
+        let current = self.read_power_saving_for(Operation::Configure).await?;
+        if configuration.threshold_monitor == ThresholdMonitorState::Enabled
+            && current.as_config() != power_saving
+        {
+            return Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain,
+            ));
+        }
+        self.write_power_saving_for(power_saving, Operation::Configure)
+            .await
+    }
+
+    /// Capture one fresh measurement using conservative vendor-derived timing.
+    pub async fn measure_once<D>(
+        &mut self,
+        delay: &mut D,
+        measurement: MeasurementConfig,
+    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>
+    where
+        D: DelayNs,
+    {
+        self.measure_once_with_timing(
+            delay,
+            measurement,
+            MeasurementTiming::conservative(measurement.integration_time()),
+        )
+        .await
+    }
+
+    /// Capture one fresh measurement using explicit conservative-or-longer timing.
+    ///
+    /// [`MeasurementTiming`] cannot represent a wait shorter than the documented
+    /// conservative minimum for its selected integration time.
+    ///
+    /// The operation disables power-saving cadence, installs the requested
+    /// measurement domain while shut down, creates a known shutdown-to-active
+    /// wake edge, waits, enters shutdown again to freeze data, reads ALS and
+    /// white, then restores the original configuration and power-saving register.
+    pub async fn measure_once_with_timing<D>(
+        &mut self,
+        delay: &mut D,
+        measurement: MeasurementConfig,
+        timing: MeasurementTiming,
+    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>
+    where
+        D: DelayNs,
+    {
+        if timing.integration_time() != measurement.integration_time() {
+            return Err(MeasureOnceError::Operation {
+                stage: MeasureStage::ValidateTiming,
+                source: Error::Configuration(
+                    ConfigurationError::TimingIntegrationMismatch {
+                        measurement: measurement.integration_time(),
+                        timing: timing.integration_time(),
+                    },
+                ),
+            });
+        }
+
+        let original_configuration = self
+            .read_configuration_for(Operation::MeasureOnce)
+            .await
+            .map_err(|source| MeasureOnceError::Operation {
+                stage: MeasureStage::ObserveConfiguration,
+                source,
+            })?;
+        if original_configuration.threshold_monitor
+            == ThresholdMonitorState::Enabled
+        {
+            return Err(MeasureOnceError::Operation {
+                stage: MeasureStage::ObserveConfiguration,
+                source: Error::Configuration(
+                    ConfigurationError::ThresholdMonitorOwnsDomain,
+                ),
+            });
+        }
+        let original_power_saving = self
+            .read_power_saving_for(Operation::MeasureOnce)
+            .await
+            .map_err(|source| MeasureOnceError::Operation {
+                stage: MeasureStage::ObservePowerSaving,
+                source,
+            })?;
+
+        if let Err(source) = self
+            .write_power_saving_for(
+                PowerSavingConfig::new(false, original_power_saving.mode),
+                Operation::MeasureOnce,
+            )
+            .await
+        {
+            return Err(self
+                .recover_pre_capture(
+                    MeasureStage::DisablePowerSaving,
+                    source,
+                    original_configuration,
+                    original_power_saving,
+                )
+                .await);
+        }
+
+        let prepared = original_configuration
+            .with_measurement(measurement)
+            .with_monitor(ThresholdMonitorState::Disabled)
+            .with_power_state(PowerState::Shutdown);
+        if let Err(source) = self
+            .write_configuration_for(prepared, Operation::MeasureOnce)
+            .await
+        {
+            return Err(self
+                .recover_pre_capture(
+                    MeasureStage::PrepareMeasurement,
+                    source,
+                    original_configuration,
+                    original_power_saving,
+                )
+                .await);
+        }
+
+        let active = prepared.with_power_state(PowerState::Active);
+        if let Err(source) = self
+            .write_configuration_for(active, Operation::MeasureOnce)
+            .await
+        {
+            return Err(self
+                .recover_pre_capture(
+                    MeasureStage::ActivateMeasurement,
+                    source,
+                    original_configuration,
+                    original_power_saving,
+                )
+                .await);
+        }
+
+        delay.delay_us(timing.total_us()).await;
+
+        let frozen = active.with_power_state(PowerState::Shutdown);
+        if let Err(source) = self
+            .write_configuration_for(frozen, Operation::MeasureOnce)
+            .await
+        {
+            return Err(self
+                .recover_pre_capture(
+                    MeasureStage::FreezeResult,
+                    source,
+                    original_configuration,
+                    original_power_saving,
+                )
+                .await);
+        }
+
+        let als = match self.read_als_for(Operation::MeasureOnce).await {
+            Ok(value) => value,
+            Err(source) => {
+                return Err(self
+                    .recover_pre_capture(
+                        MeasureStage::ReadAls,
+                        source,
+                        original_configuration,
+                        original_power_saving,
+                    )
+                    .await);
+            }
+        };
+        let white = match self.read_white_for(Operation::MeasureOnce).await {
+            Ok(value) => value,
+            Err(source) => {
+                return Err(self
+                    .recover_pre_capture(
+                        MeasureStage::ReadWhite,
+                        source,
+                        original_configuration,
+                        original_power_saving,
+                    )
+                    .await);
+            }
+        };
+        let sample = FreshMeasurement {
+            als,
+            white,
+            configuration: measurement,
+            nominal_illuminance: als.nominal_micro_lux(measurement),
+            waited_us: timing.total_us(),
+            coherence: MeasurementPairCoherence::FrozenAfterFreshWait,
+        };
+
+        if let Err((stage, source)) = self
+            .restore_state(original_configuration, original_power_saving)
+            .await
+        {
+            return Err(MeasureOnceError::RestoreFailed { sample, stage, source });
+        }
+        Ok(sample)
+    }
+
+    /// Program and enable a complete threshold-monitor domain.
+    ///
+    /// Configuration is applied disable-first and enable-last. Threshold status
+    /// is polled through register `0x06`; there is no GPIO to own.
+    pub async fn arm_threshold_monitor(
+        &mut self,
+        monitor: ThresholdMonitorConfig,
+    ) -> Result<(), ThresholdMonitorError<I2C::Error>> {
+        let current = self
+            .read_configuration_for(Operation::ThresholdMonitor)
+            .await
+            .map_err(|source| ThresholdMonitorError {
+                stage: ThresholdMonitorStage::ObserveConfiguration,
+                source,
+            })?;
+
+        let disabled = current.with_monitor(ThresholdMonitorState::Disabled);
+        self.write_configuration_for(disabled, Operation::ThresholdMonitor)
+            .await
+            .map_err(|source| ThresholdMonitorError {
+                stage: ThresholdMonitorStage::DisableMonitor,
+                source,
+            })?;
+        self.write_word(
+            Register::LowThreshold,
+            monitor.thresholds.low.counts(),
+            Operation::ThresholdMonitor,
+            BusContext::WriteLowThreshold,
+        )
+        .await
+        .map_err(|source| ThresholdMonitorError {
+            stage: ThresholdMonitorStage::WriteLowThreshold,
+            source,
+        })?;
+        self.write_word(
+            Register::HighThreshold,
+            monitor.thresholds.high.counts(),
+            Operation::ThresholdMonitor,
+            BusContext::WriteHighThreshold,
+        )
+        .await
+        .map_err(|source| ThresholdMonitorError {
+            stage: ThresholdMonitorStage::WriteHighThreshold,
+            source,
+        })?;
+        self.write_power_saving_for(monitor.power_saving, Operation::ThresholdMonitor)
+            .await
+            .map_err(|source| ThresholdMonitorError {
+                stage: ThresholdMonitorStage::ApplyPowerSaving,
+                source,
+            })?;
+
+        let enabled = disabled
+            .with_measurement(monitor.measurement)
+            .with_persistence(monitor.persistence)
+            .with_power_state(PowerState::Active)
+            .with_monitor(ThresholdMonitorState::Enabled);
+        self.write_configuration_for(enabled, Operation::ThresholdMonitor)
+            .await
+            .map_err(|source| ThresholdMonitorError {
+                stage: ThresholdMonitorStage::EnableMonitor,
+                source,
+            })
+    }
+
+    /// Disable threshold monitoring while preserving all other configuration fields.
+    pub async fn disable_threshold_monitor(&mut self) -> Result<(), Error<I2C::Error>> {
+        let current = self
+            .read_configuration_for(Operation::ThresholdMonitor)
+            .await?;
+        self.write_configuration_for(
+            current.with_monitor(ThresholdMonitorState::Disabled),
+            Operation::ThresholdMonitor,
+        )
+        .await
+    }
+
+    async fn recover_pre_capture(
+        &mut self,
+        failed_stage: MeasureStage,
+        source: Error<I2C::Error>,
+        original_configuration: ConfigurationSnapshot,
+        original_power_saving: PowerSavingSnapshot,
+    ) -> MeasureOnceError<I2C::Error> {
+        match self
+            .restore_state(original_configuration, original_power_saving)
+            .await
+        {
+            Ok(()) => MeasureOnceError::Operation { stage: failed_stage, source },
+            Err((recovery_stage, recovery_source)) => MeasureOnceError::RecoveryFailed {
+                failed_stage,
+                source,
+                recovery_stage,
+                recovery_source,
+            },
+        }
+    }
+
+    async fn restore_state(
+        &mut self,
+        configuration: ConfigurationSnapshot,
+        power_saving: PowerSavingSnapshot,
+    ) -> Result<(), (MeasureStage, Error<I2C::Error>)> {
+        self.write_power_saving_for(power_saving.as_config(), Operation::MeasureOnce)
+            .await
+            .map_err(|source| (MeasureStage::RestorePowerSaving, source))?;
+        self.write_configuration_for(configuration, Operation::MeasureOnce)
+            .await
+            .map_err(|source| (MeasureStage::RestoreConfiguration, source))
+    }
+
+    async fn read_configuration_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<ConfigurationSnapshot, Error<I2C::Error>> {
+        let word = self
+            .read_word(Register::Configuration, operation, BusContext::ReadConfiguration)
+            .await?;
+        ConfigWord::from_raw(word)
+            .decode()
+            .map_err(|error| Error::Configuration(ConfigurationError::ConfigurationDecode(error)))
+    }
+
+    async fn write_configuration_for(
+        &mut self,
+        configuration: ConfigurationSnapshot,
+        operation: Operation,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.write_word(
+            Register::Configuration,
+            ConfigWord::from_snapshot(configuration).raw(),
+            operation,
+            BusContext::WriteConfiguration,
+        )
+        .await
+    }
+
+    async fn read_power_saving_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<PowerSavingSnapshot, Error<I2C::Error>> {
+        let word = self
+            .read_word(Register::PowerSaving, operation, BusContext::ReadPowerSaving)
+            .await?;
+        decode_power_saving(word)
+            .map_err(|error| Error::Configuration(ConfigurationError::PowerSavingDecode(error)))
+    }
+
+    async fn write_power_saving_for(
+        &mut self,
+        power_saving: PowerSavingConfig,
+        operation: Operation,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.write_word(
+            Register::PowerSaving,
+            power_saving.encode(),
+            operation,
+            BusContext::WritePowerSaving,
+        )
+        .await
+    }
+
+    async fn read_als_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<AlsCounts, Error<I2C::Error>> {
+        self.read_word(Register::Als, operation, BusContext::ReadAls)
+            .await
+            .map(AlsCounts::from_counts)
+    }
+
+    async fn read_white_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<WhiteCounts, Error<I2C::Error>> {
+        self.read_word(Register::White, operation, BusContext::ReadWhite)
+            .await
+            .map(WhiteCounts::from_counts)
+    }
+
+    async fn read_threshold_status_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<ThresholdStatus, Error<I2C::Error>> {
+        let word = self
+            .read_word(
+                Register::ThresholdStatus,
+                operation,
+                BusContext::ReadThresholdStatus,
+            )
+            .await?;
+        ThresholdStatus::decode(word).map_err(|error| {
+            Error::Configuration(ConfigurationError::ThresholdStatusDecode(error))
+        })
+    }
+
+    async fn read_thresholds_for(
+        &mut self,
+        operation: Operation,
+    ) -> Result<Thresholds, Error<I2C::Error>> {
+        let low = self
+            .read_word(Register::LowThreshold, operation, BusContext::ReadLowThreshold)
+            .await?;
+        let high = self
+            .read_word(Register::HighThreshold, operation, BusContext::ReadHighThreshold)
+            .await?;
+        Thresholds::new(AlsCounts::from_counts(low), AlsCounts::from_counts(high))
+            .ok_or(Error::Configuration(ConfigurationError::ReversedThresholds))
+    }
+
+    async fn read_word(
+        &mut self,
+        register: Register,
+        operation: Operation,
+        context: BusContext,
+    ) -> Result<u16, Error<I2C::Error>> {
+        let mut bytes = [0_u8; 2];
+        self.i2c
+            .write_read(I2C_ADDRESS, &[register.pointer()], &mut bytes)
+            .await
+            .map_err(|source| Error::Bus { operation, context, source })?;
+        Ok(u16::from_le_bytes(bytes))
+    }
+
+    async fn write_word(
+        &mut self,
+        register: Register,
+        value: u16,
+        operation: Operation,
+        context: BusContext,
+    ) -> Result<(), Error<I2C::Error>> {
+        let [low, high] = value.to_le_bytes();
+        self.i2c
+            .write(I2C_ADDRESS, &[register.pointer(), low, high])
+            .await
+            .map_err(|source| Error::Bus { operation, context, source })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use embedded_hal_async::delay::DelayNs;
+    use embedded_hal_async::i2c::ErrorKind;
+    use futures::executor::block_on;
+    use std::vec;
+
+    use super::{I2C_ADDRESS, Veml7700};
+    use crate::testing::scripted_i2c::{Expectation, ScriptError, ScriptedI2c};
+    use crate::{
+        AlsCounts, BusContext, ConfigurationError, Error, MeasureOnceError, MeasureStage,
+        MeasurementConfig, Operation, Persistence, PowerSavingConfig, PowerSavingMode,
+        ProbeError, ThresholdMonitorConfig, Thresholds, WhiteCounts,
+    };
+
+    struct RecordingDelay {
+        elapsed_ns: u64,
+    }
+
+    impl DelayNs for RecordingDelay {
+        async fn delay_ns(&mut self, ns: u32) {
+            self.elapsed_ns += u64::from(ns);
+        }
+    }
+
+    #[test]
+    fn fresh_measurement_uses_known_wake_edge_and_restores_state() {
+        let bus = ScriptedI2c::new([
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x00],
+                returns: vec![0x01, 0x00],
+                result: Ok(()),
+            },
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x03],
+                returns: vec![0x00, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x03, 0x00, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x10],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x00, 0x10],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x10],
+                result: Ok(()),
+            },
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x04],
+                returns: vec![0x34, 0x12],
+                result: Ok(()),
+            },
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x05],
+                returns: vec![0x78, 0x56],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x03, 0x00, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x00],
+                result: Ok(()),
+            },
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        let sample = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::safe_bright_start(),
+        ))
+        .unwrap();
+        assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
+        assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
+        assert_eq!(sample.waited_us, 133_500);
+        assert_eq!(delay.elapsed_ns, 133_500_000);
+        sensor.release().done();
+    }
+
+    #[test]
+    fn explicit_timing_must_match_the_measurement_integration_time() {
+        let bus = ScriptedI2c::new([]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        let result = block_on(sensor.measure_once_with_timing(
+            &mut delay,
+            MeasurementConfig::new(
+                crate::Gain::Div8,
+                crate::IntegrationTime::Ms800,
+            ),
+            crate::MeasurementTiming::conservative(crate::IntegrationTime::Ms25),
+        ));
+        assert_eq!(
+            result,
+            Err(MeasureOnceError::Operation {
+                stage: MeasureStage::ValidateTiming,
+                source: Error::Configuration(
+                    ConfigurationError::TimingIntegrationMismatch {
+                        measurement: crate::IntegrationTime::Ms800,
+                        timing: crate::IntegrationTime::Ms25,
+                    },
+                ),
+            })
+        );
+        assert_eq!(delay.elapsed_ns, 0);
+        sensor.release().done();
+    }
+
+    #[test]
+    fn disable_power_saving_failure_is_followed_by_state_restoration() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let bus = ScriptedI2c::new([
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x00],
+                returns: vec![0x01, 0x00],
+                result: Ok(()),
+            },
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x03],
+                returns: vec![0x00, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x03, 0x00, 0x00],
+                result: Err(failure),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x03, 0x00, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x00],
+                result: Ok(()),
+            },
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        let result = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::safe_bright_start(),
+        ));
+        assert_eq!(
+            result,
+            Err(MeasureOnceError::Operation {
+                stage: MeasureStage::DisablePowerSaving,
+                source: Error::Bus {
+                    operation: Operation::MeasureOnce,
+                    context: BusContext::WritePowerSaving,
+                    source: failure,
+                },
+            })
+        );
+        assert_eq!(delay.elapsed_ns, 0);
+        sensor.release().done();
+    }
+
+    #[test]
+    fn threshold_monitor_is_enabled_only_after_its_domain_is_programmed() {
+        let thresholds = Thresholds::new(
+            AlsCounts::from_counts(100),
+            AlsCounts::from_counts(1_000),
+        )
+        .unwrap();
+        let monitor = ThresholdMonitorConfig::new(
+            MeasurementConfig::safe_bright_start(),
+            thresholds,
+            Persistence::Four,
+            PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+        );
+        let bus = ScriptedI2c::new([
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x00],
+                returns: vec![0x01, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x02, 0x64, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x01, 0xE8, 0x03],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x03, 0x03, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x22, 0x10],
+                result: Ok(()),
+            },
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.arm_threshold_monitor(monitor)).unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn probe_reads_little_endian_id() {
+        let bus = ScriptedI2c::new([Expectation::WriteRead {
+            address: I2C_ADDRESS,
+            write: vec![0x07],
+            returns: vec![0x81, 0xC4],
+            result: Ok(()),
+        }]);
+        let mut sensor = Veml7700::new(bus);
+        let id = block_on(sensor.probe()).unwrap();
+        assert_eq!(id.raw(), 0xC481);
+        sensor.release().done();
+    }
+
+    #[test]
+    fn configuration_write_is_low_byte_first() {
+        let bus = ScriptedI2c::new([
+            Expectation::WriteRead {
+                address: I2C_ADDRESS,
+                write: vec![0x00],
+                returns: vec![0x01, 0x00],
+                result: Ok(()),
+            },
+            Expectation::Write {
+                address: I2C_ADDRESS,
+                data: vec![0x00, 0x01, 0x10],
+                result: Ok(()),
+            },
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start()))
+            .unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn threshold_monitor_blocks_domain_retarget_before_write() {
+        let bus = ScriptedI2c::new([Expectation::WriteRead {
+            address: I2C_ADDRESS,
+            write: vec![0x00],
+            returns: vec![0x02, 0x00],
+            result: Ok(()),
+        }]);
+        let mut sensor = Veml7700::new(bus);
+        let result = block_on(
+            sensor.set_measurement_config(MeasurementConfig::safe_bright_start()),
+        );
+        assert_eq!(
+            result,
+            Err(Error::Configuration(
+                ConfigurationError::ThresholdMonitorOwnsDomain
+            ))
+        );
+        sensor.release().done();
+    }
+
+    #[test]
+    fn probe_preserves_non_address_bus_error() {
+        let failure = ScriptError::new(ErrorKind::Bus);
+        let bus = ScriptedI2c::new([Expectation::WriteRead {
+            address: I2C_ADDRESS,
+            write: vec![0x07],
+            returns: vec![0, 0],
+            result: Err(failure),
+        }]);
+        let mut sensor = Veml7700::new(bus);
+        assert_eq!(block_on(sensor.probe()), Err(ProbeError::Bus(failure)));
+        sensor.release().done();
+    }
+}

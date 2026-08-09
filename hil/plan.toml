@@ -1,0 +1,118 @@
+schema = 1
+
+[plan]
+name = "veml7700-core-level5"
+description = "Managed harness orchestration for VEML7700 digital and relative optical behavior"
+
+[plan.requires]
+roles = ["dut", "logic"]
+roles_optional = ["scope"]
+dut_caps = [
+  "sys.reset@1",
+  "veml7700.fixture@1",
+  "veml7700.identity@1",
+  "veml7700.config@1",
+  "veml7700.measurement@1",
+  "veml7700.scaling@1",
+  "veml7700.power@1",
+  "veml7700.cadence@1",
+  "veml7700.threshold@1",
+  "veml7700.white@1",
+  "veml7700.recovery@1",
+]
+
+[plan.requires.metadata]
+"veml7700.circuit_checks_passed" = true
+"veml7700.light_source_repeatable" = true
+
+[[phase]]
+name = "matrix"
+blocks = [
+  "fixture",
+  "identity",
+  "config",
+  "measurement",
+  "scaling",
+  "power",
+  "cadence",
+  "threshold",
+  "white",
+  "recovery_interrupt",
+  "recovery_verify",
+]
+
+[[block]]
+name = "fixture"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.fixture@1"]
+modules = [{ use = "./hil/modules/run_group.lua", claims = ["dut"], params = { command = "veml7700.fixture run", capability = "veml7700.fixture@1", expected_cases = ["fixture.safe-start", "fixture.no-interrupt-pin"] } }]
+
+[[block]]
+name = "identity"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.identity@1"]
+depends_on = ["fixture"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.identity run", capability = "veml7700.identity@1", expected_cases = ["identity.fixed-address", "identity.id-word", "identity.byte-order"], artifact = "identity-capture", samplerate = "8MHz", channels = [0, 1], duration = "300ms" } }]
+
+[[block]]
+name = "config"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.config@1"]
+depends_on = ["identity"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.config run", capability = "veml7700.config@1", expected_cases = ["config.reset", "config.typed-roundtrip", "config.reserved-rejected", "config.word-order"], artifact = "config-capture", samplerate = "8MHz", channels = [0, 1], duration = "700ms" } }]
+
+[[block]]
+name = "measurement"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.measurement@1"]
+depends_on = ["config"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.measurement run", capability = "veml7700.measurement@1", expected_cases = ["measurement.snapshot-qualified", "measurement.fresh", "measurement.pair-frozen", "measurement.restored"], artifact = "measurement-capture", samplerate = "8MHz", channels = [0, 1, 2], duration = "3s" } }]
+
+[[block]]
+name = "scaling"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.scaling@1"]
+depends_on = ["measurement"]
+modules = [{ use = "./hil/modules/run_group.lua", claims = ["dut"], params = { command = "veml7700.scaling run", capability = "veml7700.scaling@1", expected_cases = ["scaling.table", "scaling.endpoints", "scaling.white-unscaled"] } }]
+
+[[block]]
+name = "power"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.power@1"]
+depends_on = ["scaling"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.power run", capability = "veml7700.power@1", expected_cases = ["power.shutdown-retention", "power.wake-delay", "power.fresh-after-wake"], artifact = "power-capture", samplerate = "8MHz", channels = [0, 1, 2], duration = "3s" } }]
+
+[[block]]
+name = "cadence"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.cadence@1"]
+depends_on = ["power"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.cadence run", capability = "veml7700.cadence@1", expected_cases = ["cadence.mode1-100", "cadence.mode2-200", "cadence.mode4-800", "cadence.no-25ms-extrapolation"], artifact = "cadence-capture", samplerate = "4MHz", channels = [0, 1, 2], duration = "12s" } }]
+
+[[block]]
+name = "threshold"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.threshold@1"]
+depends_on = ["cadence"]
+modules = [{ use = "./hil/modules/capture_group.lua", claims = ["dut", "logic"], params = { command = "veml7700.threshold run", capability = "veml7700.threshold@1", expected_cases = ["threshold.low", "threshold.high", "threshold.persistence", "threshold.domain-protected", "threshold.polled-only"], artifact = "threshold-capture", samplerate = "8MHz", channels = [0, 1, 2], duration = "8s" } }]
+
+[[block]]
+name = "white"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.white@1"]
+depends_on = ["threshold"]
+modules = [{ use = "./hil/modules/run_group.lua", claims = ["dut"], params = { command = "veml7700.white run", capability = "veml7700.white@1", expected_cases = ["white.read", "white.distinct-type", "white.relative-response"] } }]
+
+[[block]]
+name = "recovery_interrupt"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.recovery@1"]
+depends_on = ["white"]
+modules = [{ use = "./hil/modules/run_group.lua", claims = ["dut"], params = { command = "veml7700.recovery interrupt", capability = "veml7700.recovery@1", expected_cases = ["recovery.interrupted"] } }]
+
+[[block]]
+name = "recovery_verify"
+dut_state = "running"
+firmware_caps = ["sys.reset@1", "veml7700.recovery@1"]
+depends_on = ["recovery_interrupt"]
+modules = [{ use = "./hil/modules/run_group.lua", claims = ["dut"], params = { command = "veml7700.recovery verify", capability = "veml7700.recovery@1", expected_cases = ["recovery.after-reset", "recovery.no-cache"] } }]

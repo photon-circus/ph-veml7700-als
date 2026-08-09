@@ -1,0 +1,31 @@
+[package]
+name = "ph-veml7700-als"
+version = "0.1.0"
+description = "Async no_std driver for the Vishay VEML7700 ambient-light sensor with explicit fresh-measurement and threshold-monitor semantics"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ph-veml7700-als"
+homepage = "https://github.com/photon-circus/ph-veml7700-als"
+keywords = ["ambient-light", "veml7700", "embedded", "no-std", "i2c"]
+categories = ["embedded", "no-std", "hardware-support"]
+publish = true
+exclude = ["ARCHITECTURE.md", "RELEASE_CHECKLIST.md"]
+
+[dependencies]
+embedded-hal-async = { version = "1.0.0", default-features = false }
+defmt = { version = "1.1.1", optional = true }
+
+[features]
+default = []
+defmt = ["dep:defmt"]
+
+[dev-dependencies]
+futures = { version = "0.3", default-features = false, features = ["std", "executor"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

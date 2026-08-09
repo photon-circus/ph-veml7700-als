@@ -1,0 +1,13 @@
+/target/
+**/target/
+.DS_Store
+*.swp
+*.swo
+*.tmp
+*.log
+.env
+.vscode/
+.idea/
+apps/hil-runner/.REAL_FIRMWARE_IMPLEMENTED
+hil/bench.real.toml
+hardware-evidence/runs/

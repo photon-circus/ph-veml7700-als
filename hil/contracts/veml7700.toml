@@ -1,0 +1,73 @@
+schema = 1
+
+[capability."sys.reset@1"]
+summary = "Reset the managed harness into its electrically and optically safe state"
+command = "sys.reset"
+ok = "Sensor power and light source are off; fixture pins are released"
+err = ["reset-failed"]
+
+[capability."veml7700.fixture@1"]
+summary = "Inspect and safe the VEML7700 fixture"
+command = "veml7700.fixture run"
+ok = "Fixture starts with VDD off, I2C released, and source disabled"
+err = ["fixture-fault"]
+
+[capability."veml7700.identity@1"]
+summary = "Probe fixed address 0x10 and validate ID 0xC481"
+command = "veml7700.identity run"
+ok = "Fixed address acknowledges and ID bytes are 0x81 then 0xC4"
+err = ["i2c-fault", "wrong-device"]
+
+[capability."veml7700.config@1"]
+summary = "Exercise typed configuration and low-byte-first I2C framing"
+command = "veml7700.config run"
+ok = "All documented fields round-trip and reserved encodings are rejected"
+err = ["config-fault"]
+
+[capability."veml7700.measurement@1"]
+summary = "Distinguish snapshots from restored fresh measurements"
+command = "veml7700.measurement run"
+ok = "Fresh result carries provenance and pair-freeze qualification"
+err = ["measurement-fault", "restore-fault"]
+
+[capability."veml7700.scaling@1"]
+summary = "Exercise nominal integer micro-lux scaling"
+command = "veml7700.scaling run"
+ok = "All gain/integration table ratios and endpoints agree"
+err = ["scaling-fault"]
+
+[capability."veml7700.power@1"]
+summary = "Exercise shutdown retention and wake-up timing"
+command = "veml7700.power run"
+ok = "Retained data and bounded fresh wake behavior agree"
+err = ["power-fault"]
+
+[capability."veml7700.cadence@1"]
+summary = "Exercise documented power-saving refresh cadence"
+command = "veml7700.cadence run"
+ok = "Representative Mode 1 through Mode 4 refresh intervals are witnessed"
+err = ["cadence-fault"]
+
+[capability."veml7700.threshold@1"]
+summary = "Exercise polled threshold flags and persistence"
+command = "veml7700.threshold run"
+ok = "Low/high flags and persistence follow the complete monitored domain"
+err = ["threshold-fault"]
+
+[capability."veml7700.white@1"]
+summary = "Exercise white-channel readout and relative response"
+command = "veml7700.white run"
+ok = "White counts are readable and kept distinct from ALS lux scaling"
+err = ["white-fault"]
+
+[capability."veml7700.recovery@1"]
+summary = "Recover after interrupted measurement/configuration sequencing"
+command = "veml7700.recovery verify"
+ok = "Observed state is re-established without hidden cache assumptions"
+err = ["recovery-fault"]
+
+[capability."veml7700.optical@1"]
+summary = "Compare nominal ALS results against a calibrated optical reference"
+command = "veml7700.optical run"
+ok = "Characterized fixture and paired reference evidence meet declared criteria"
+err = ["optical-fault", "reference-unwitnessed", "fixture-uncharacterized"]

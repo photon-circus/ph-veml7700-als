@@ -1,0 +1,9 @@
+[package]
+name = "veml7700-hil-runner"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Placeholder only. Select and pin the classic-ESP32 HAL/runtime in an owner
+# decision before enabling the real ph-hil build hook.
+[dependencies]

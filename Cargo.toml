@@ -1,0 +1,13 @@
+[workspace]
+members = ["crates/veml7700"]
+# The managed HIL firmware cross-compiles for Xtensa with its own toolchain pin.
+# ph-hil orchestration, collection, analysis, and replay remain external.
+exclude = ["apps/hil-runner", "tools/ph-hil-build", "tests-system/ph-hil-external"]
+resolver = "3"
+
+[workspace.package]
+authors = ["Steven Giacomelli"]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/photon-circus/ph-veml7700-als"
+rust-version = "1.92.0"
