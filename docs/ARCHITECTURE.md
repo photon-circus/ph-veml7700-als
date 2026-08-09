@@ -14,11 +14,11 @@ Governing maxim:
 > Model the VEML7700 as an autonomous integrating optical sensor whose register
 > data has timing and optical provenance, not as a collection of I²C words.
 
-## 2. Family context, not framework inheritance
+## 2. Repository-local design
 
-Shared Photon Circus conventions include repository shape, linting, local CI,
-documentation, strict mock transports, behavioral models, package gates, and
-external `ph-hil` schemas.
+Repository shape, linting, local CI, documentation, strict mock transports,
+behavioral models, package gates, and external `ph-hil` schemas are specified
+directly by this repository's contracts.
 
 The crate deliberately omits a universal `DeviceCore`, internal transport trait,
 configuration cache, initialization state machine, and shared error enum. It has

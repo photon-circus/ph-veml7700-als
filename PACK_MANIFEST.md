@@ -1,7 +1,7 @@
 # `ph-veml7700-als` development pack manifest
 
-Maintained as a contract-first development pack for a Photon Circus VEML7700
-ambient-light-sensor driver. It contains the complete v0.1 host-side driver,
+Maintained as a contract-first development pack for a VEML7700 ambient-light
+sensor driver. It contains the complete v0.1 host-side driver,
 executable contract checks, and mock HIL integration; it is not a registry
 release or a calibrated optical support claim.
 
