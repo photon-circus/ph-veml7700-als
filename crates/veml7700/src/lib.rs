@@ -12,6 +12,13 @@
 //!
 //! Construction performs no I/O. The driver stores no hardware-state cache,
 //! allocates nothing, and depends on no MCU HAL or executor.
+//!
+//! # Status
+//!
+//! This crate is incubating and unpublished. Pure and scripted-I2C tests cover
+//! codec and protocol behavior. A coupled test-only fake exercises autonomous
+//! state but is not the independent I2C-level model required for driver cross-
+//! validation. No reviewed physical or calibrated-optical evidence exists.
 
 #![no_std]
 #![forbid(unsafe_code)]

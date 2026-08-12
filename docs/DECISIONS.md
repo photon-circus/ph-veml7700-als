@@ -2,82 +2,92 @@
 
 ## D-001 — Direct fixed-address I²C facade
 
-`Veml7700<I2C>` owns the bus directly. There is no address field or internal
-transport trait because the supported device has one fixed I²C address and no
-transport variation.
+`Veml7700<I2C>` owns the bus directly. The supported device has one fixed
+address and no transport variation requiring an internal abstraction.
 
 ## D-002 — Preserve concrete bus errors
 
-`Error<I2C::Error>` retains the HAL error plus semantic operation and register
-context. Address NACK is classified only in `probe()`.
+Errors retain the HAL error plus semantic operation/register/stage context.
+Only address NACK is classified as absence during probe.
 
 ## D-003 — Strict low-byte-first codec
 
-All register words use little-endian byte conversion. Tests assert exact wire
-payloads.
+All 16-bit register transfers use little-endian wire order, protected by exact
+transaction tests.
 
-## D-004 — Safe bright-start value is a constructor, not driver state
+## D-004 — Bright-start is explicit policy
 
-`MeasurementConfig::safe_bright_start()` returns gain ×1/8 and 100 ms, reflecting
-vendor guidance for unknown illumination. The driver does not automatically
-apply or cache it.
+`MeasurementConfig::safe_bright_start()` is a value constructor, not hidden
+driver state or automatic ranging.
 
-## D-005 — Snapshot and fresh operations are different types
+## D-005 — Snapshot and fresh results are distinct
 
-A snapshot may be old and its ALS/white pair may straddle refresh. A fresh
-operation controls timing, freezes the data in shutdown, records provenance, and
-restores the prior state.
+A snapshot may be retained or straddle channel refresh. Fresh capture controls
+the domain and timing, freezes results, records provenance, and restores state.
 
-## D-006 — Shutdown used as a pair-freeze mechanism
+## D-006 — Shutdown freezes the result pair
 
-The vendor documents retained data in shutdown. The complete operation enters
-shutdown after the conservative integration wait before reading the two result
-registers. This is explicitly a driver coherence policy.
+After conservative waiting, complete capture enters shutdown before sequential
+ALS/white reads. This is a driver coherence policy, not a vendor atomicity claim.
 
 ## D-007 — Nominal integer scaling only
 
-The core exposes micro-lux from the vendor resolution table. It omits the
-empirical polynomial and system calibration because their validity depends on
-optics, source spectrum, and application geometry.
+The crate provides integer micro-lux using the vendor table. Empirical and
+system calibration remain outside the driver.
 
-## D-008 — Threshold “interrupt” is a polled monitor
+## D-008 — Threshold state is polled
 
-The VEML7700 has no dedicated interrupt pin. API naming uses monitor/status and
-never owns a GPIO.
+The device has no dedicated interrupt pin. APIs use monitor/status language and
+never own GPIO.
 
-## D-009 — Monitor owns cadence and measurement domain
+## D-009 — Monitor owns its complete domain
 
-Threshold counts depend on gain/integration; persistence wall time depends on
-power-saving cadence. These fields are configured atomically at the semantic
-level and protected from ordinary retargeting.
+Gain, integration, thresholds, persistence, cadence, and active state are one
+semantic domain protected against silent retargeting.
 
-## D-010 — No undocumented flag-clear promise
+## D-010 — No undocumented clearing promise
 
-Official documentation describes status flags but not a reliable clearing
-protocol. The API returns observations without inventing latch semantics.
+The official sources do not establish reliable threshold-flag clearing
+semantics, so the API promises observation only.
 
-## D-011 — No VEML6030 abstraction in v0.1
+## D-011 — No VEML6030 abstraction
 
-The application note describes functional similarity, but family extraction is
-deferred until independent contracts and evidence exist for multiple devices.
+Family extraction waits for independently reviewed contracts for more than one
+device.
 
-## D-012 — External `ph-hil` boundary
+## D-012 — Speculative physical infrastructure removed
 
-The project supplies schema-1 plans, contracts, transcripts, modules, and policy.
-`ph-hil` owns orchestration, flashing, instruments, safing, sealed artifacts, and
-analysis. No runtime crate dependency is introduced.
+Hardware runners, fixtures, plans, policies, transcripts, evidence structures,
+and orchestration shims are not part of this driver product. Future physical
+qualification begins from accepted driver and independent-model contracts.
 
-## D-013 — Fresh timing is bound to one integration-time selection
+## D-013 — Timing is bound to integration selection
 
-`MeasurementTiming` is constructed from an `IntegrationTime`, keeps that
-selection private, and cannot encode a shorter-than-conservative wait.
-`measure_once_with_timing()` rejects timing derived for a different integration
-time before any I²C transaction. This prevents an apparently explicit timing
-value from becoming stale when the requested measurement domain changes.
+Explicit timing may extend but never shorten the conservative wait and is
+rejected before I²C if derived for a different integration time.
 
-## D-014 — Fresh measurement creates a known wake edge
+## D-014 — Fresh capture creates a known wake edge
 
-A complete fresh measurement first disables power-saving mode, installs the
-requested gain and integration time while shut down, and only then transitions
-from shutdown to active. The driver does not rely on an unobserved prior active
-interval or infer conversion age from a register snapshot.
+Complete measurement installs the selected domain in shutdown before changing
+to active and starting its wait.
+
+## D-015 — Model independence is required
+
+The existing coupled fake remains exploratory test code. The future cross-
+validation mock must implement I²C independently from the hardware contract and
+must not reuse driver codecs/timing helpers as its oracle.
+
+## D-016 — Vendor documents are not redistributed
+
+Track official URLs, revisions, retrieval facts, and available hashes without
+committing vendor PDFs.
+
+## D-017 — Local bounded validation
+
+Private development uses one canonical local gate. Hosted CI and generated pack
+inventories are not required product surfaces.
+
+## D-018 — Publication remains locked
+
+`publish = false` remains until independent-model and physical-evidence review
+plus explicit owner approval.

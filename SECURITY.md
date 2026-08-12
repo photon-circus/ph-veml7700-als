@@ -1,9 +1,9 @@
 # Security policy
 
-Report security or safety-significant defects privately to the repository owner.
-Do not publish a reproduction that could silently corrupt measurements in a
-safety-relevant application before a fix or explicit disclosure plan exists.
+Report potential vulnerabilities privately to the repository owner. Do not
+open a public issue for a flaw that could silently corrupt measurements or
+promote nominal/model output as calibrated physical evidence.
 
-The driver is not a safety-certified illuminance instrument. Nominal lux values
-are not a substitute for application-specific optical calibration, window
-characterization, spectral matching, or a calibrated reference instrument.
+The crate is unpublished and has no supported release series. Security reports
+affecting the incubating code on `main` receive best-effort fixes. When a
+release is published, this policy will identify supported versions explicitly.

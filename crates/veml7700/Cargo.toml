@@ -13,7 +13,6 @@ homepage = "https://github.com/photon-circus/ph-veml7700-als"
 keywords = ["ambient-light", "veml7700", "embedded", "no-std", "i2c"]
 categories = ["embedded", "no-std", "hardware-support"]
 publish = false
-exclude = ["ARCHITECTURE.md", "RELEASE_CHECKLIST.md"]
 
 [dependencies]
 embedded-hal-async = { version = "1.0.0", default-features = false }
