@@ -1,55 +1,61 @@
 # ph-veml7700-als
 
-Contract-first development pack for an async `no_std` Rust driver for the
-Vishay VEML7700 ambient-light sensor.
+Async, `no_std`, allocation-free Rust driver for the Vishay VEML7700 ambient-
+light sensor.
 
-The design treats the device as an autonomous integrating optical sensor, not
-as a register bag. It separates:
+> [!WARNING]
+> **Incubating — host-model verification only.** The driver has pure, strict
+> scripted-I²C, and autonomous-state tests. Its current behavioral fake is
+> test-only and shares driver value types, so it is not yet the independent
+> I²C-level mock required for driver cross-validation. No reviewed physical or
+> calibrated-optical evidence exists, and the crate is not published.
 
-- a potentially stale register snapshot;
-- a fresh measurement started from an explicit shutdown-to-active wake edge and conservatively waited for;
-- nominal count-to-lux scaling from application-specific optical calibration;
-- threshold-status polling from a fictitious interrupt GPIO (the VEML7700 has
-  no dedicated interrupt pin); and
-- normal measurement configuration from a threshold monitor whose physical
-  meaning depends on gain, integration time, persistence, and power-saving
-  cadence.
+## Responsibility
 
-## Crate policy
+The crate owns complete single-device operations over caller-provided async I²C:
 
-- async-first `embedded-hal-async` I²C;
-- `#![no_std]`, no allocator, no unsafe code;
-- inert `const new()` and exact bus release;
-- fixed 7-bit address `0x10`;
-- concrete I²C errors preserved with operation context;
-- no `init()`, cached register state, universal device framework, or public raw
-  register accessor;
-- integer nominal illuminance conversion; no floating-point requirement.
+- explicit snapshot versus fresh-measurement semantics;
+- fixed-address identity checks and little-endian register framing;
+- conservative wake/integration timing with provenance;
+- restoration-aware fresh capture;
+- typed power-saving and threshold-monitor domains;
+- raw ALS and white counts; and
+- integer, nominal ALS count-to-lux scaling.
 
-## Layout
+## Scope boundaries
 
-- `crates/veml7700` — packageable, publication-disabled `ph-veml7700-als` crate;
-- `docs/` — normative hardware, architecture, API, invariant, test, HIL, and
-  implementation contracts;
-- `apps/hil-runner` and `hil/` — external `ph-hil` integration boundary;
-- `tools/validate-pack.py` — deterministic pack-consistency checks.
+The crate does not own an MCU, HAL, executor, bus recovery, optical fixture,
+window/diffuser compensation, source-spectrum correction, empirical high-lux
+correction, calibrated metrology, automatic ranging, or a fictitious interrupt
+pin. The VEML7700 threshold output is polled through its status register.
 
-## Local CI
+Nominal lux is a datasheet-table conversion, not a claim about illuminance at a
+finished product's aperture.
 
-GitHub Actions is intentionally disabled while the crate is under development.
-Run the complete CI matrix on a trusted local machine:
+## Repository layout
 
-```console
-./tools/check.sh
+```text
+crates/veml7700/   driver and host-side tests
+docs/              device, API, architecture, invariant, and test contracts
+scripts/ci.sh      canonical bounded local verification
+tools/check.*      platform launchers for the same local gate
 ```
 
-On Windows PowerShell, run `tools/check.ps1`. The local runner covers pack and
-policy validation, formatting, tests, all features, Clippy, docs, embedded
-targets, dependency policy, package inspection, and the mock HIL build.
+Start with [the documentation index](docs/README.md).
 
-This bootstrap is not a release or a physical support claim. Verify the pinned
-Vishay documentation, compile every target, implement the managed harness, and
-review sealed optical evidence before promoting capability status.
+## Local verification
 
-Cargo registry publication is hard-disabled. Repository automation may build
-the package for inspection but contains no publish step or registry credential.
+Run `./tools/check.sh` under Git Bash or another POSIX-compatible shell, or
+`./tools/check.ps1` from PowerShell. A green gate establishes agreement with
+the implemented host contracts only; it does not establish physical-device or
+calibrated-optical behavior.
+
+## Publication status
+
+The package retains `publish = false`. Publication remains blocked until an
+independent I²C-level model and reviewed physical evidence support the claimed
+scope and the owner separately approves a release.
+
+## License
+
+Licensed under the [MIT License](LICENSE).

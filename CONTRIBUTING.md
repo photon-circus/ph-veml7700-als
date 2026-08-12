@@ -1,18 +1,21 @@
 # Contributing
 
-Changes begin with the contracts, not the implementation.
+Read `AGENTS.md` and the normative documents under `docs/` before changing
+behavior.
 
-1. Update the relevant hardware, architecture, API, invariant, test, or decision
-   document.
-2. Explain observable behavior and failure semantics.
-3. Add strict scripted-I²C tests and, where time or autonomous behavior matters,
-   behavioral-model tests.
-4. Run the complete local CI runner: `tools/check.sh` or `tools/check.ps1`.
-5. Keep mock HIL results distinct from physical evidence.
+A contribution is reviewable only when:
 
-Do not add a public raw-register API, hidden configuration cache, automatic
-optical correction, or driver-owned retry policy without a reviewed contract
-change.
+1. Behavioral claims trace to `docs/HARDWARE_CONTRACT.md`.
+2. The public surface matches `docs/API_CONTRACT.md`, or that contract and the
+   decision log change first.
+3. Every touched invariant has a protecting test.
+4. Exact I²C address, pointer, byte order, payload, and transaction count are
+   asserted where transport behavior matters.
+5. Autonomous behavior is tested without converting the coupled fake into an
+   oracle for the driver.
+6. The canonical local gate passes.
 
-Do not add GitHub Actions workflow YAML while the crate is under development.
-The pack validator enforces local-only CI orchestration.
+Run `./tools/check.sh`, or `./tools/check.ps1` from PowerShell.
+
+Do not add raw-register APIs, cached state, automatic optical correction,
+speculative physical infrastructure, or remove `publish = false`.

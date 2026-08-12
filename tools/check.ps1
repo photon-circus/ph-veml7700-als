@@ -1,26 +1,19 @@
 $ErrorActionPreference = "Stop"
-python tools/validate-pack.py
-python -m unittest tools/test_validate_pack.py
-cargo fmt --all -- --check
-cargo test -p ph-veml7700-als --no-default-features
-cargo check -p ph-veml7700-als --all-features
-cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
-$env:RUSTDOCFLAGS = "-D warnings"
-cargo doc -p ph-veml7700-als --all-features --no-deps
-cargo test -p ph-veml7700-als --doc
-$targets = @(
-    "thumbv6m-none-eabi",
-    "thumbv7em-none-eabihf",
-    "thumbv8m.main-none-eabihf",
-    "riscv32imc-unknown-none-elf",
-    "riscv32imac-unknown-none-elf"
-)
-foreach ($target in $targets) {
-    cargo check -p ph-veml7700-als --target $target --no-default-features
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+
+$Git = Get-Command git.exe -ErrorAction Stop
+$GitRoot = Split-Path -Parent (Split-Path -Parent $Git.Source)
+$Bash = Join-Path $GitRoot "bin\bash.exe"
+if (-not (Test-Path $Bash -PathType Leaf)) {
+    throw "Git Bash was not found beside $($Git.Source)"
 }
-cargo deny check
-cargo package -p ph-veml7700-als --list --allow-dirty
-cargo run --manifest-path tools/ph-hil-build/Cargo.toml -- --mock
-if (-not (Test-Path "target/ph-hil/veml7700-harness.manifest.toml")) {
-    throw "mock HIL manifest was not generated"
+
+Push-Location $RepoRoot
+try {
+    & $Bash "scripts/ci.sh" @args
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+} finally {
+    Pop-Location
 }

@@ -1,7 +1,8 @@
 # VEML7700 hardware contract
 
-Binding silicon facts for `ph-veml7700-als`. A checked row means a human has
-verified the pinned official Vishay source, not merely copied this bootstrap.
+Binding interpreted device facts for `ph-veml7700-als`. A checked row means the
+owner has verified the recorded official Vishay source. Unchecked rows remain
+provisional and must not be promoted to physical-support claims.
 
 ## 1. Source baseline
 

@@ -1,17 +1,27 @@
-# Planning set
+# Driver documentation
 
-These documents are normative for the bootstrap. Review them in this order:
+These documents define the durable VEML7700 driver contract.
 
-1. `HARDWARE_CONTRACT.md`
-2. `INVARIANTS.md`
-3. `ARCHITECTURE.md`
-4. `API_CONTRACT.md`
-5. `DECISIONS.md`
-6. `IMPLEMENTATION_PLAN.md`
-7. `TEST_PLAN.md`
-8. `CAPABILITY_MATRIX.md`
-9. `HIL_TEST_CIRCUIT.md`
-10. `HIL_EVIDENCE_PROTOCOL.md`
+## Reading order
 
-`DOCUMENTATION_STANDARDS.md` applies to every public item and Markdown file.
-`BOOTSTRAP_CHECKLIST.md` is the first-owner acceptance gate.
+1. [HARDWARE_CONTRACT.md](HARDWARE_CONTRACT.md) — interpreted device behavior
+2. [INVARIANTS.md](INVARIANTS.md) — review-blocking truths and rejected patterns
+3. [ARCHITECTURE.md](ARCHITECTURE.md) — ownership and dependency direction
+4. [API_CONTRACT.md](API_CONTRACT.md) — public Rust surface
+5. [TEST_PLAN.md](TEST_PLAN.md) — verification responsibilities and gaps
+
+[DECISIONS.md](DECISIONS.md) records durable rationale,
+[DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md) governs claims, and
+[vendor/README.md](vendor/README.md) records source provenance without
+redistributing vendor documents.
+
+## Evidence boundary
+
+Pure tests and strict scripted I²C establish codec and protocol behavior. The
+test-only fake exercises autonomous state, but it shares driver types and does
+not implement an I²C device endpoint; it is not independent driver
+cross-validation.
+
+The repository contains no physical fixture, MCU application, hardware runner,
+or evidence protocol. It makes no calibrated-optical, electrical, timing,
+board, or silicon-qualification claim.

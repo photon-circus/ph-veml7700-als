@@ -1,143 +1,76 @@
-# `ph-veml7700-als` architecture
+# Architecture
 
-This document is normative. **MUST** rules are review-blocking.
+## Product boundary
 
-## 1. Architectural problem
+`ph-veml7700-als` is a fixed-address async I²C driver. The caller owns bus
+construction/recovery, delays, scheduling, power, board wiring, optical design,
+calibration, retries, and application policy. The crate owns VEML7700 register
+encoding, complete operations, nominal scaling, and truthful result/error
+reporting.
 
-The driver must maintain a trustworthy relationship between gain/integration
-configuration, autonomous measurement timing, retained shutdown data, nominal
-illuminance scaling, power-saving cadence, and polled threshold state—without
-silently presenting an old count as fresh or a nominal scale as calibrated lux.
-
-Governing maxim:
-
-> Model the VEML7700 as an autonomous integrating optical sensor whose register
-> data has timing and optical provenance, not as a collection of I²C words.
-
-## 2. Repository-local design
-
-Repository shape, linting, local CI, documentation, strict mock transports,
-behavioral models, package gates, and external `ph-hil` schemas are specified
-directly by this repository's contracts.
-
-The crate deliberately omits a universal `DeviceCore`, internal transport trait,
-configuration cache, initialization state machine, and shared error enum. It has
-one fixed-address I²C transport, so direct ownership is clearer.
-
-## 3. Layers
+## Dependency direction
 
 ```text
-Application / optical policy
-        ↓
-Board support / bus sharing / fixture
-        ↓
-Veml7700<I2C> operation sequencing
-        ↓
-Pure config, power, scaling, threshold, timing codecs
-        ↓
-Private register map
-        ↓
-embedded_hal_async::i2c::I2c
+application / optical policy
+             |
+             v
+public driver operations
+             |
+             v
+typed VEML7700 codecs and timing policy
+             |
+             v
+embedded-hal-async I²C and delay traits
 ```
 
-The application owns auto-ranging, calibration, cover/window compensation,
-light-source interpretation, retry/backoff, logging, and long-term scheduling.
-The BSP owns bus construction/recovery and physical power/fixture wiring.
+No layer depends on a concrete HAL, PAC, board, executor, allocator, operating
+system, or physical-test framework.
 
-## 4. Facade state
+## Driver state
 
-```rust
-pub struct Veml7700<I2C> {
-    i2c: I2C,
-}
-```
+`Veml7700<I2C>` stores only the I²C resource. Construction is inert and release
+returns the exact resource. Configuration, power-saving state, threshold domain,
+status, samples, and timing deadlines remain device-authoritative.
 
-**MUST NOT:** cache configuration, power-saving state, thresholds, flags,
-identity, samples, timing deadlines, or calibration.
+## Snapshot and fresh measurement
 
-**MUST:** `new()` is `const` and inert; `release()` returns the exact resource.
+A snapshot reports observed configuration and sequential ALS/white register
+values without claiming freshness. A complete fresh operation installs a known
+domain in shutdown, creates a shutdown-to-active wake edge, waits a conservative
+integration interval, freezes results in shutdown, reads both channels, and
+restores prior state. Errors retain capture and restoration context.
 
-## 5. Register I/O
+## Threshold-monitor ownership
 
-All helpers are private. Every 16-bit read/write uses low-byte-first wire order.
-Every public bus failure preserves `I2C::Error` plus semantic operation and
-register context.
+The monitored domain includes gain, integration time, thresholds, persistence,
+power-saving cadence, and active state. Arming is disable-first and enable-last.
+Ordinary methods reject changes that would silently retarget an enabled monitor.
+No GPIO abstraction exists because status is polled over I²C.
 
-## 6. Snapshot versus fresh measurement
+## Optical boundary
 
-`snapshot()` reads observed configuration and power-saving state followed by ALS
-and white. It explicitly reports `SequentialRegisters`, does not wake the device,
-and may return retained shutdown data.
+Integer `MicroLux` uses the vendor's nominal resolution table. It is not
+calibrated lux at a product aperture. Window transmission, geometry, spectrum,
+cosine response, part tolerance, high-lux correction, and auto-ranging belong
+to a separately reviewed integration layer or application.
 
-`measure_once()` is a complete operation. Its public timing value can extend,
-but cannot shorten, the conservative vendor-derived wait and carries the
-integration-time selection it was derived for:
+## Current fake and future mock
 
-1. observe original configuration and power-saving state;
-2. reject an enabled threshold monitor;
-3. disable power-saving cadence;
-4. install the requested gain/integration fields while explicitly shut down;
-5. leave shutdown to create a known wake edge;
-6. wait conservative wake-up plus integration interval;
-7. enter shutdown again to freeze the completed result;
-8. read ALS and white;
-9. restore power-saving and configuration state.
+`testing/fake_device.rs` exercises autonomous refresh, retention, persistence,
+and reset-survival concepts. It is test-only, directly uses driver semantic
+types and timing constants, and does not implement I²C. It therefore cannot
+serve as an independent oracle for public driver operations.
 
-If capture succeeds but restoration fails, the error carries the sample and marks
-hardware state uncertain. If an earlier step and cleanup both fail, both failures
-are represented.
+The required future mock must implement the I²C device boundary and be derived
+independently from `HARDWARE_CONTRACT.md`. It may expose a separate control
+surface for time, optical input, observation, and fault injection, but must not
+reuse driver codecs or timing helpers as its behavioral oracle.
 
-## 7. Threshold-monitor domain
+## Explicit non-goals
 
-An enabled monitor owns:
-
-```text
-gain + integration time + low/high counts + persistence + PSM cadence + active state
-```
-
-Ordinary setters reject changes that would retarget this domain. The complete
-arm operation disables monitoring, writes thresholds, applies cadence, then
-enables final configuration last. No GPIO type appears anywhere in the crate.
-
-## 8. Lux policy
-
-The base crate offers exact integer nominal scales from the vendor table.
-`MicroLux` is a unit-bearing integer value. The crate does not expose floating
-point or an “accurate lux” name.
-
-Empirical correction and optical calibration remain separate application policy
-until a future reviewed contract defines input domain, fixed-point precision,
-source/window assumptions, saturation behavior, and HIL evidence.
-
-## 9. Source layout
-
-```text
-src/
-├── lib.rs          crate docs, lints, re-exports only
-├── driver.rs       I²C ownership and operation sequencing
-├── error.rs        contextual and staged errors
-├── register.rs     private pointers
-├── id.rs           ID decoding
-├── config.rs       gain/integration/persistence/power codec
-├── power.rs        power-saving codec and documented cadence
-├── measurement.rs  counts, snapshots, fresh samples
-├── illuminance.rs  integer nominal scaling
-├── threshold.rs    monitor domain and status
-├── timing.rs       named wake/integration policy
-└── testing/        strict scripted I²C and behavioral model
-```
-
-Module paths are not semver API. Public imports come from crate root.
-
-## 10. Non-goals for v0.1
-
-- automatic range selection;
-- calibrated or corrected lux;
-- VEML6030 family generalization;
-- sync/blocking adapter;
-- public raw register access;
-- driver-owned retries;
-- GPIO interrupt integration;
-- dynamic allocation or executor coupling.
-- publication to a package registry; the crate is packageable for inspection
-  but Cargo publication is hard-disabled.
+- calibrated optical measurement or metrology
+- MCU examples, board support, or physical fixtures
+- automatic ranging or correction policy
+- VEML6030 family abstraction
+- raw-register API
+- publication or release automation

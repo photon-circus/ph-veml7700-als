@@ -1,23 +1,20 @@
 # ph-veml7700-als
 
-Async, allocation-free VEML7700 driver scaffold.
+Incubating async, allocation-free `no_std` VEML7700 ambient-light driver.
 
-```rust,no_run
-use ph_veml7700_als::{MeasurementConfig, Veml7700};
-use embedded_hal_async::{delay::DelayNs, i2c::I2c};
+The crate distinguishes register snapshots from deliberately timed fresh
+measurements, protects threshold-monitor domains, preserves restoration
+failures, and converts ALS counts using integer nominal datasheet scales. It
+does not claim calibrated lux or apply application-specific optical correction.
 
-async fn sample<I2C: I2c, D: DelayNs>(
-    i2c: I2C,
-    delay: &mut D,
-) -> Result<(), ph_veml7700_als::MeasureOnceError<I2C::Error>> {
-    let mut sensor = Veml7700::new(i2c);
-    let reading = sensor.measure_once(delay, MeasurementConfig::safe_bright_start()).await?;
-    let _micro_lux = reading.nominal_illuminance.as_micro_lux();
-    Ok(())
-}
-```
+Verification currently consists of pure tests, exact scripted I²C, failure
+injection, and a coupled test-only autonomous fake. The repository does not yet
+contain the independent I²C-level mock required for driver cross-validation or
+reviewed physical-silicon evidence.
 
-Nominal lux conversion does not compensate for a cover window, fixture geometry,
-source spectrum, part tolerance, or the vendor's application-dependent high-lux
-correction. See the repository contracts before distribution. Cargo registry
-publication is disabled in v0.1.
+The package is not published and retains `publish = false`. See the
+[repository README](https://github.com/photon-circus/ph-veml7700-als#readme) and
+[driver documentation](https://github.com/photon-circus/ph-veml7700-als/tree/main/docs)
+for the complete scope and evidence boundary.
+
+Licensed under MIT.
