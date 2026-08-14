@@ -16,6 +16,9 @@ than a change from a prior version.
   fresh capture, a typed threshold-monitor domain that rejects silent
   retargeting, raw ALS and white counts, and integer nominal micro-lux scaling
   from the vendor resolution table.
+- Compiled crate-level usage example covering inert construction, `probe`, and
+  the snapshot-versus-fresh distinction, mirrored in the packaged README and
+  kept identical to it by the canonical gate.
 - Concrete preserved bus errors carrying semantic operation, register, and stage
   context, including distinct primary and recovery failures when restoration
   also fails and a captured sample survives a failed restore.
@@ -54,7 +57,6 @@ than a change from a prior version.
 - The independent model remains a bounded slice: transport faults, arbitrary
   active reconfiguration, threshold-flag clearing, unspecified register reset
   values, and unexercised public operations remain outside its claim.
-- The crate has no doctests and no compiled usage example. See issue #10.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #11.
 - The model crate's version convention is undecided relative to the driver's

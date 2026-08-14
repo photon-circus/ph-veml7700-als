@@ -87,6 +87,23 @@ for disclosure_file in crates/veml7700/README.md crates/veml7700/src/lib.rs; do
     fi
 done
 
+# Only the `lib.rs` copy is compiled; a README fence is inert. Without this the
+# packaged README could render an example that no longer builds.
+step "the usage example agrees between the packaged README and lib.rs"
+example() {
+    sed -n '/```rust,no_run/,/^\(\/\/! \)\?```$/p' "$1" \
+        | sed -e 's|^//! \{0,1\}||' -e 's|^//!$||'
+}
+lib_example=$(example crates/veml7700/src/lib.rs)
+if [ -z "$lib_example" ]; then
+    echo "no compiled usage example found in crates/veml7700/src/lib.rs" >&2
+    exit 1
+fi
+if [ "$lib_example" != "$(example crates/veml7700/README.md)" ]; then
+    echo "the packaged README usage example differs from the lib.rs doctest" >&2
+    exit 1
+fi
+
 step "formatting"
 cargo fmt --all -- --check
 

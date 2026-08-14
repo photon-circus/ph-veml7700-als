@@ -59,7 +59,4 @@ policy, four of the five targets, and packaging, naming each skip, and its
 summary states that it covers only part of the release gate. A skipped check is
 not a passed check.
 
-The crate currently has no doctests, so the two doctest steps pass with zero
-cases; see
-[issue #10](https://github.com/photon-circus/ph-veml7700-als/issues/10).
 A green gate proves only the implemented host boundary.

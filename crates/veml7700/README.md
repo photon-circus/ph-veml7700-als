@@ -13,6 +13,38 @@ Incubating async, allocation-free `no_std` VEML7700 ambient-light driver.
 > evidence exists. Evidence applies only to the named operations, and eventual
 > publication would not imply hardware qualification.
 
+## Usage
+
+The application supplies its platform's async I²C bus and delay provider:
+
+```rust,no_run
+use embedded_hal_async::{delay::DelayNs, i2c::I2c};
+use ph_veml7700_als::{MeasurementConfig, Veml7700};
+
+async fn sample<I2C, D>(i2c: I2C, delay: &mut D)
+where
+    I2C: I2c,
+    D: DelayNs,
+{
+    // Construction is inert: it performs no I²C transaction.
+    let mut sensor = Veml7700::new(i2c);
+    let _device_id = sensor.probe().await.expect("VEML7700 probe failed");
+
+    // A snapshot may contain retained or stale data. ALS and white are read
+    // sequentially and may straddle an autonomous refresh.
+    let snapshot = sensor.snapshot().await.expect("snapshot failed");
+
+    // A fresh measurement is deliberately configured, timed, and frozen
+    // before the ALS and white registers are read.
+    let fresh = sensor
+        .measure_once(delay, MeasurementConfig::safe_bright_start())
+        .await
+        .expect("fresh measurement failed");
+
+    let _counts = (snapshot.als.counts(), fresh.als.counts());
+}
+```
+
 The crate distinguishes register snapshots from deliberately timed fresh
 measurements, protects threshold-monitor domains, preserves restoration
 failures, and converts ALS counts using integer nominal datasheet scales. It
