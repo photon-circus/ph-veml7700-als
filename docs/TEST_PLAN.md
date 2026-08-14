@@ -17,11 +17,12 @@ failure, cleanup failure, and post-capture restoration failure.
 
 ## Level 3 — Independent autonomous-state model
 
-Model-only tests cover reset, wake and recurring conversion, shutdown retention,
-duration partitions, the documented power-saving cadence table, independently
-scheduled ALS/white refreshes, threshold registers, persistence, and stable
-polled status. White-channel phase skew is an injected test input, not a claim
-about silicon timing.
+Model-only tests cover reset, including undeclared `0x06` remaining unavailable,
+wake and recurring conversion, shutdown retention, duration partitions, the
+documented power-saving cadence table, independently scheduled ALS/white
+refreshes, threshold registers, persistence, and stable polled status.
+White-channel phase skew is an injected test input, not a claim about silicon
+timing.
 
 ## Level 4 — Driver-versus-model I²C conformance
 

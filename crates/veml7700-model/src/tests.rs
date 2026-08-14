@@ -63,11 +63,18 @@ fn reset_state_matches_documented_defaults() {
             Unsupported::NoCompletedConversion(WHITE)
         ))
     );
+    assert_eq!(
+        read_word_result(&mut model, THRESHOLD_STATUS),
+        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
+            THRESHOLD_STATUS
+        )))
+    );
     assert_eq!(read_word(&mut model, ID), DEVICE_ID);
     let snapshot = model.inspect();
     assert_eq!(snapshot.configuration, 0x0001);
     assert_eq!(snapshot.als, None);
     assert_eq!(snapshot.white, None);
+    assert_eq!(snapshot.threshold_status, None);
     assert_eq!(snapshot.als_remaining, None);
     assert_eq!(snapshot.white_remaining, None);
 }
@@ -113,6 +120,12 @@ fn conversion_latches_the_held_pair_at_the_conservative_bound() {
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
     assert_eq!(read_word(&mut model, ALS), 0x1234);
     assert_eq!(read_word(&mut model, WHITE), 0x5678);
+    assert_eq!(
+        read_word_result(&mut model, THRESHOLD_STATUS),
+        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
+            THRESHOLD_STATUS
+        )))
+    );
     assert!(model.inspect().als_remaining.is_some());
     assert!(model.inspect().white_remaining.is_some());
 }
@@ -295,7 +308,12 @@ fn addresses_outside_seven_bit_domain_are_model_limitations() {
 #[test]
 fn threshold_status_is_read_only_and_not_a_device_nack() {
     let mut model = Veml7700Model::new();
-    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), 0);
+    assert_eq!(
+        read_word_result(&mut model, THRESHOLD_STATUS),
+        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
+            THRESHOLD_STATUS
+        )))
+    );
     let write = model.write(I2C_ADDRESS, &[THRESHOLD_STATUS, 0, 0]);
     assert_eq!(
         write,

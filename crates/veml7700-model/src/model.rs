@@ -24,7 +24,7 @@ pub struct Veml7700Model {
     power_saving: u16,
     low_threshold: Option<u16>,
     high_threshold: Option<u16>,
-    threshold_status: u16,
+    threshold_status: Option<u16>,
     held_als: u16,
     held_white: u16,
     completed_als: Option<u16>,
@@ -47,8 +47,8 @@ pub struct Inspection {
     pub low_threshold: Option<u16>,
     /// Programmed high-threshold register word, if observed.
     pub high_threshold: Option<u16>,
-    /// Threshold-status register word.
-    pub threshold_status: u16,
+    /// Threshold-status register word, if a monitored ALS refresh established it.
+    pub threshold_status: Option<u16>,
     /// Last completed ALS output word, if this model has completed a conversion.
     pub als: Option<u16>,
     /// Last completed white output word, if this model has completed a conversion.
@@ -72,7 +72,7 @@ impl Veml7700Model {
             power_saving: RESET_POWER_SAVING,
             low_threshold: None,
             high_threshold: None,
-            threshold_status: 0,
+            threshold_status: None,
             held_als: 0,
             held_white: 0,
             completed_als: None,
@@ -104,6 +104,7 @@ impl Veml7700Model {
     /// Advance autonomous refresh progress by a non-negative relative duration.
     pub fn advance(&mut self, elapsed: RelativeDuration) {
         let mut step = elapsed.as_nanos();
+        // Terminates because refresh_interval_ns never returns Some(0); smallest interval is 130% of 25 ms.
         loop {
             let Some(next) = Self::next_event(self.als_remaining_ns, self.white_remaining_ns)
             else {
@@ -228,7 +229,7 @@ impl Veml7700Model {
             POINTER_POWER_SAVING => Ok(self.power_saving),
             POINTER_ALS => self.read_completed(self.completed_als, pointer),
             POINTER_WHITE => self.read_completed(self.completed_white, pointer),
-            POINTER_THRESHOLD_STATUS => Ok(self.threshold_status),
+            POINTER_THRESHOLD_STATUS => self.read_status(self.threshold_status, pointer),
             POINTER_ID => Ok(DEVICE_ID),
             other => Err(TransportError::Unsupported(Unsupported::RegisterPointer(
                 other,
@@ -251,6 +252,15 @@ impl Veml7700Model {
             None => Err(TransportError::Unsupported(
                 Unsupported::NoCompletedConversion(pointer),
             )),
+        }
+    }
+
+    const fn read_status(&self, value: Option<u16>, pointer: u8) -> Result<u16, TransportError> {
+        match value {
+            Some(value) => Ok(value),
+            None => Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
+                pointer,
+            ))),
         }
     }
 
@@ -375,23 +385,31 @@ impl Veml7700Model {
         let (Some(low), Some(high)) = (self.low_threshold, self.high_threshold) else {
             return;
         };
-        self.low_streak = if self.held_als < low {
+        let Some(als) = self.completed_als else {
+            return;
+        };
+        self.low_streak = if als < low {
             self.low_streak.saturating_add(1)
         } else {
             0
         };
-        self.high_streak = if self.held_als > high {
+        self.high_streak = if als > high {
             self.high_streak.saturating_add(1)
         } else {
             0
         };
         let required = persistence_count(self.configuration);
+        let mut status = match self.threshold_status {
+            Some(value) => value,
+            None => 0,
+        };
         if self.low_streak >= required {
-            self.threshold_status |= STATUS_LOW_BIT;
+            status |= STATUS_LOW_BIT;
         }
         if self.high_streak >= required {
-            self.threshold_status |= STATUS_HIGH_BIT;
+            status |= STATUS_HIGH_BIT;
         }
+        self.threshold_status = Some(status);
     }
 }
 

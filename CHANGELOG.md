@@ -64,6 +64,8 @@ than a change from a prior version.
   `probe` and one successful `measure_once` path after the model gained
   power-saving cadence, threshold monitoring, and sequential channel
   observation.
+- The hardware-contract register map now records which registers have
+  source-declared reset values and which do not.
 
 ### Known issues
 

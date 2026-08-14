@@ -83,10 +83,10 @@ stay provisional and are not physical-support claims.
 | Classification | Included behavior |
 | --- | --- |
 | Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming, persistence and polled status; configuration and power-saving restoration. |
-| Abstracted | Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. |
+| Abstracted | Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
-| Unsupported | Enabled power saving at 25/50 ms; threshold/output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+| Unsupported | Enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ## Source decisions
 
@@ -106,6 +106,16 @@ stay provisional and are not physical-support claims.
   on ALS refresh and assert status after 1, 2, 4, or 8 consecutive qualifying
   results. Reads do not clear status; later clearing semantics remain outside
   the slice.
+- Initial threshold-status history: the sources declare no reset value for
+  `0x06`, and this model asserts flags without ever clearing them, so a
+  refresh that qualifies nothing cannot by itself prove a flag is clear. The
+  model therefore *declares* that construction represents a device with no
+  prior qualification, and the first monitored ALS refresh establishes the
+  whole word from qualification alone. Observable consequence: after that
+  refresh, an unqualified flag reads clear. This is a declared abstraction
+  chosen to keep the polled-status path testable, not a source-backed reset
+  value, and it is the only bit of `0x06` behavior not derived from a
+  qualification transition.
 - Shutdown: entering shutdown prevents further conversion progress and preserves
   the last completed pair.
 - Unsupported interactions: reject or leave unavailable. Do not fabricate a
@@ -126,9 +136,10 @@ stay provisional and are not physical-support claims.
 
 - Model limitations (`TransportError::Unsupported`) are distinct from device
   address NACK. Adapters must preserve that distinction.
-- The pinned sources do not declare reset values for threshold, ALS, or white
-  output registers. Reading an output before conversion or a threshold before
-  programming is an explicit model limitation rather than an invented value.
+- The pinned sources do not declare reset values for threshold, threshold-status
+  (`0x06`), ALS, or white output registers. Reading an output before conversion,
+  a threshold before programming, or threshold status before a monitored ALS
+  refresh is an explicit model limitation rather than an invented value.
 - Later silicon evidence may correct this baseline or introduce a selected
   variant; it must not silently replace the datasheet interpretation.
 - Shared duration types, transport-phase granularity, and multi-device
