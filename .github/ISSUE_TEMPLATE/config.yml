@@ -7,7 +7,7 @@ contact_links:
     url: https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/HARDWARE_CONTRACT.md
     about: The interpreted device contract. Check whether the behavior you saw is already excluded before filing.
   - name: What evidence exists
-    url: https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/TEST_PLAN.md
+    url: https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/VERIFICATION.md
     about: Which test layer establishes which claim, and what none of them establish about silicon.
   - name: Contributing and review criteria
     url: https://github.com/photon-circus/ph-veml7700-als/blob/main/CONTRIBUTING.md

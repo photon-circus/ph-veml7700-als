@@ -1,4 +1,7 @@
-# Test plan
+# Verification
+
+> **Authority: contributor procedure.** Which test layer establishes what.
+> Exact conformance coverage lives in the packaged README, not here.
 
 Each level below establishes something different, and the differences are the
 point. A test at one level must never be cited as evidence for another.

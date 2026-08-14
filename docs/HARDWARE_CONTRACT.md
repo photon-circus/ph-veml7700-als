@@ -1,5 +1,9 @@
 # VEML7700 hardware contract
 
+> **Authority: normative.** Interpreted device behavior. Every device claim in
+> this repository derives from here, and a row is only as strong as its
+> verification state.
+
 Binding interpreted device facts for `ph-veml7700-als`. A checked row means the
 owner has verified the recorded official Vishay source. Unchecked rows remain
 provisional and must not be promoted to physical-support claims.

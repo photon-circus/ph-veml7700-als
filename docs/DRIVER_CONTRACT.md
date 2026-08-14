@@ -1,113 +1,97 @@
-# Public API contract
+# Driver contract
 
-Target v0.1 public surface. Additions require this document and `DECISIONS.md` to
-change first.
+> **Authority: normative.** This is the semantic contract for the public driver:
+> what it owns, what the caller owns, and what each operation promises. A change
+> that contradicts it changes this document first, in the same pull request, with
+> rationale in [`DECISIONS.md`](DECISIONS.md).
 
-Crate policy: `#![no_std]`, `#![forbid(unsafe_code)]`,
-`#![deny(missing_docs)]`, async-first `embedded-hal-async`.
+Crate policy: `#![no_std]`, `#![forbid(unsafe_code)]`, `#![deny(missing_docs)]`,
+async-first `embedded-hal-async`.
 
-Distribution policy: the Incubating candidate is
-`0.1.0-incubating.1`. It can be built and inspected locally, but its Cargo
-manifest retains `publish = false`. Repository visibility and registry
-publication require separate recorded maintainer decisions.
+**Signatures are not recorded here.** The compiler and rustdoc own them, and a
+handwritten inventory only drifts — it was one, and it did. For the public
+surface, read the generated documentation or `crates/veml7700/src/lib.rs`. This
+document records what the surface *means*, which neither of those can express.
 
-## Constants and facade
+Consumer-facing documentation lives in
+[`crates/veml7700/README.md`](../crates/veml7700/README.md), which is also the
+crate documentation. Distribution state is recorded there and in the manifest,
+not repeated here.
 
-```rust
-pub const I2C_ADDRESS: u8 = 0x10;
-pub const WAKE_UP_DELAY_US: u32 = 2_500;
-pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
-pub const MEASUREMENT_MARGIN_US: u32 = 1_000;
+## Product boundary
 
-pub struct Veml7700<I2C> { /* i2c only */ }
+`ph-veml7700-als` is a fixed-address async I²C driver. The caller owns bus
+construction/recovery, delays, scheduling, power, board wiring, optical design,
+calibration, retries, and application policy. The crate owns VEML7700 register
+encoding, complete operations, nominal scaling, and truthful result/error
+reporting.
 
-impl<I2C> Veml7700<I2C> {
-    pub const fn new(i2c: I2C) -> Self;
-    pub fn release(self) -> I2C;
-}
-```
-
-## Value constructors and accessors
-
-The contract includes these public functions:
+## Dependency direction
 
 ```text
-DeviceId::from_raw, raw, device_code, address_option_code, is_supported
-IntegrationTime::milliseconds
-Persistence::count
-MeasurementConfig::new, silicon_reset_default, maximum_range_start, gain, integration_time
-ConfigurationSnapshot::silicon_reset_default
-PowerSavingMode::nominal_refresh_time_ms
-PowerSavingConfig::new, disabled
-MicroLux::from_micro_lux, as_micro_lux, whole_lux_floor, milli_lux_rounded
-NominalScale::for_config, micro_lux_per_count, scale_counts, full_scale_micro_lux
-AlsCounts::from_counts, counts, is_saturated, nominal_micro_lux
-WhiteCounts::from_counts, counts
-Thresholds::new, low, high
-ThresholdMonitorConfig::new
-MeasurementTiming::conservative, with_additional_margin_us,
-integration_time, wake_up_us, integration_us, margin_us, total_us
+application / optical policy
+             |
+             v
+public driver operations
+             |
+             v
+typed VEML7700 codecs and timing policy
+             |
+             v
+embedded-hal-async I²C and delay traits
 ```
 
-Public enums/structs are re-exported from crate root: `Gain`, `IntegrationTime`,
-`Persistence`, `PowerState`, `ThresholdMonitorState`, `MeasurementConfig`,
-`ConfigurationSnapshot`, `PowerSavingMode`, `PowerSavingConfig`,
-`PowerSavingSnapshot`, `DeviceId`, `AlsCounts`, `WhiteCounts`, `MicroLux`,
-`NominalScale`, `SnapshotMeasurement`, `FreshMeasurement`,
-`MeasurementPairCoherence`, `Thresholds`, `ThresholdStatus`,
-`ThresholdMonitorConfig`, `ThresholdStatusDecodeError`, `DeviceSnapshot`,
-`MeasurementTiming`, and the error
-and stage types.
+No layer depends on a concrete HAL, PAC, board, executor, allocator, operating
+system, or physical-test framework.
 
-## Driver operations
+## Driver state
 
-```rust
-impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
-    pub async fn probe(&mut self) -> Result<DeviceId, ProbeError<I2C::Error>>;
-    pub async fn read_device_id(&mut self) -> Result<DeviceId, Error<I2C::Error>>;
-    pub async fn read_configuration(&mut self)
-        -> Result<ConfigurationSnapshot, Error<I2C::Error>>;
-    pub async fn read_power_saving(&mut self)
-        -> Result<PowerSavingSnapshot, Error<I2C::Error>>;
-    pub async fn read_als_snapshot(&mut self)
-        -> Result<AlsCounts, Error<I2C::Error>>;
-    pub async fn read_white_snapshot(&mut self)
-        -> Result<WhiteCounts, Error<I2C::Error>>;
-    pub async fn read_threshold_status(&mut self)
-        -> Result<ThresholdStatus, Error<I2C::Error>>;
-    pub async fn read_thresholds(&mut self)
-        -> Result<Thresholds, Error<I2C::Error>>;
-    pub async fn inspect(&mut self)
-        -> Result<DeviceSnapshot, Error<I2C::Error>>;
-    pub async fn snapshot(&mut self)
-        -> Result<SnapshotMeasurement, Error<I2C::Error>>;
+`Veml7700<I2C>` stores only the I²C resource. Construction is inert and release
+returns the exact resource. Configuration, power-saving state, threshold domain,
+status, samples, and timing deadlines remain device-authoritative.
 
-    pub async fn set_measurement_config(&mut self, config: MeasurementConfig)
-        -> Result<(), Error<I2C::Error>>;
-    pub async fn set_power_state(&mut self, state: PowerState)
-        -> Result<(), Error<I2C::Error>>;
-    pub async fn set_power_saving(&mut self, config: PowerSavingConfig)
-        -> Result<(), Error<I2C::Error>>;
+## Snapshot and fresh measurement
 
-    pub async fn measure_once<D: embedded_hal_async::delay::DelayNs>(
-        &mut self,
-        delay: &mut D,
-        config: MeasurementConfig,
-    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>;
+A snapshot reports observed configuration and sequential ALS/white register
+values without claiming freshness. A complete fresh operation installs a known
+domain in shutdown, creates a shutdown-to-active wake edge, waits a conservative
+integration interval, freezes results in shutdown, reads both channels, and
+restores prior state. Errors retain capture and restoration context.
 
-    pub async fn measure_once_with_timing<D: embedded_hal_async::delay::DelayNs>(
-        &mut self,
-        delay: &mut D,
-        config: MeasurementConfig,
-        timing: MeasurementTiming,
-    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>;
+## Threshold-monitor ownership
 
-    pub async fn arm_threshold_monitor(&mut self, config: ThresholdMonitorConfig)
-        -> Result<(), ThresholdMonitorError<I2C::Error>>;
-    pub async fn disable_threshold_monitor(&mut self)
-        -> Result<(), Error<I2C::Error>>;
-}
-```
+The monitored domain includes gain, integration time, thresholds, persistence,
+power-saving cadence, and active state. Arming is disable-first and enable-last.
+Ordinary methods reject changes that would silently retarget an enabled monitor.
+No GPIO abstraction exists because status is polled over I²C.
+
+## Optical boundary
+
+Integer `MicroLux` uses the vendor's nominal resolution table. It is not
+calibrated lux at a product aperture. Window transmission, geometry, spectrum,
+cosine response, part tolerance, high-lux correction, and auto-ranging belong
+to a separately reviewed integration layer or application.
+
+## Independent model
+
+The independent device behavioral model is `ph-veml7700-als-model`. It is derived
+from `HARDWARE_CONTRACT.md` without driver codecs or timing helpers and is
+observed through the I²C boundary. Driver-versus-model tests configure and
+observe the device through public `Veml7700` operations; only raw samples,
+relative time, and explicitly injected white-channel scheduling skew bypass that
+boundary.
+
+The maintained claim is
+[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
+
+## Explicit non-goals
+
+- calibrated optical measurement or metrology
+- MCU examples, board support, or physical fixtures
+- automatic ranging or correction policy
+- VEML6030 family abstraction
+- raw-register API
+- registry credentials or automatic publication
 
 ## Semantic contracts
 

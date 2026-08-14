@@ -1,5 +1,10 @@
 # Invariants and rejections
 
+> **Authority: normative.** Review-blocking truths. A change that violates one
+> is rejected, or the invariant changes first with rationale in
+> [`DECISIONS.md`](DECISIONS.md).
+
+
 ## Runtime
 
 - **I-1:** runtime code is `no_std`, allocation-free, and unsafe-free.
@@ -50,6 +55,9 @@
 - **I-26:** vendor PDFs remain untracked; the retrieval record in
   `docs/vendor/README.md` and the model's source declaration state the same
   digests.
+- **I-28:** every example compiles as a doctest unless explicitly marked
+  `ignore` with a recorded reason. An example that cannot compile is a claim
+  nobody checks.
 - **I-27:** repository visibility and registry publication require separate,
   explicit maintainer decisions; neither follows from preparation alone.
 
