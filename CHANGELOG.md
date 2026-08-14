@@ -55,12 +55,6 @@ than a change from a prior version.
 - Documented release procedure separating candidate preparation, repository
   visibility, and registry publication into explicit maintainer decisions.
 
-### Changed
-
-- The independent model no longer invents a `0x0000` reset for threshold status
-  (`0x06`). Reading that register before a monitored ALS refresh is a model
-  limitation, matching undeclared threshold and output reset values.
-
 ### Documentation
 
 - Removed stale coupled-fake references, deleted the `docs/` index that restated

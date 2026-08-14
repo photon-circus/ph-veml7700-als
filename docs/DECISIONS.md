@@ -164,7 +164,7 @@ an `-incubating.N` prerelease identifier. A version bump therefore edits the
 manifests, and the gate keeps verifying the declared distribution state without
 holding another copy of the literal.
 
-## D-022 — Undeclared reset values stay unavailable
+## D-023 — Undeclared reset values stay unavailable
 
 The hardware-contract register map records which words have a source-declared
 reset and which do not. Configuration (`0x00`) resets to `0x0001` and
@@ -178,3 +178,14 @@ until an explicit input establishes them: a threshold write, a completed
 conversion, or a completed ALS refresh while the monitor is enabled. Inventing
 `0x0000` for threshold status would make a fresh `read_threshold_status()`
 decode to both flags clear with no source backing.
+
+One residue is unavoidable and is therefore declared rather than hidden. Because
+this model asserts threshold flags and never clears them, a refresh that
+qualifies nothing cannot prove a flag is clear, so the establishing refresh
+cannot derive the whole `0x06` word from transitions alone. The model declares
+that construction represents a device with no prior qualification; the
+observable consequence is that an unqualified flag reads clear after the first
+monitored refresh. The alternative — tracking each flag's knowledge separately —
+would leave `0x06` unavailable whenever a flag never qualifies, which is the
+ordinary case, and would make the driver's polled-status path untestable for no
+gain in evidence.
