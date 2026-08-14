@@ -147,6 +147,59 @@ than a change from a prior version.
 
 ### Changed
 
+- Every host `cargo test` in the canonical gate now passes an explicit
+  `--target`, resolved from `rustc -vV` rather than assumed. Without it Cargo
+  writes test executables straight into `target/debug`, where a Windows
+  Application Control policy intermittently refuses to launch them:
+  `Couldn't run the test: An Application Control policy has blocked this file.
+  (os error 4551)`.
+
+  The tests passed; the harness could not start the binary it had just built.
+  It surfaced as the gate failing at a *different* doctest step on each run,
+  which is the worst shape a gate failure can take — it reads as flakiness in
+  the code under test, and the natural response is to re-run until green. An
+  authoritative gate that is sometimes wrong about its own subject is worse than
+  a slow one.
+- The model no longer invents its own stimuli. `Veml7700Model::new` takes a
+  required `RetainedInputs` carrying the raw ALS/white pair and the white-channel
+  phase offset, and `Default` is gone rather than reimplemented.
+
+  Construction used to zero all three, so a harness that woke the model without
+  calling `set_raw_sample` received a conversion reporting **zero ambient
+  light** — a reading it never supplied. Nothing failed, which is the point:
+  zero is a plausible ALS value, so the fabricated sample flowed through
+  conversions, threshold comparisons and driver-versus-model traces looking
+  exactly like an injected one.
+
+  That is now the third instance of one pattern, and the model README states the
+  rule rather than the incident: **an invented value does not produce a
+  conformance failure, it produces agreement.** The persistence rule was
+  withdrawn, register `0x03`'s reset value was declared as an assumption, and the
+  retained sample is now required. Where the model would otherwise guess, it must
+  declare the guess or refuse to run.
+- `RelativeDuration::from_micros` rejects overflow instead of saturating, and
+  gains `try_from_micros` for non-literal input. Saturation silently substituted
+  roughly 584 years of virtual time for whatever was asked, and every later
+  assertion was then made against a timeline nobody chose. `RelativeDuration`
+  also gains `ZERO`, so "no offset" is written rather than defaulted.
+- `advance` rejects steps beyond the new `MAX_ADVANCE` (one hour of virtual
+  time), **before any mutation**, so a caller that catches the rejection observes
+  an unchanged model. Recorded as D-031, which states that this is a
+  model-domain constraint rather than a performance guard — the difference
+  decides whether raising it is safe — and why the loop rejects instead of
+  batching event-free recurrence. The loop runs once per refresh event and the shortest
+  recurrence is about 32.5 ms, so a `u64::MAX` nanosecond input implied roughly
+  568 billion iterations — not an error, just a hang, which is the worst way for
+  a suite to report a bad argument.
+- The white-channel wake edge is computed with a checked add rather than a
+  saturating one. Bounding the phase offset where it enters the model makes
+  overflow unrepresentable, so the check is unreachable today and stays loud if
+  that bound is ever loosened.
+- Model tests cover **all six integration times** immediately before and exactly
+  at their first conversion boundary; only 100 ms was covered. A boundary
+  computed from the wrong integration constant is exactly the defect this model
+  exists to catch in the driver, so leaving five of six untested left the oracle
+  unchecked at the value it is asked about most. Model tests 25 → 30.
 - Driver-versus-model conformance moved out of the driver package into a third
   workspace package, `tests/conformance` (`ph-veml7700-als-conformance`,
   unpublished, `0.0.0`). The dependency arrow is now

@@ -505,3 +505,66 @@ qualification rule, so it declares undefined instead.
 A consequence worth stating plainly: this makes the model's covered surface
 smaller. That is the correct direction. A narrower oracle that is sound beats a
 broader one that manufactures agreement.
+
+## D-031 — The model's time domain is bounded, and rejects rather than batches
+
+**Date:** 2026-08-14 **Status:** Current
+
+`Veml7700Model::advance` accepts one hour of virtual time per step and panics
+above it. `MAX_ADVANCE` is a **model-domain constraint, not a performance
+guard**, and the distinction decides whether raising it is safe.
+
+### Why a bound exists
+
+`advance` loops once per refresh event. The shortest recurrence the model can
+select is 130 % of 25 ms — about 32.5 ms — so a `u64::MAX` nanosecond input
+implies roughly 568 billion iterations. That is not an error a suite reports; it
+is a hang, which is the worst available outcome. A test that hangs gives a
+maintainer no argument, no line number, and no failing assertion.
+
+### Why reject rather than batch
+
+Batching event-free recurrence was the alternative, and it is rejected as a
+correctness risk disguised as an optimization.
+
+Collapsing N refreshes into arithmetic requires proving that N refreshes are
+observationally equivalent to some closed form. Today they nearly are — the
+held pair is constant across them and threshold status is monotonic — but "nearly"
+is doing real work in that sentence, and it would stop being true the moment the
+model gains a per-refresh behavior that is not idempotent. The equivalence proof
+would then be wrong silently, in the direction of the model agreeing with the
+driver about a timeline neither had actually walked. That is the failure mode
+this repository keeps finding, and it is not worth reintroducing to make a test
+that should not exist run faster.
+
+The literal loop is slow only for inputs that are already defects.
+
+### Why one hour
+
+It is generous against every cadence the model can select. The longest is 800 ms
+integration plus a 4 s Mode 4 refresh, so an hour is roughly 750 refreshes; at
+the shortest cadence it is about 110,000 iterations, which is microseconds of
+work. No legitimate scenario in this slice needs a single step that long.
+
+The number is not derived from the device and claims nothing about it. It is the
+point past which a single step is more likely a units mistake — nanoseconds
+supplied where microseconds were meant — than a scenario.
+
+### What raising it would mean
+
+Raising the bound is safe for iteration cost up to roughly a day. Beyond that,
+reconsider the loop rather than the constant. What raising it does **not** do is
+change any device claim: the bound is a statement about what this harness will
+accept, not about how long a VEML7700 runs.
+
+The same constant bounds the injected white-channel phase offset, which is what
+makes the white wake edge provably non-overflowing rather than saturating. Any
+change to `MAX_ADVANCE` has to keep that argument intact — the wake edge is
+`conversion_bound + offset`, and the checked add there exists to stay loud if
+this reasoning is ever loosened without being rechecked.
+
+### Rejection happens before mutation
+
+A caller that catches the panic observes an unchanged model. Without that, a
+rejected advance would be indistinguishable from one that ran partway and
+stopped, and the model's own tests could not tell the difference either.

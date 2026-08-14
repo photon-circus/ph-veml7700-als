@@ -68,14 +68,41 @@ interpretation matches a recorded document establishes nothing about silicon.
 - Address values outside `0x00..=0x7F` are model-input limitations, not device
   NACKs. Other valid 7-bit addresses receive the modeled address NACK.
 - Applied stimuli: a persistent raw pair `{ als_counts, white_counts }`. This is
-  the result available to a completed conversion, not ambient lux.
-- Relative-duration input: non-negative nanosecond-resolution elapsed duration.
-  Driver `DelayNs` requests must reach this same input in conformance tests.
+  the result available to a completed conversion, not ambient lux. It is
+  **required at construction** via `RetainedInputs` and has no default — see
+  below.
+- Relative-duration input: non-negative nanosecond-resolution elapsed duration,
+  bounded by `MAX_ADVANCE` (one hour of virtual time) per step. Driver `DelayNs`
+  requests must reach this same input in conformance tests.
 - Injected white-channel phase offset: non-negative relative duration applied to
   future wake edges. It creates test scheduling topology and is not a silicon
   timing claim.
 - Injected events: no POR, transport fault, or flag-clear event. Construction
   starts from the documented reset/default configuration state.
+
+#### The model does not invent stimuli
+
+`Veml7700Model::new` takes `RetainedInputs` and there is no `Default`.
+Construction previously zeroed the held sample and the white phase offset, so a
+harness that woke the model without injecting a sample received a conversion
+reporting **zero ambient light** — a reading it never supplied.
+
+Nothing failed, which is the point. Zero is a plausible ALS value, so the
+fabricated sample flowed through conversions, threshold comparisons and
+driver-versus-model traces looking exactly like an injected one.
+
+This is the third instance of one pattern in this crate, and the reason it is
+stated here rather than in a changelog entry: **an invented value does not
+produce a conformance failure, it produces agreement.** The persistence rule
+(withdrawn), the register `0x03` reset value (declared as an assumption), and now
+the retained sample (made required). The rule that follows is the one worth
+carrying forward — where this model would otherwise guess, it must either declare
+the guess or refuse to run.
+
+Two smaller cases of the same shape were closed alongside it. `from_micros` used
+to saturate, silently substituting roughly 584 years for whatever was asked; it
+now rejects overflow. The white-channel wake edge used to saturate; it is now
+provably non-overflowing because the offset is bounded where it enters.
 
 ### Outputs and observations
 
@@ -104,7 +131,7 @@ interpretation matches a recorded document establishes nothing about silicon.
 | --- | --- |
 | Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming at every protect number, and polled status at protect number one; configuration and power-saving restoration. |
 | Abstracted | **Three declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
-| Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
+| Injected | Raw ALS/white pair and white-channel phase offset, both required at construction; relative elapsed duration, bounded per step. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
 | Unsupported | Threshold qualification above protect number one, whose rule the sources never state (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 

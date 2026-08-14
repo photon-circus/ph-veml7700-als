@@ -26,7 +26,8 @@ use embedded_hal_async::i2c::{
 };
 use ph_veml7700_als::Veml7700;
 use ph_veml7700_als_model::{
-    NoAcknowledgeSource, RelativeDuration, TransportError, Unsupported, Veml7700Model,
+    NoAcknowledgeSource, RelativeDuration, RetainedInputs, TransportError, Unsupported,
+    Veml7700Model,
 };
 
 #[derive(Clone)]
@@ -137,8 +138,7 @@ impl DelayNs for ModelDelay {
 }
 
 pub fn connected_model(sample_als: u16, sample_white: u16) -> (Veml7700<ModelI2c>, ModelDelay) {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(sample_als, sample_white);
+    let model = Veml7700Model::new(RetainedInputs::new(sample_als, sample_white));
     let shared = SharedModel(Rc::new(RefCell::new(model)));
     (Veml7700::new(ModelI2c(shared.clone())), ModelDelay(shared))
 }

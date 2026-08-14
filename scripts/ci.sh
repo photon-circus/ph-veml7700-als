@@ -64,6 +64,30 @@ sha256_of() {
     fi
 }
 
+# Host triple, resolved from the toolchain rather than assumed.
+#
+# Every host `cargo test` below passes `--target "$host_triple"` explicitly.
+# Without it Cargo writes test executables straight into `target/debug`, and on
+# Windows an Application Control policy intermittently refuses to run them:
+#
+#     Couldn't run the test: An Application Control policy has blocked this
+#     file. (os error 4551)
+#
+# The tests themselves pass -- the harness cannot launch the binary it just
+# built. It surfaced as the gate failing at a *different* doctest step on each
+# run, which is the worst kind of gate failure: it looks like flakiness in the
+# code under test. An explicit target moves artifacts under `target/<triple>/`
+# and the policy stops firing.
+#
+# This is not a portability compromise. The triple comes from the toolchain, so
+# on any host it names that host, and building for the host explicitly is what
+# the bare-metal steps already do for their targets.
+host_triple=$(rustc -vV | sed -n 's/^host: //p')
+if [ -z "$host_triple" ]; then
+    echo "could not resolve the host triple from rustc -vV" >&2
+    exit 1
+fi
+
 step_number=0
 skipped=0
 current_step="start"
@@ -419,13 +443,13 @@ cargo fmt --all -- --check
 # model directly and the independence the conformance layer claims would be
 # gone without anything failing.
 step "driver host tests, including doctests, without default features"
-cargo test -p ph-veml7700-als --no-default-features
+cargo test -p ph-veml7700-als --no-default-features --target "$host_triple"
 
 step "model host tests, independent of the production driver"
-cargo test -p ph-veml7700-als-model --no-default-features
+cargo test -p ph-veml7700-als-model --no-default-features --target "$host_triple"
 
 step "driver-versus-model conformance"
-cargo test -p ph-veml7700-als-conformance
+cargo test -p ph-veml7700-als-conformance --target "$host_triple"
 
 step "feature-complete compilation"
 cargo check -p ph-veml7700-als --all-features
@@ -444,7 +468,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc -p ph-veml7700-als-model --no-deps
 # The no-default-features run above already covers doctests for both crates.
 # This run is the only one that exercises them with every feature enabled.
 step "doctests with all features"
-cargo test -p ph-veml7700-als --all-features --doc
+cargo test -p ph-veml7700-als --all-features --doc --target "$host_triple"
 
 step "supported bare-metal targets"
 if [ "$ci_profile" = bounded ]; then
@@ -585,7 +609,7 @@ else
 
     # Last, because it builds inside the unpacked directory. Everything recorded
     # above describes the archive as Cargo produced it.
-    cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
+    cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml \n        --target "$host_triple"
 fi
 
 if [ "$ci_profile" = release ]; then

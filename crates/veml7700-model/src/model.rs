@@ -61,23 +61,108 @@ pub struct Inspection {
     pub white_remaining: Option<RelativeDuration>,
 }
 
+/// Largest single [`Veml7700Model::advance`] step: one hour of virtual time.
+///
+/// Generous against every cadence this model can select — the longest is 800 ms
+/// integration plus a 4 s Mode 4 refresh, so an hour is roughly 750 refreshes
+/// and about 110,000 loop iterations at the shortest cadence. Both are trivial.
+///
+/// The bound exists because the alternative to a bound is a hang. It is not a
+/// claim that an hour is meaningful to the device; it is the point past which a
+/// single step is more likely a units mistake than a scenario.
+///
+/// **This is a model-domain constraint, not a performance guard.** D-031 records
+/// why the loop rejects rather than batching event-free recurrence, and what a
+/// maintainer has to keep intact when changing this value — notably that the
+/// same constant is what makes the white-channel wake edge provably
+/// non-overflowing.
+pub const MAX_ADVANCE: RelativeDuration = RelativeDuration::from_nanos(3_600_000_000_000);
+
+/// Stimuli a harness must supply before the model can produce a conversion.
+///
+/// # Why these are required rather than defaulted
+///
+/// `Veml7700Model::new()` used to zero all three. A harness that woke the model
+/// without calling `set_raw_sample` then received a conversion reporting zero
+/// ambient light — a reading it never supplied and the model had no basis for.
+///
+/// Nothing failed, which is the problem. Zero is a plausible ALS value, so the
+/// fabricated sample flowed through conversions, threshold comparisons and
+/// driver-versus-model traces looking exactly like an injected one. This is the
+/// same shape as the persistence rule removed in #56: **an invented value does
+/// not produce a failure, it produces agreement.**
+///
+/// Requiring them at construction makes the omission unrepresentable rather
+/// than merely discouraged. A harness that has not decided what the device is
+/// looking at cannot build a model, which is the correct outcome — that
+/// decision is the harness's to make, and defaulting it silently made it the
+/// model's.
+///
+/// `Default` is deliberately **not** implemented. It would reintroduce the
+/// zeroed construction through a different name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RetainedInputs {
+    /// Raw ALS counts available to a completed conversion. Not ambient lux.
+    pub als_counts: u16,
+    /// Raw white-channel counts available to a completed conversion.
+    pub white_counts: u16,
+    /// Offset applied to white-channel wake edges.
+    ///
+    /// Test scheduling topology, not a claim about silicon phase relationship.
+    /// [`RelativeDuration::ZERO`] is the ordinary choice and says so explicitly.
+    pub white_phase_offset: RelativeDuration,
+}
+
+impl RetainedInputs {
+    /// Construct with no white-channel phase offset.
+    ///
+    /// The common case, written so a harness that does not care about channel
+    /// skew still states the sample it is injecting.
+    #[must_use]
+    pub const fn new(als_counts: u16, white_counts: u16) -> Self {
+        Self {
+            als_counts,
+            white_counts,
+            white_phase_offset: RelativeDuration::ZERO,
+        }
+    }
+
+    /// Return these inputs with an injected white-channel phase offset.
+    #[must_use]
+    pub const fn with_white_phase_offset(mut self, offset: RelativeDuration) -> Self {
+        self.white_phase_offset = offset;
+        self
+    }
+}
+
 impl Veml7700Model {
     /// Construct the documented reset/default state needed by this slice.
+    ///
+    /// The retained inputs are **required**, not defaulted. See
+    /// [`RetainedInputs`] for why.
+    ///
+    /// # Panics
+    ///
+    /// If the white-channel phase offset exceeds [`MAX_ADVANCE`].
     #[must_use]
-    pub const fn new() -> Self {
+    pub const fn new(retained: RetainedInputs) -> Self {
+        assert!(
+            retained.white_phase_offset.as_nanos() <= MAX_ADVANCE.as_nanos(),
+            "white-channel phase offset exceeds the maximum advance bound"
+        );
         Self {
             configuration: RESET_CONFIGURATION,
             power_saving: RESET_POWER_SAVING,
             low_threshold: None,
             high_threshold: None,
             threshold_status: None,
-            held_als: 0,
-            held_white: 0,
+            held_als: retained.als_counts,
+            held_white: retained.white_counts,
             completed_als: None,
             completed_white: None,
             als_remaining_ns: None,
             white_remaining_ns: None,
-            white_phase_offset_ns: 0,
+            white_phase_offset_ns: retained.white_phase_offset.as_nanos(),
         }
     }
 
@@ -93,12 +178,41 @@ impl Veml7700Model {
     ///
     /// The offset is test scheduling topology, not a claim about silicon phase.
     /// Changing it while active does not alter the already scheduled refresh.
+    ///
+    /// # Panics
+    ///
+    /// If `offset` exceeds [`MAX_ADVANCE`]. The bound is what makes the white
+    /// wake edge provably non-overflowing rather than saturating.
     pub const fn set_white_phase_offset(&mut self, offset: RelativeDuration) {
+        assert!(
+            offset.as_nanos() <= MAX_ADVANCE.as_nanos(),
+            "white-channel phase offset exceeds the maximum advance bound"
+        );
         self.white_phase_offset_ns = offset.as_nanos();
     }
 
     /// Advance autonomous refresh progress by a non-negative relative duration.
+    ///
+    /// # Panics
+    ///
+    /// If `elapsed` exceeds [`MAX_ADVANCE`].
+    ///
+    /// The loop below runs once per refresh event, and the smallest recurrence
+    /// this model can produce is 130 % of 25 ms — about 32.5 ms. A `u64::MAX`
+    /// nanosecond input therefore implies on the order of **568 billion**
+    /// iterations: not an error, just a hang, which is the worst way for a test
+    /// suite to report a bad argument.
+    ///
+    /// The input is rejected **before any mutation**, so a caller that catches
+    /// the panic observes an unchanged model rather than a partially advanced
+    /// one.
     pub fn advance(&mut self, elapsed: RelativeDuration) {
+        assert!(
+            elapsed <= MAX_ADVANCE,
+            "advance of {} ns exceeds the {} ns bound; a single step longer than an hour of virtual time is a defect in the harness, not a scenario",
+            elapsed.as_nanos(),
+            MAX_ADVANCE.as_nanos()
+        );
         let mut step = elapsed.as_nanos();
         // Terminates because refresh_interval_ns never returns Some(0); smallest interval is 130% of 25 ms.
         loop {
@@ -327,7 +441,17 @@ impl Veml7700Model {
                 ));
             };
             self.als_remaining_ns = Some(first);
-            self.white_remaining_ns = Some(first.saturating_add(self.white_phase_offset_ns));
+            // Not saturating. Saturation here would silently reschedule the
+            // white channel to a boundary nobody chose, and the test asserting
+            // against it would still pass. The sum cannot overflow because the
+            // offset is bounded by MAX_ADVANCE wherever it enters the model and
+            // `first` is at most the wake allowance plus 130 % of 800 ms -- so
+            // this panic is unreachable today, and stays loud if that bound is
+            // ever loosened.
+            let Some(white_first) = first.checked_add(self.white_phase_offset_ns) else {
+                panic!("white-channel wake edge overflows nanosecond resolution")
+            };
+            self.white_remaining_ns = Some(white_first);
         }
         self.configuration = word;
         Ok(())
@@ -415,8 +539,6 @@ impl Veml7700Model {
     }
 }
 
-impl Default for Veml7700Model {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// `Default` is deliberately not implemented. It would have to invent the
+// retained sample, which is the fabrication `RetainedInputs` exists to prevent
+// -- and it would do so under a name that reads like a safe convenience.
