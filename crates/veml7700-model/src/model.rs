@@ -70,6 +70,12 @@ pub struct Inspection {
 /// The bound exists because the alternative to a bound is a hang. It is not a
 /// claim that an hour is meaningful to the device; it is the point past which a
 /// single step is more likely a units mistake than a scenario.
+///
+/// **This is a model-domain constraint, not a performance guard.** D-031 records
+/// why the loop rejects rather than batching event-free recurrence, and what a
+/// maintainer has to keep intact when changing this value — notably that the
+/// same constant is what makes the white-channel wake edge provably
+/// non-overflowing.
 pub const MAX_ADVANCE: RelativeDuration = RelativeDuration::from_nanos(3_600_000_000_000);
 
 /// Stimuli a harness must supply before the model can produce a conversion.

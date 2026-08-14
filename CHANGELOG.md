@@ -171,7 +171,10 @@ than a change from a prior version.
   also gains `ZERO`, so "no offset" is written rather than defaulted.
 - `advance` rejects steps beyond the new `MAX_ADVANCE` (one hour of virtual
   time), **before any mutation**, so a caller that catches the rejection observes
-  an unchanged model. The loop runs once per refresh event and the shortest
+  an unchanged model. Recorded as D-031, which states that this is a
+  model-domain constraint rather than a performance guard — the difference
+  decides whether raising it is safe — and why the loop rejects instead of
+  batching event-free recurrence. The loop runs once per refresh event and the shortest
   recurrence is about 32.5 ms, so a `u64::MAX` nanosecond input implied roughly
   568 billion iterations — not an error, just a hang, which is the worst way for
   a suite to report a bad argument.
