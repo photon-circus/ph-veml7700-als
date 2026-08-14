@@ -3,9 +3,18 @@
 Do not commit vendor PDFs unless redistribution terms explicitly permit it.
 Pin, hash, and review local copies instead.
 
-`docs/vendor/*` is ignored by Git, so vendor documents are never tracked in or
-redistributed from this repository. Changing that guardrail requires prior owner
-documentation of permissive redistribution rights.
+Three guardrails keep vendor documents out, in increasing order of strength:
+
+- `docs/vendor/*` is ignored by Git, which prevents an accidental `git add`;
+- `/docs/vendor/*.pdf export-ignore` in `.gitattributes` keeps any such file out
+  of `git archive` output and the GitHub source tarballs;
+- `scripts/ci.sh` fails if `git ls-files docs/vendor` reports anything other
+  than this README, which is what actually enforces the claim against a
+  deliberate `git add -f` or a file tracked before the rule existed.
+
+Only the last is an enforcement check; the ignore rule alone is a default, not a
+guarantee. Changing any of the three requires prior owner documentation of
+permissive redistribution rights.
 
 ## Required sources
 

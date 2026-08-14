@@ -6,6 +6,7 @@ repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 cd "$repo_root"
 
 step_number=0
+skipped=0
 current_step="start"
 
 report_outcome() {
@@ -22,6 +23,11 @@ step() {
     printf '\n[ci %02d] %s\n' "$step_number" "$current_step"
 }
 
+skip() {
+    skipped=$((skipped + 1))
+    printf '        SKIP: %s\n' "$1"
+}
+
 step "verify the Incubating candidate version"
 driver_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/veml7700/Cargo.toml | head -n 1)
 expected_driver_version=0.1.0-incubating.1
@@ -29,6 +35,42 @@ if [ "$driver_version" != "$expected_driver_version" ]; then
     echo "driver version must be $expected_driver_version: $driver_version" >&2
     exit 1
 fi
+
+# `.gitignore` keeps vendor documents out by default, but `git add -f` and any
+# previously tracked file bypass it. This check is what actually enforces the
+# untracked claim in `docs/vendor/README.md` and I-26.
+step "vendor documents remain untracked"
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    tracked_vendor=$(git ls-files docs/vendor | grep -v '^docs/vendor/README\.md$' || true)
+    if [ -n "$tracked_vendor" ]; then
+        printf 'vendor documents must not be tracked:\n%s\n' "$tracked_vendor" >&2
+        exit 1
+    fi
+else
+    skip "no Git work tree, so tracked vendor documents cannot be checked"
+fi
+
+# The packaged README and crate documentation are what a consumer reads. They
+# drifted apart once already; this keeps the required disclosure identical.
+step "status disclosures agree across README, packaged README, and lib.rs"
+disclosure() {
+    sed -n '/\*\*Lifecycle:\*\*/,/hardware qualification\./p' "$1" \
+        | sed -e 's|^[[:space:]]*//!||' -e 's|^[[:space:]]*>||' \
+        | tr '\n' ' ' | tr -s '[:space:]' ' ' | sed -e 's|^ ||' -e 's| $||'
+}
+root_disclosure=$(disclosure README.md)
+if [ -z "$root_disclosure" ]; then
+    echo "no status disclosure found in README.md" >&2
+    exit 1
+fi
+for disclosure_file in crates/veml7700/README.md crates/veml7700/src/lib.rs; do
+    other_disclosure=$(disclosure "$disclosure_file")
+    if [ "$root_disclosure" != "$other_disclosure" ]; then
+        printf '%s disclosure differs from README.md\n  README.md: %s\n  %s: %s\n' \
+            "$disclosure_file" "$root_disclosure" "$disclosure_file" "$other_disclosure" >&2
+        exit 1
+    fi
+done
 
 step "formatting"
 cargo fmt --all -- --check
@@ -81,6 +123,6 @@ cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_t
 cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
 
 trap - EXIT
-printf '\n[ci] PASS: %s steps, 0 skipped.\n' "$step_number"
+printf '\n[ci] PASS: %s steps, %s skipped.\n' "$step_number" "$skipped"
 printf '[ci] This gate establishes the implemented host boundary only. It does\n'
 printf '[ci] not establish physical-device or calibrated-optical behavior.\n'

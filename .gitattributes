@@ -3,3 +3,8 @@
 *.ps1 text eol=crlf
 *.bin binary
 *.pdf binary
+
+# Defence in depth beside .gitignore and the canonical gate's tracked-vendor
+# check: if a vendor document is ever force-added, keep it out of `git archive`
+# and the GitHub source tarballs.
+/docs/vendor/*.pdf export-ignore

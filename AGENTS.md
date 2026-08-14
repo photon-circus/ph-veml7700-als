@@ -56,11 +56,14 @@ The compiler cannot catch any of these.
   silently. Grep for the literal before and after any bump.
 - **The status disclosure lives in three places** that must agree word for word:
   root `README.md`, the packaged `crates/veml7700/README.md`, and the `lib.rs`
-  crate documentation. The packaged two are the ones a consumer sees.
+  crate documentation. The packaged two are the ones a consumer sees. The gate
+  compares all three after normalizing `>` and `//!` prefixes and line wrapping,
+  so only the wording is free. Keep the disclosure to the four profile facts;
+  the coupled fake is not one of them and belongs in prose instead.
 - **Vendor provenance lives in two places:** `docs/vendor/README.md` holds the
   retrieval record and `crates/veml7700-model/README.md` repeats the digests as
-  part of the model's source declaration. They are coupled; the model README is
-  canonical when they disagree.
+  part of the model's source declaration. They are coupled but not gate-checked;
+  the model README is canonical when they disagree.
 - **Packaging is pinned to the repository `target/` directory** on purpose. See
   D-017: Cargo excludes only that path from workspace member discovery, so an
   extracted package placed anywhere else inside the repository becomes

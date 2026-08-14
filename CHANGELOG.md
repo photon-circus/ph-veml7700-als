@@ -32,6 +32,10 @@ than a change from a prior version.
   host tests, lints with warnings denied, rustdoc, five bare-metal targets,
   dependency and license policy, package construction and inspection, and tests
   against the unpacked distributable package.
+- Two claim checks in that gate, so the repository's load-bearing promises fail
+  loudly rather than drift: vendor documents must not be tracked, and the
+  required status disclosure must be identical in the root README, the packaged
+  crate README, and the crate documentation.
 - Documented release procedure separating candidate preparation, repository
   visibility, and registry publication into explicit maintainer decisions.
 
