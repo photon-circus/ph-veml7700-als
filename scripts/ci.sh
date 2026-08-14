@@ -43,13 +43,32 @@ skip() {
     printf '        SKIP: %s\n' "$1"
 }
 
+# Both workspace crates share one version, so drift between them fails here
+# rather than surfacing at release assembly. The exact version is not repeated
+# in this script: it is read from the driver manifest, and only the
+# lifecycle-matching prerelease identifier is asserted. A bump therefore edits
+# the manifests, not the gate.
 step "verify the Incubating candidate version"
-driver_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/veml7700/Cargo.toml | head -n 1)
-expected_driver_version=0.1.0-incubating.1
-if [ "$driver_version" != "$expected_driver_version" ]; then
-    echo "driver version must be $expected_driver_version: $driver_version" >&2
+manifest_version() {
+    sed -n 's/^version = "\([^"]*\)"/\1/p' "$1" | head -n 1
+}
+expected_lifecycle=incubating
+driver_version=$(manifest_version crates/veml7700/Cargo.toml)
+model_version=$(manifest_version crates/veml7700-model/Cargo.toml)
+if [ "$driver_version" != "$model_version" ]; then
+    printf 'workspace crates must share one version: driver %s, model %s\n' \
+        "$driver_version" "$model_version" >&2
     exit 1
 fi
+case $driver_version in
+    *"-$expected_lifecycle."[0-9]*) ;;
+    *)
+        printf 'version must carry a -%s.N prerelease: %s\n' \
+            "$expected_lifecycle" "$driver_version" >&2
+        exit 1
+        ;;
+esac
+printf '        candidate version %s\n' "$driver_version"
 
 # `.gitignore` keeps vendor documents out by default, but `git add -f` and any
 # previously tracked file bypass it. This check is what actually enforces the

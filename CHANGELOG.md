@@ -40,6 +40,9 @@ than a change from a prior version.
   loudly rather than drift: vendor documents must not be tracked, and the
   required status disclosure must be identical in the root README, the packaged
   crate README, and the crate documentation.
+- One version across both workspace crates, `0.1.0-incubating.1`, with the gate
+  failing on divergence and asserting the lifecycle-matching prerelease without
+  storing a second copy of the literal.
 - Bounded GitHub Actions workflow running the `bounded` profile of that same
   script, so there is no second implementation of the gate. It cancels
   superseded pull-request runs, pins its one third-party action to a commit
@@ -69,8 +72,6 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- The model crate's version convention is undecided relative to the driver's
-  lifecycle-matching prerelease. See issue #12.
 - Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
   retrieved documents and their digests, but the hardware-contract verification
   boxes remain unchecked and are not physical-support claims.
