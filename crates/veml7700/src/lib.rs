@@ -52,9 +52,11 @@
 //! **Distribution:** Unpublished; the candidate version is
 //! `0.1.0-incubating.1` and the manifest retains `publish = false`.
 //!
-//! **Model conformance:** An independent I²C-level model covers `probe` and one
-//! successful `measure_once` path only. All other public operations are outside
-//! the current model claim.
+//! **Model conformance:** An independent I²C-level model covers `probe`, fresh
+//! measurement, power-saving cadence, threshold monitoring, and sequential
+//! ALS/white observation. Transport faults, arbitrary active reconfiguration,
+//! threshold-flag clearing, source-undeclared reset values, and unexercised
+//! public operations remain outside the current model claim.
 //!
 //! **Physical evidence:** None. No reviewed physical or calibrated-optical
 //! evidence exists. Evidence applies only to the named operations, and eventual

@@ -57,6 +57,10 @@ than a change from a prior version.
 - Removed stale coupled-fake references, deleted the `docs/` index that restated
   the contract table, and replaced repeated model nonclaims with links to
   `crates/veml7700-model/README.md`.
+- Corrected the status disclosure, which still described model coverage as
+  `probe` and one successful `measure_once` path after the model gained
+  power-saving cadence, threshold monitoring, and sequential channel
+  observation.
 
 ### Known issues
 

@@ -7,5 +7,6 @@
   sequential reads.
 - Every nominal illuminance method states that it is not calibrated system lux.
 - Every complete multi-step operation documents restoration and uncertainty.
+- Examples compile as doctests unless explicitly marked `ignore` with rationale.
 - Avoid unsupported superlatives such as “accurate lux,” “atomic pair,” or
   “interrupt-driven.”
