@@ -381,8 +381,12 @@ else
     cargo package -p ph-veml7700-als --locked $package_dirt_flag --target-dir "$package_target_dir" --list
     # shellcheck disable=SC2086
     cargo package -p ph-veml7700-als --locked $package_dirt_flag --target-dir "$package_target_dir"
-    cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
 
+    # Capture evidence from the archive before testing the unpacked copy.
+    # `cargo test` builds inside the unpacked directory, so anything that walks
+    # that tree afterwards reports the test's own `target/` output as package
+    # content. Read the inventory out of the `.crate` itself: that is what will
+    # actually be uploaded, and it cannot drift with local build state.
     if [ "$ci_profile" = release ]; then
         package_archive=$package_dir/ph-veml7700-als-$driver_version.crate
         package_unpacked=$package_dir/ph-veml7700-als-$driver_version
@@ -391,8 +395,13 @@ else
             exit 1
         fi
         package_sha=$(sha256sum "$package_archive" | awk '{print $1}')
+        package_inventory=$(tar -tzf "$package_archive" \
+            | sed "s|^ph-veml7700-als-$driver_version/||" \
+            | grep -v '^$' | sort)
+        package_file_count=$(printf '%s\n' "$package_inventory" | wc -l | tr -d ' ')
         printf '        archive %s\n' "$(basename "$package_archive")"
         printf '        sha256  %s\n' "$package_sha"
+        printf '        %s files in the archive\n' "$package_file_count"
 
         evidence ""
         evidence "## Prepublication archive"
@@ -405,11 +414,15 @@ else
         evidence ""
         evidence "- File: \`$(basename "$package_archive")\`"
         evidence "- SHA-256: \`$package_sha\`"
+        evidence "- Files: $package_file_count"
         evidence ""
         evidence "### File inventory"
         evidence ""
+        evidence "Read from the \`.crate\` archive, not from the unpacked directory: the"
+        evidence "unpacked copy accumulates \`target/\` output once its tests run."
+        evidence ""
         evidence '```text'
-        (cd "$package_unpacked" && find . -type f | sed 's|^\./||' | sort) >> "$evidence_file"
+        printf '%s\n' "$package_inventory" >> "$evidence_file"
         evidence '```'
         evidence ""
         evidence "### Normalized manifest"
@@ -443,6 +456,10 @@ else
         evidence ""
         evidence "\`ph-veml7700-als-model\` is repository-only and unpublished."
     fi
+
+    # Last, because it builds inside the unpacked directory. Everything recorded
+    # above describes the archive as Cargo produced it.
+    cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
 fi
 
 if [ "$ci_profile" = release ]; then
