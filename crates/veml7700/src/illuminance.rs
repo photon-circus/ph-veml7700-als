@@ -75,20 +75,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn table_endpoints_match_vendor_values() {
-        assert_eq!(
-            NominalScale::for_config(MeasurementConfig::new(Gain::X2, IntegrationTime::Ms800))
-                .micro_lux_per_count(),
-            4_200
-        );
-        assert_eq!(
-            NominalScale::for_config(MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms25))
-                .micro_lux_per_count(),
-            2_150_400
-        );
-    }
-
-    #[test]
     fn all_documented_gain_and_integration_pairs_match_the_nominal_table() {
         let rows = [
             (IntegrationTime::Ms800, [4_200, 8_400, 33_600, 67_200]),
@@ -113,12 +99,22 @@ mod tests {
     }
 
     #[test]
-    fn milli_lux_rounding_does_not_overflow_public_input_range() {
-        let value = MicroLux::from_micro_lux(u64::MAX);
-        assert_eq!(
-            value.milli_lux_rounded(),
-            u64::MAX / 1_000 + (u64::MAX % 1_000 + 500) / 1_000
-        );
+    fn milli_lux_rounds_to_nearest_and_survives_the_whole_input_range() {
+        for (micro_lux, expected_milli_lux) in [
+            (0_u64, 0_u64),
+            (499, 0),
+            (500, 1),
+            (1_499, 1),
+            (1_500, 2),
+            // u64::MAX is 18_446_744_073_709_551_615 µlx: 18_446_744_073_709_551
+            // whole milli-lux with a 615 µlx remainder, which rounds up.
+            (u64::MAX, 18_446_744_073_709_552),
+        ] {
+            assert_eq!(
+                MicroLux::from_micro_lux(micro_lux).milli_lux_rounded(),
+                expected_milli_lux
+            );
+        }
     }
 
     #[test]

@@ -86,8 +86,15 @@ committing vendor PDFs.
 
 ## D-017 — Local bounded validation
 
-Private development uses one canonical local gate. Hosted CI and generated pack
-inventories are not required product surfaces. The gate also tests the unpacked
+Private development uses one canonical local gate, `scripts/ci.sh`; only the
+PowerShell launcher is retained beside it, because locating Git Bash on Windows
+is real work and a POSIX passthrough wrapper is not. Hosted CI and generated
+pack inventories are not required product surfaces *while the repository is
+private*. That scope is deliberate: making the repository public activates the
+contributor-support and hosted-CI expectations of the organization standards,
+tracked in
+[issue #11](https://github.com/photon-circus/ph-veml7700-als/issues/11).
+The gate also tests the unpacked
 distributable package, so packaging-only failures such as a stripped path
 dependency cannot pass verification. Packaging is pinned to the repository
 target directory because Cargo excludes only that path from workspace member
@@ -110,3 +117,18 @@ The model accepts `u8` addresses but declares a 7-bit I²C boundary. Values abov
 `Unsupported::AddressOutOfRange` model limitations rather than fabricated device
 NACKs. Other valid 7-bit addresses remain source-backed address NACKs. The model
 never invents device behavior for inputs outside its declared domain.
+
+## D-020 — Validating constructors own their fields
+
+A public type whose constructor enforces a rule keeps its fields private, so the
+rule cannot be bypassed by a struct literal.
+
+`Thresholds::new` rejects `low > high` and returns `Option`. While its fields
+were public, downstream code could build a reversed pair directly and pass it to
+`arm_threshold_monitor`, which would program it. That produced an asymmetry the
+driver should never have: it would write device state that `read_thresholds`
+rejects as `ConfigurationError::ReversedThresholds` when read back. The fields
+are now private with `low()` and `high()` accessors.
+
+`ThresholdMonitorConfig` keeps public fields because it enforces no rule of its
+own; it is a bundle whose only invariant now lives inside `Thresholds`.

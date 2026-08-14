@@ -16,7 +16,7 @@ A contribution is reviewable only when:
    driver APIs, not driver codecs.
 6. The canonical local gate passes.
 
-Run `./tools/check.sh`, or `./tools/check.ps1` from PowerShell.
+Run `./scripts/ci.sh`, or `./tools/check.ps1` from PowerShell.
 
 Do not add raw-register APIs, cached state, automatic optical correction, or
 speculative physical infrastructure. Do not change repository visibility or

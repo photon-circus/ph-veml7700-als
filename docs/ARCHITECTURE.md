@@ -56,10 +56,11 @@ to a separately reviewed integration layer or application.
 
 ## Coupled fake and independent model
 
-`testing/fake_device.rs` exercises autonomous refresh, retention, persistence,
-and reset-survival concepts. It is test-only, directly uses driver semantic
-types and timing constants, and does not implement I²C. It therefore cannot
-serve as an independent oracle for public driver operations.
+`testing/fake_device.rs` sketches autonomous refresh, retention, and threshold
+persistence. It is test-only, directly uses driver semantic types and timing
+constants, and does not implement I²C, so it cannot serve as an independent
+oracle. Its tests also drive it directly rather than through `Veml7700`, so
+they establish nothing about the driver at all.
 
 The independent device behavioral model is `ph-veml7700-als-model`. It implements
 the I²C register boundary for `probe` and one successful `measure_once` flow and

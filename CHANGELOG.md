@@ -4,50 +4,56 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
-Last updated: 2026-08-14 UTC
+This section will become the first release, `0.1.0-incubating.1`. Nothing has
+been released or published, so every entry describes the initial surface rather
+than a change from a prior version.
 
 ### Added
 
-- Async, `no_std` VEML7700 driver with explicit snapshot/fresh semantics,
-  conservative timing provenance, restoration-aware capture, typed threshold
-  monitoring, and integer nominal illuminance scaling.
-- Pure codec tests, exact scripted-I²C tests, failure injection, and a test-only
-  autonomous-state fake covering refresh cadence, retention, and persistence.
-- Independent `ph-veml7700-als-model` crate for the datasheet-derived `probe`
-  and successful `measure_once` slice, with model-only tests and two
-  driver-versus-model tests. The maintained declaration is the model crate
-  README.
-
-### Changed
-
-- Reject addresses outside the 7-bit input domain as model limitations, exclude
-  conformance-only tests from the driver package, and test the unpacked package.
-- Reject repeated active configuration writes in the bounded device model
-  instead of inventing conversion restart-or-continuation behavior.
-- Normalize the unpublished driver version to `0.1.0-incubating.1`, retain
-  `publish = false` during preparation, and separate preparation, repository
-  visibility, and crates.io publication into explicit maintainer decisions.
-- Align distribution and evidence disclosures with the organization profile:
-  incomplete model coverage and absent physical qualification limit claims but
-  do not impose a blanket publication gate.
-- Add an explicit release procedure, Incubating version-state check, and the
-  MIT license text to the packaged driver artifact.
-- Consolidate routine verification into one bounded local Git Bash gate with
-  thin Bash and PowerShell launchers.
-- Reframe documentation around the implemented driver and the honest limitation
-  of the current coupled, test-only fake.
-
-### Removed
-
-- Speculative PH-HIL runners, plans, policies, optical-fixture templates, mock
-  firmware artifacts, transcripts, build shims, and evidence directories.
-- Generated development-pack manifests, hash registries, validators, bootstrap
-  roles, implementation work packets, and speculative release checklists.
+- Async, `no_std`, allocation-free VEML7700 driver over caller-provided
+  `embedded-hal-async` I²C: explicit snapshot-versus-fresh semantics,
+  conservative timing bound to the selected integration time, restoration-aware
+  fresh capture, a typed threshold-monitor domain that rejects silent
+  retargeting, raw ALS and white counts, and integer nominal micro-lux scaling
+  from the vendor resolution table.
+- Concrete preserved bus errors carrying semantic operation, register, and stage
+  context, including distinct primary and recovery failures when restoration
+  also fails and a captured sample survives a failed restore.
+- Pure codec tests across every documented field combination and reserved
+  encoding; exact scripted-I²C tests asserting address, pointer, little-endian
+  word order, payload, and transaction count; per-stage failure injection for
+  both fresh capture and threshold-monitor programming.
+- Independent `ph-veml7700-als-model` crate: a quiescent, datasheet-derived
+  device behavioral model covering `probe` and one successful `measure_once`
+  flow at the I²C boundary, driven by explicit relative duration. Ships with
+  model-only tests and two driver-versus-model tests. Its README is the
+  maintained declaration of claim, fidelity, sources, and nonclaims.
+- One canonical local verification gate, `scripts/ci.sh`, covering formatting,
+  host tests, lints with warnings denied, rustdoc, five bare-metal targets,
+  dependency and license policy, package construction and inspection, and tests
+  against the unpacked distributable package.
+- Two claim checks in that gate, so the repository's load-bearing promises fail
+  loudly rather than drift: vendor documents must not be tracked, and the
+  required status disclosure must be identical in the root README, the packaged
+  crate README, and the crate documentation.
+- Documented release procedure separating candidate preparation, repository
+  visibility, and registry publication into explicit maintainer decisions.
 
 ### Known issues
 
 - The independent model covers only `probe` and one successful `measure_once`
-  flow. The coupled fake remains exploratory and is not an independent oracle.
-- Vendor source verification remains owner-pending, no reviewed physical or
-  calibrated-optical evidence exists, and candidate version
-  `0.1.0-incubating.1` remains unpublished.
+  flow. Every other public operation is outside the model claim.
+- The coupled fake in `crates/veml7700/src/testing/fake_device.rs` is
+  exploratory. Its tests drive the fake directly and never construct the driver,
+  so they establish nothing about driver behavior. See issue #9.
+- The crate has no doctests and no compiled usage example. See issue #10.
+- Hosted CI, contributor issue and pull-request templates, and default-branch
+  protection are absent. They become required expectations when the repository
+  becomes public. See issue #11.
+- The model crate's version convention is undecided relative to the driver's
+  lifecycle-matching prerelease. See issue #12.
+- Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
+  retrieved documents and their digests, but the hardware-contract verification
+  boxes remain unchecked and are not physical-support claims.
+- No reviewed physical or calibrated-optical evidence exists, and candidate
+  version `0.1.0-incubating.1` remains unpublished with `publish = false`.

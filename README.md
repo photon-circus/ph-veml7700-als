@@ -8,9 +8,8 @@ light sensor.
 > **Distribution:** Unpublished; the candidate version is
 > `0.1.0-incubating.1` and the manifest retains `publish = false`.
 > **Model conformance:** An independent I²C-level model covers `probe` and one
-> successful `measure_once` path only. The coupled fake remains test-only and
-> is not that oracle; all other public operations are outside the current model
-> claim.
+> successful `measure_once` path only. All other public operations are outside
+> the current model claim.
 > **Physical evidence:** None. No reviewed physical or calibrated-optical
 > evidence exists. Evidence applies only to the named operations, and eventual
 > publication would not imply hardware qualification.
@@ -44,17 +43,17 @@ crates/veml7700/         driver and host-side tests
 crates/veml7700-model/   independent device behavioral model (bounded slice)
 docs/                    device, API, architecture, invariant, and test contracts
 scripts/ci.sh            canonical bounded local verification
-tools/check.*            platform launchers for the same local gate
+tools/check.ps1          PowerShell launcher for the same gate under Git Bash
 ```
 
 Start with [the documentation index](docs/README.md).
 
 ## Local verification
 
-Run `./tools/check.sh` under Git Bash or another POSIX-compatible shell, or
-`./tools/check.ps1` from PowerShell. A green gate establishes agreement with
-the implemented host contracts only; it does not establish physical-device or
-calibrated-optical behavior.
+Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
+`./tools/check.ps1` from PowerShell, which locates Git Bash and runs the same
+script. A green gate establishes agreement with the implemented host contracts
+only; it does not establish physical-device or calibrated-optical behavior.
 
 ## Publication status
 

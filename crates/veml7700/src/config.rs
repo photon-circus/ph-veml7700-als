@@ -349,26 +349,6 @@ mod tests {
     }
 
     #[test]
-    fn all_documented_measurement_pairs_round_trip() {
-        let gains = [Gain::X1, Gain::X2, Gain::Div8, Gain::Div4];
-        let times = [
-            IntegrationTime::Ms25,
-            IntegrationTime::Ms50,
-            IntegrationTime::Ms100,
-            IntegrationTime::Ms200,
-            IntegrationTime::Ms400,
-            IntegrationTime::Ms800,
-        ];
-        for gain in gains {
-            for integration_time in times {
-                let expected = ConfigurationSnapshot::silicon_reset_default()
-                    .with_measurement(MeasurementConfig::new(gain, integration_time));
-                assert_eq!(ConfigWord(expected.encode()).decode(), Ok(expected));
-            }
-        }
-    }
-
-    #[test]
     fn every_documented_configuration_field_combination_round_trips() {
         let gains = [Gain::X1, Gain::X2, Gain::Div8, Gain::Div4];
         let times = [

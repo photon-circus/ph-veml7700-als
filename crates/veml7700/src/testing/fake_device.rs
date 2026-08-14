@@ -1,4 +1,11 @@
-//! Autonomous VEML7700 behavioral model used by host tests.
+//! Exploratory sketch of autonomous VEML7700 state.
+//!
+//! This is **not** the device behavioral model; that is
+//! `ph-veml7700-als-model`, which implements the I²C boundary and is derived
+//! independently of the driver. This type imports driver semantic types and
+//! timing constants, and the tests below drive it directly rather than through
+//! `Veml7700`, so they establish nothing about the driver. See
+//! `docs/TEST_PLAN.md` Level 3 and issue #9.
 
 #![allow(dead_code)]
 
@@ -99,10 +106,6 @@ impl FakeVeml7700 {
         self.now_us = target;
     }
 
-    pub(crate) fn mcu_reset(&mut self) {
-        // Resetting the driver/MCU does not reset independently powered silicon.
-    }
-
     pub(crate) fn integration_window_us(&self) -> (u64, u64) {
         let nominal = u64::from(
             self.configuration
@@ -165,12 +168,12 @@ impl FakeVeml7700 {
             return;
         }
         let counts = self.als.counts();
-        self.low_streak = if counts < self.thresholds.low.counts() {
+        self.low_streak = if counts < self.thresholds.low().counts() {
             self.low_streak.saturating_add(1)
         } else {
             0
         };
-        self.high_streak = if counts > self.thresholds.high.counts() {
+        self.high_streak = if counts > self.thresholds.high().counts() {
             self.high_streak.saturating_add(1)
         } else {
             0
@@ -262,31 +265,5 @@ mod tests {
         assert_eq!(fake.white.counts(), 0);
         fake.advance_us(10);
         assert_eq!(fake.white.counts(), 20);
-    }
-
-    #[test]
-    fn mcu_reset_does_not_change_sensor_state() {
-        let mut fake = FakeVeml7700::new();
-        fake.set_source(77, 88);
-        fake.apply_configuration(active_configuration());
-        fake.advance_us(132_500);
-        let before = (
-            fake.configuration,
-            fake.power_saving,
-            fake.als,
-            fake.white,
-            fake.next_als_refresh_us,
-        );
-        fake.mcu_reset();
-        assert_eq!(
-            before,
-            (
-                fake.configuration,
-                fake.power_saving,
-                fake.als,
-                fake.white,
-                fake.next_als_refresh_us,
-            )
-        );
     }
 }

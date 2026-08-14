@@ -35,17 +35,23 @@
   cadence, and active state.
 - **I-19:** ordinary methods cannot silently retarget an enabled monitor.
 - **I-20:** arming is disable-first and enable-last.
-- **I-21:** status reads promise observation only.
+- **I-21:** a public type whose constructor enforces an ordering or range rule
+  keeps its fields private, so the rule cannot be bypassed by a struct literal.
+  `Thresholds` is the current instance: the driver cannot program a reversed
+  pair that `read_thresholds` would reject on read-back.
+- **I-22:** status reads promise observation only.
 
 ## Model and distribution
 
-- **I-22:** the coupled fake is not described as independent driver validation.
-- **I-23:** an independent mock must use the I²C boundary and derive behavior
+- **I-23:** the coupled fake is not described as independent driver validation.
+- **I-24:** an independent mock must use the I²C boundary and derive behavior
   from the hardware contract without driver codecs as its oracle. The first
   slice is declared in `crates/veml7700-model/README.md`.
-- **I-24:** host-model results are not physical or calibrated-optical evidence.
-- **I-25:** vendor PDFs remain untracked.
-- **I-26:** repository visibility and registry publication require separate,
+- **I-25:** host-model results are not physical or calibrated-optical evidence.
+- **I-26:** vendor PDFs remain untracked, enforced by the canonical gate rather
+  than by `.gitignore` alone; the retrieval record in `docs/vendor/README.md`
+  and the model's source declaration state the same digests.
+- **I-27:** repository visibility and registry publication require separate,
   explicit maintainer decisions; neither follows from preparation alone.
 
 ## Rejected shortcuts
@@ -60,4 +66,5 @@
 | global high-lux polynomial | application-dependent correction |
 | accepting reserved bits | invents undocumented state |
 | hiding restoration failure | erases state uncertainty |
+| public fields beside a validating constructor | invariant is advisory only |
 | reusing driver codecs in the independent mock | tests implementation against itself |

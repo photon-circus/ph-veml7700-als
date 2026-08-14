@@ -17,17 +17,18 @@ failure, cleanup failure, and post-capture restoration failure.
 
 ## Level 3 — Coupled autonomous-state fake
 
-The existing test-only fake covers:
+`crates/veml7700/src/testing/fake_device.rs` is a standalone state machine
+sketching autonomous device behavior: shutdown retention and explicit wake
+edges, conservative integration deadlines, power-saving refresh cadence,
+independent ALS/white refresh timing, and threshold persistence.
 
-- shutdown retention and explicit wake edges;
-- conservative integration deadlines;
-- power-saving refresh cadence;
-- independent ALS/white refresh timing;
-- threshold persistence; and
-- sensor state surviving an MCU reset.
-
-These tests are useful but not independent cross-validation because the fake
-uses driver types/timing constants and is not driven through I²C.
+Its tests drive the fake directly and assert on the fake. They never construct
+`Veml7700`, so they establish nothing about the driver. The fake additionally
+imports driver semantic types and timing constants, so it could not serve as an
+independent oracle even if it were connected to one. Read it as exploratory
+design notes in executable form, superseded by Level 4 as the model's slice
+grows. Retirement or migration is tracked in
+[issue #9](https://github.com/photon-circus/ph-veml7700-als/issues/9).
 
 ## Level 4 — Independent I²C-level behavioral model
 
@@ -55,5 +56,10 @@ board, electrical, or silicon claims.
 
 `scripts/ci.sh` runs formatting, host tests/checks, clippy, rustdoc, doctests,
 representative bare-metal targets, dependency policy, package verification,
-and tests against the unpacked distributable package.
+and tests against the unpacked distributable package. Each step is announced,
+and the run ends with an explicit pass or failing-step line.
+
+The crate currently has no doctests, so the two doctest steps pass with zero
+cases; see
+[issue #10](https://github.com/photon-circus/ph-veml7700-als/issues/10).
 A green gate proves only the implemented host boundary.

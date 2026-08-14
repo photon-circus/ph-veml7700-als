@@ -20,13 +20,13 @@
 //! **Distribution:** Unpublished; the candidate version is
 //! `0.1.0-incubating.1` and the manifest retains `publish = false`.
 //!
-//! **Model conformance:** An independent I2C-level model covers `probe` and one
-//! successful `measure_once` path only. A coupled test-only fake exercises
-//! autonomous state but is not that independent oracle. All other public
-//! operations are outside the current model claim.
+//! **Model conformance:** An independent I²C-level model covers `probe` and one
+//! successful `measure_once` path only. All other public operations are outside
+//! the current model claim.
 //!
-//! **Physical evidence:** None. Evidence applies only to the named operations,
-//! and eventual publication would not imply hardware qualification.
+//! **Physical evidence:** None. No reviewed physical or calibrated-optical
+//! evidence exists. Evidence applies only to the named operations, and eventual
+//! publication would not imply hardware qualification.
 
 #![no_std]
 #![forbid(unsafe_code)]

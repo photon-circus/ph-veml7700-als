@@ -43,7 +43,7 @@ MicroLux::from_micro_lux, as_micro_lux, whole_lux_floor, milli_lux_rounded
 NominalScale::for_config, micro_lux_per_count, scale_counts
 AlsCounts::from_counts, counts, is_saturated, nominal_micro_lux
 WhiteCounts::from_counts, counts
-Thresholds::new
+Thresholds::new, low, high
 ThresholdMonitorConfig::new
 MeasurementTiming::conservative, with_additional_margin_us,
 integration_time, wake_up_us, integration_us, margin_us, total_us
@@ -117,6 +117,9 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   the prior device state or returns explicit uncertainty.
 - `MeasurementTiming` cannot represent a shorter-than-conservative wait and is
   rejected when derived for a different integration-time selection.
+- `Thresholds` keeps its fields private, so `Thresholds::new` is the only way to
+  build one and a reversed pair cannot reach the device. The driver therefore
+  never writes threshold state that `read_thresholds` would reject on read-back.
 - monitor configuration is disable-first, enable-last.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
 - `MicroLux` values are nominal, not calibrated.
