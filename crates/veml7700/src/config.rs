@@ -291,6 +291,7 @@ impl ConfigurationSnapshot {
 /// Failure decoding a configuration register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ConfigDecodeError {
     /// A reserved bit was observed set.
     ReservedBits {

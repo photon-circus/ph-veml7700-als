@@ -117,6 +117,15 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
 - Every variant of every public error enum is named by some driver path. A
   variant a caller can match but never reach is not part of this surface, and
   the canonical gate fails if one appears.
+- Every public error type is `#[non_exhaustive]`, so later variants and fields
+  stay additive. What that requires of a caller differs by shape: matching an
+  error *enum* needs a wildcard arm, while destructuring the
+  `ThresholdMonitorError` *struct* needs `..` in the pattern, which no wildcard
+  arm can substitute for. Reading its `stage` and `source` fields is unaffected.
+  The device value types — `Gain`,
+  `IntegrationTime`, `Persistence`, `PowerState`, `ThresholdMonitorState`,
+  `PowerSavingMode`, `MeasurementPairCoherence` — are exhaustive on purpose and
+  may be matched without a wildcard. See D-024.
 - `snapshot` never claims freshness or atomic ALS/white pairing.
 - `measure_once` creates an explicit shutdown-to-active wake edge and restores
   the prior device state or returns explicit uncertainty.

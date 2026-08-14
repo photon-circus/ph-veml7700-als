@@ -4,6 +4,7 @@ use core::fmt;
 
 /// Outcome of a model input that is not a successful device response.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TransportError {
     /// Documented device refusal at the I²C address.
     NoAcknowledge {
@@ -18,6 +19,7 @@ pub enum TransportError {
 
 /// Source-backed I²C NACK classification used by this slice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum NoAcknowledgeSource {
     /// No device acknowledges the 7-bit address.
     Address,
@@ -25,6 +27,7 @@ pub enum NoAcknowledgeSource {
 
 /// Reason an input is outside the declared behavioral slice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Unsupported {
     /// Command pointer is not part of this slice, or is not usable in this
     /// direction.

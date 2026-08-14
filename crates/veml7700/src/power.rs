@@ -108,6 +108,7 @@ impl PowerSavingSnapshot {
 /// Failure decoding the power-saving register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum PowerSavingDecodeError {
     /// Reserved bits were non-zero.
     ReservedBits {

@@ -194,3 +194,45 @@ monitored refresh. The alternative — tracking each flag's knowledge separately
 would leave `0x06` unavailable whenever a flag never qualifies, which is the
 ordinary case, and would make the driver's polled-status path untestable for no
 gain in evidence.
+
+## D-024 — Error taxonomies are open, device domains are closed
+
+Every public error type in both crates is `#[non_exhaustive]`. Every public
+type that enumerates a device domain is deliberately not.
+
+Error taxonomies grow as the driver and model grow. `Unsupported` alone gained
+nine variants across five commits before the first release, and `Operation`,
+`BusContext`, `MeasureStage` and `ThresholdMonitorStage` extend with each new
+operation, register and stage. Without `#[non_exhaustive]` each of those
+additions breaks a downstream exhaustive `match`, so ordinary additive work
+would force a breaking release. The attribute is free before publication and
+cannot be added afterwards without causing the break it prevents.
+
+The device value types — `Gain`, `IntegrationTime`, `Persistence`,
+`PowerState`, `ThresholdMonitorState`, `PowerSavingMode`, and
+`MeasurementPairCoherence` — stay exhaustive. They enumerate a fixed domain
+taken from the datasheet, not an open taxonomy. A caller that handles every
+gain should keep getting a compile error when it misses one, and the device will
+not grow a fifth gain. If a future part does, that is a new contract and a
+deliberate breaking change rather than routine growth.
+
+The three decode errors are open with the errors, not closed with the domains
+they describe. `ConfigDecodeError`, `PowerSavingDecodeError` and
+`ThresholdStatusDecodeError` currently track reserved-bit rules that are as
+fixed as the register map, but they are error types: a caller matches them to
+report, not to make a decision per variant, so exhaustiveness buys the caller
+little and costs a break if the contract ever distinguishes a new decode
+failure.
+
+`ThresholdMonitorError` is a struct rather than an enum and carries the
+attribute for the same reason: it is produced by the driver and read by the
+caller, so preventing downstream literal construction costs nothing and lets it
+gain a field later. The obligation it places on a caller is different from the
+enums, though, and the API contract says so: a struct pattern must contain `..`,
+and a wildcard match arm does not satisfy that. Ordinary field access is
+unaffected, which is how callers actually read this type.
+
+Result and snapshot types with public fields, such as `FreshMeasurement` and
+`ConfigurationSnapshot`, are deliberately left alone here. Whether a caller
+should be able to build one is a separate question from error growth, and
+answering it under this decision would be scope creep.

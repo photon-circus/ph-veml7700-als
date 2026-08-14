@@ -24,6 +24,9 @@ than a change from a prior version.
   also fails and a captured sample survives a failed restore. `probe` reports
   through its own `ProbeError`, because address NACK means absence only there.
   Every variant of every public error enum is reachable, enforced by the gate.
+  Error types are `#[non_exhaustive]` so later variants stay additive, while the
+  device value types are exhaustive so a caller still gets a compile error for
+  an unhandled gain or integration time.
 - Pure codec tests across every documented field combination and reserved
   encoding; exact scripted-I²C tests asserting address, pointer, little-endian
   word order, payload, and transaction count; per-stage failure injection for

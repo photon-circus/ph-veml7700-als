@@ -65,6 +65,7 @@ impl ThresholdStatus {
 /// Failure decoding the threshold-status register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ThresholdStatusDecodeError {
     /// Reserved status bits were observed set.
     ReservedBits {
