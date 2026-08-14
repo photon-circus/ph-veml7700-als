@@ -24,7 +24,7 @@ Prerequisites:
 | Rust | 1.92.0, Edition 2024 | `rust-toolchain.toml` — rustup installs it automatically |
 | Clippy, rustfmt | bundled | `rust-toolchain.toml` components |
 | Bare-metal targets | five triples | `rust-toolchain.toml` targets |
-| `cargo-deny` | see `deny.toml` | required by the full gate; install with `cargo install cargo-deny` |
+| `cargo-deny` | **not pinned yet** | required by the full gate; `cargo install cargo-deny` |
 | POSIX shell | any | Git Bash is fine on Windows |
 
 ```sh
@@ -35,6 +35,37 @@ cargo fetch --locked
 
 The toolchain file does the work: `cargo` commands inside the repository use
 1.92.0 and the five reference targets without further setup.
+
+`cargo-deny` is the exception, and it is a real gap rather than an oversight:
+`deny.toml` configures the dependency and licence policy but pins no binary
+version, and the gate invokes `cargo deny check -D warnings` without a version
+constraint. Two contributors can therefore run the authoritative gate with
+different `cargo-deny` releases and get different advisory results. Issue #34
+owns provisioning an exact version; until it lands, record the version you used
+(`cargo deny --version`) in the handoff section of your pull request.
+
+## Changing the candidate version
+
+The gate machine-checks that both crate manifests agree and that the version is
+a lifecycle-matching `-incubating.N` prerelease. It does **not** store the
+literal, and it cannot see the copies scattered through tracked prose — those
+rot silently.
+
+Grep for the literal before and after any bump:
+
+```sh
+grep -rn '0\.1\.0-incubating\.1' --exclude-dir=.git --exclude-dir=target .
+```
+
+At the time of writing it appears in both crate manifests, `Cargo.lock`, the
+root and packaged READMEs, `crates/veml7700/src/lib.rs`, `AGENTS.md`,
+`CHANGELOG.md`, `RELEASING.md`, `docs/API_CONTRACT.md`, `docs/DECISIONS.md`, and
+the bug-report form. A green gate does not mean you found them all.
+
+Issue #34 centralizes the version under `[workspace.package]` and moves the gate
+to `cargo metadata`, which removes the manifest copies. The prose copies that
+consumers and release records genuinely need will stay, so this procedure
+survives in reduced form.
 
 ## Verifying a change
 

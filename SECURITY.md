@@ -2,13 +2,16 @@
 
 ## Reporting a vulnerability
 
-Report privately to **steve@giacomelli.ca**. Include the affected commit or
-crate version, the observable effect, and the smallest reproduction you have.
+Use **Security → Report a vulnerability** on this repository. GitHub private
+vulnerability reporting is the preferred route because it keeps the report, the
+fix, and the advisory in one place.
 
-Once this repository is public, GitHub private vulnerability reporting is the
-preferred route, because it keeps the report, the fix, and the advisory in one
-place: use **Security → Report a vulnerability** on the repository. The email
-address above remains valid either way.
+It requires a GitHub account. If you would rather not create one, or the report
+does not fit that form, email **steve@giacomelli.ca** instead — that route is
+equally valid.
+
+Either way, include the affected commit or crate version, the observable effect,
+and the smallest reproduction you have.
 
 Do not open a public issue for a flaw that could silently corrupt measurements
 or promote nominal or model output as calibrated physical evidence. Ordinary

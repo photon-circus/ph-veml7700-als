@@ -71,10 +71,11 @@ than a change from a prior version.
   observation.
 - The hardware-contract register map now records which registers have
   source-declared reset values and which do not.
-- `SECURITY.md` now names a monitored private reporting address instead of
-  directing reporters to "the repository owner" with no route, and states scope,
-  supported-version posture, and disclosure preference without promising a
-  response time.
+- `SECURITY.md` now routes reporters to GitHub private vulnerability reporting,
+  with a monitored email address for anyone who will not create an account,
+  instead of directing them to "the repository owner" with no route at all. It
+  states scope, supported-version posture, and disclosure preference without
+  promising a response time.
 - `CODE_OF_CONDUCT.md` gained scope, a confidential reporting route, a
   proportionate enforcement ladder, and an escalation path for reports
   concerning the maintainer.

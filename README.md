@@ -70,9 +70,6 @@ dependency policy, four of the five bare-metal targets, and packaging, printing
 each skip. A skipped check is not a passed check: the bounded profile is
 contributor feedback, never the release gate.
 
-Its automatic triggers and default-branch protection arrive with the visibility
-change; while the repository is private the workflow is dispatch-only.
-
 ## Publication status
 
 The package retains `publish = false`. Preparation, visibility, and crates.io
