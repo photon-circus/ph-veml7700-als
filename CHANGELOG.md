@@ -92,6 +92,21 @@ than a change from a prior version.
   and handoff fields, and now distinguishes scripted-I²C from pure unit evidence.
 - Recorded D-025: no `CODEOWNERS` while the project has one maintainer, with the
   paths it should cover when a second joins.
+- **Corrected the I²C clock-frequency row.** It read "standard and fast mode are
+  supported from 10 kHz through 400 kHz", one range spanning both modes. The
+  source specifies `f(SMBCLK)` separately per mode: 10 kHz to 100 kHz standard,
+  10 kHz to 400 kHz fast. The old wording would have permitted standard mode at
+  400 kHz. The row also now records that the source marks these values as
+  protocol-derived and not production tested.
+- The hardware contract tracks verification per fact rather than per section,
+  so a partly source-backed section can record both states. §6 and §8 are now
+  both: the refresh table and the gain ×2 resolution column are verified, while
+  the register field layout, the other gain columns, and the 25 ms and 50 ms
+  rows are not.
+- Recorded that the driver treats power-saving refresh time as independent of
+  ALS gain. The source states the relation at gain ×2 only, so this is an
+  inference; it is now visible in the contract rather than implicit in
+  `nominal_refresh_time_ms`.
 
 ### Known issues
 
@@ -100,8 +115,11 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
-  retrieved documents and their digests, but the hardware-contract verification
-  boxes remain unchecked and are not physical-support claims.
+- Vendor owner-verification is partly complete: 8 of 28 hardware-contract rows
+  are owner-verified — the electrical and bus boundary, the sixteen power-saving
+  refresh times, and the gain ×2 resolution column. The remaining 20 are
+  provisional, including both §1 source-baseline rows. None of these are
+  physical-support claims. Two gaps block open work: the configuration
+  active-write rule (#29) and the gain ×1/8 and 25 ms resolution entries (#32).
 - No reviewed physical or calibrated-optical evidence exists, and candidate
   version `0.1.0-incubating.1` remains unpublished with `publish = false`.
