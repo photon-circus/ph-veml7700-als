@@ -1,11 +1,14 @@
 //! Strict ordered I²C expectation transport.
 
 use alloc::collections::VecDeque;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use embedded_hal_async::i2c::{
     Error as I2cError, ErrorKind, ErrorType, I2c, Operation, SevenBitAddress,
 };
+
+use crate::I2C_ADDRESS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ScriptError {
@@ -134,5 +137,41 @@ impl I2c<SevenBitAddress> for ScriptedI2c {
         _operations: &mut [Operation<'_>],
     ) -> Result<(), Self::Error> {
         panic!("generic transaction was not expected")
+    }
+}
+
+// Expectation builders shared by every scripted test. They live here rather than
+// beside one test module because the wire format -- pointer byte, then low byte,
+// then high byte -- is a transport fact, and having one place to express it is
+// what keeps a byte-order regression from being written into a test as if it
+// were expected.
+
+/// A register read returning `value` low byte first.
+pub(crate) fn read_word(register: u8, value: u16) -> Expectation {
+    Expectation::WriteRead {
+        address: I2C_ADDRESS,
+        write: vec![register],
+        returns: value.to_le_bytes().to_vec(),
+        result: Ok(()),
+    }
+}
+
+/// A register read that fails at the transport.
+pub(crate) fn read_failure(register: u8, error: ScriptError) -> Expectation {
+    Expectation::WriteRead {
+        address: I2C_ADDRESS,
+        write: vec![register],
+        returns: vec![0, 0],
+        result: Err(error),
+    }
+}
+
+/// A register write of `value`, low byte first.
+pub(crate) fn write_word(register: u8, value: u16, result: Result<(), ScriptError>) -> Expectation {
+    let [low, high] = value.to_le_bytes();
+    Expectation::Write {
+        address: I2C_ADDRESS,
+        data: vec![register, low, high],
+        result,
     }
 }
