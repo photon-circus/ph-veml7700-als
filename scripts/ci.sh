@@ -46,6 +46,24 @@ evidence() {
     fi
 }
 
+# There is no portable SHA-256 binary. `sha256sum` is GNU coreutils and is what
+# Git Bash and most Linux distributions provide; stock macOS ships `shasum`
+# instead and would otherwise fail with exit 127 after packaging, producing no
+# evidence at all. Probe rather than assume, and fail with a useful message if
+# none of the three is present.
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "$1" | awk '{print $NF}'
+    else
+        echo "release evidence needs a SHA-256 tool: sha256sum, shasum, or openssl" >&2
+        return 1
+    fi
+}
+
 step_number=0
 skipped=0
 current_step="start"
@@ -215,11 +233,17 @@ heading_anchors() {
     # GitHub's slug: drop the leading hashes, remove inline code, emphasis and
     # link syntax, lowercase, delete anything outside [a-z0-9 -], then map runs
     # of whitespace to single hyphens.
+    #
+    # Repeated headings get `-1`, `-2`, ... in document order, which is what
+    # GitHub does and what a link to a later occurrence relies on. Without the
+    # suffixes this check would reject a link that resolves correctly on GitHub,
+    # and a gate that fails on valid input is worse than one that misses.
     sed -n 's/^#\{1,6\}[[:space:]]\{1,\}//p' "$1" \
         | sed -e 's/`//g' -e 's/\*\*//g' -e 's/\*//g' \
               -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
         | tr '[:upper:]' '[:lower:]' \
-        | sed -e 's/[^a-z0-9 -]//g' -e 's/[[:space:]]\{1,\}/-/g'
+        | sed -e 's/[^a-z0-9 -]//g' -e 's/[[:space:]]\{1,\}/-/g' \
+        | awk '{ if (seen[$0]++) print $0 "-" seen[$0] - 1; else print $0 }'
 }
 markdown_targets() {
     # Match `](target)`, tolerating the angle-bracket form. Targets containing
@@ -394,7 +418,7 @@ else
             printf 'expected prepublication archive not found: %s\n' "$package_archive" >&2
             exit 1
         fi
-        package_sha=$(sha256sum "$package_archive" | awk '{print $1}')
+        package_sha=$(sha256_of "$package_archive")
         package_inventory=$(tar -tzf "$package_archive" \
             | sed "s|^ph-veml7700-als-$driver_version/||" \
             | grep -v '^$' | sort)
