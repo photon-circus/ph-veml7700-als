@@ -5,9 +5,23 @@ owner has verified the recorded official Vishay source. Unchecked rows remain
 provisional and must not be promoted to physical-support claims.
 
 Verification is tracked per fact rather than per section, because a section can
-be partly source-backed: §6 and §8 each have both. An unchecked row is a useful
-result and not a defect — it says the sources were consulted and did not state
-the fact plainly. Where that absence is itself the finding, the row says so.
+be partly source-backed: §6 and §8 each have both.
+
+A row is in one of three states, and they must not be conflated:
+
+| State | Meaning |
+| --- | --- |
+| `[x]` | Reviewed against the pinned sources and confirmed. |
+| `[ ]` | **Provisional — not yet reviewed.** No claim either way. |
+| `[ ]` with an explicit note | Reviewed, and the sources do not state the fact. The absence is the finding. |
+
+Only the third form records a confirmed omission, and it says so in the row. An
+unchecked row with no note means nobody has looked yet; it is not evidence that
+the sources are silent.
+
+Counts of "verified" rows in the changelog and elsewhere refer to the bullet
+rows in §2 onward. The two §1 source-baseline entries are tracked in that
+section's table and are unchecked; every other row depends on them.
 
 A row that fails to verify becomes its own issue rather than an in-place edit,
 because correcting the contract is a behavior change to the driver, the model,
