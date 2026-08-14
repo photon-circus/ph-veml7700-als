@@ -216,6 +216,36 @@ fn arming_the_monitor_from_an_active_start_agrees_with_the_model() {
 }
 
 #[test]
+fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
+    let (mut sensor, _delay) = connected_model(500, 500);
+    let thresholds =
+        Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+    let monitor = ThresholdMonitorConfig::new(
+        MeasurementConfig::safe_bright_start(),
+        thresholds,
+        Persistence::Four,
+        PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+    );
+    block_on(sensor.arm_threshold_monitor(monitor)).expect("first arm");
+
+    // The device is now active with the monitor enabled. Re-arming from here
+    // must move the shutdown and monitor bits in separate writes: the model
+    // accepts either alone as a transition, and both together as
+    // MidConversionReconfiguration.
+    let retarget = ThresholdMonitorConfig::new(
+        MeasurementConfig::safe_bright_start(),
+        Thresholds::new(AlsCounts::from_counts(200), AlsCounts::from_counts(2_000)).unwrap(),
+        Persistence::Four,
+        PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+    );
+    block_on(sensor.arm_threshold_monitor(retarget)).expect("re-arm an enabled active monitor");
+
+    let programmed = block_on(sensor.read_thresholds()).expect("re-armed thresholds");
+    assert_eq!(programmed.low(), AlsCounts::from_counts(200));
+    assert_eq!(programmed.high(), AlsCounts::from_counts(2_000));
+}
+
+#[test]
 fn public_power_operations_observe_the_documented_mode_2_refresh_boundary() {
     let (mut sensor, model) = connected_model(1, 1);
     block_on(sensor.set_power_saving(PowerSavingConfig::new(true, PowerSavingMode::Mode2)))

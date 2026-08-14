@@ -187,6 +187,12 @@ pub enum MeasureOnceError<E> {
 pub enum ThresholdMonitorStage {
     /// Observe current configuration.
     ObserveConfiguration,
+    /// Enter shutdown with the monitored domain intact.
+    ///
+    /// Only reached when re-arming an enabled monitor on an active device. The
+    /// shutdown and monitor bits cannot move in one write there, so shutdown
+    /// goes first and the monitor is disabled while shut down.
+    EnterShutdown,
     /// Disable the threshold monitor before changing its domain.
     DisableMonitor,
     /// Write low threshold.

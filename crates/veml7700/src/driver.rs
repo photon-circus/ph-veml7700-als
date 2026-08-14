@@ -172,6 +172,13 @@ where
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
         }
+        // Nothing to change, and doing nothing matters here. The sequence below
+        // cycles power; running it for a call that alters no field would
+        // interrupt an enabled monitor's active domain, which is the one thing
+        // the ownership guard above exists to prevent.
+        if current.measurement == measurement {
+            return Ok(());
+        }
         if current.power_state == PowerState::Shutdown {
             return self
                 .write_configuration_for(
@@ -247,6 +254,11 @@ where
             return Err(Error::Configuration(
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
+        }
+        // Same reasoning as `set_measurement_config`: an unchanged cadence must
+        // not cost the caller a power cycle.
+        if current.as_config() == power_saving {
+            return Ok(());
         }
         if configuration.power_state == PowerState::Shutdown {
             return self
@@ -342,14 +354,16 @@ where
                 )
                 .await
         {
-            return Err(self
-                .recover_pre_capture(
-                    MeasureStage::EnterShutdown,
-                    source,
-                    original_configuration,
-                    original_power_saving,
-                )
-                .await);
+            // Report without attempting restoration. Nothing has been mutated
+            // yet, so there is nothing to restore — and the device may well
+            // still be active, which is exactly where the generic restoration
+            // sequence would write the power-saving register. That would commit
+            // the active write this operation exists to avoid, and would turn a
+            // clean single fault into `RecoveryFailed`.
+            return Err(MeasureOnceError::Operation {
+                stage: MeasureStage::EnterShutdown,
+                source,
+            });
         }
 
         if let Err(source) = self
@@ -501,10 +515,27 @@ where
                 source,
             })?;
 
-        // Disable the monitor and enter shutdown in one step, both carrying the
-        // existing measurement domain. Thresholds, cadence and the new domain
-        // are then all written to a shut-down device, and the monitored domain
-        // is enabled last.
+        // A single write may move the shutdown bit or the monitor bit, not both:
+        // the device accepts either as a transition, but the two together are a
+        // reconfiguration, which the sources require shutdown for first. That
+        // only bites when re-arming an enabled monitor on an active device —
+        // every other starting state needs one write.
+        if current.power_state == PowerState::Active
+            && current.threshold_monitor == ThresholdMonitorState::Enabled
+        {
+            self.write_configuration_for(
+                current.with_power_state(PowerState::Shutdown),
+                Operation::ThresholdMonitor,
+            )
+            .await
+            .map_err(|source| ThresholdMonitorError {
+                stage: ThresholdMonitorStage::EnterShutdown,
+                source,
+            })?;
+        }
+
+        // Thresholds, cadence and the new domain are then all written to a
+        // shut-down device, and the monitored domain is enabled last.
         let disabled = current
             .with_monitor(ThresholdMonitorState::Disabled)
             .with_power_state(PowerState::Shutdown);
@@ -1182,6 +1213,77 @@ mod tests {
         ]);
         let mut sensor = Veml7700::new(bus);
         block_on(sensor.arm_threshold_monitor(monitor)).unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn re_arming_an_active_monitor_shuts_down_before_disabling_it() {
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let monitor = ThresholdMonitorConfig::new(
+            MeasurementConfig::safe_bright_start(),
+            thresholds,
+            Persistence::Four,
+            PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+        );
+        // 0x0002 is active with the monitor enabled. The shutdown and monitor
+        // bits cannot move together, so this is the one starting state needing
+        // an extra write.
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0002),
+            // Shutdown with the monitored domain intact: only bit 0 moves.
+            write_word(0x00, 0x0003, Ok(())),
+            // Monitor disabled while shut down: only bit 1 moves.
+            write_word(0x00, 0x0001, Ok(())),
+            write_word(0x02, 100, Ok(())),
+            write_word(0x01, 1_000, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            write_word(0x00, 0x1022, Ok(())),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.arm_threshold_monitor(monitor)).unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn setting_an_unchanged_value_writes_nothing() {
+        // Reset default is gain ×1 / 100 ms. Requesting it back must not cycle
+        // power: an enabled monitor would lose its active domain for a call
+        // that changes no field.
+        let mut measurement = Veml7700::new(ScriptedI2c::new([read_word(0x00, 0x0002)]));
+        block_on(measurement.set_measurement_config(MeasurementConfig::silicon_reset_default()))
+            .unwrap();
+        measurement.release().done();
+
+        let mut cadence = Veml7700::new(ScriptedI2c::new([
+            read_word(0x00, 0x0002),
+            read_word(0x03, 0x0000),
+        ]));
+        block_on(cadence.set_power_saving(PowerSavingConfig::disabled())).unwrap();
+        cadence.release().done();
+    }
+
+    #[test]
+    fn a_failed_shutdown_reports_without_attempting_restoration() {
+        // Nothing has been mutated when the first write fails, and the device
+        // may still be active. Restoring would write power saving to an active
+        // device — the exact write this sequence exists to avoid.
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0000),
+            read_word(0x03, 0x0000),
+            write_word(0x00, 0x0001, Err(ScriptError::new(ErrorKind::Bus))),
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        let result =
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()));
+        assert!(matches!(
+            result,
+            Err(MeasureOnceError::Operation {
+                stage: MeasureStage::EnterShutdown,
+                ..
+            })
+        ));
         sensor.release().done();
     }
 

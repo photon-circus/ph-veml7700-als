@@ -144,8 +144,18 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   `measure_once_with_timing` and `arm_threshold_monitor`. `set_power_state`
   changes only the shutdown bit and is not a reconfiguration.
 - an operation that starts from a shut-down device performs no extra shutdown
-  write and leaves the device shut down. Only the starting state determines this;
-  no operation silently wakes a device the caller left asleep.
+  write. `set_measurement_config`, `set_power_saving` and
+  `measure_once_with_timing` also leave it shut down, so neither silently wakes
+  a device the caller left asleep.
+- **`arm_threshold_monitor` is the exception, by design.** It always ends
+  active, from either starting state, because a shut-down monitor cannot
+  qualify anything — arming a device and leaving it asleep would be an
+  operation that cannot do its job. `disable_threshold_monitor` does not
+  restore the previous power state; a caller that wants the device asleep
+  afterwards asks for that with `set_power_state`.
+- `set_measurement_config` and `set_power_saving` return successfully without
+  writing when the requested value already matches, so an idempotent call never
+  costs a power cycle and never interrupts an enabled monitor.
 - because shutdown comes first, a failure part way through a mutating operation
   can leave an originally active device shut down. Which fields were installed
   depends on how far the sequence reached, so read the relevant registers back

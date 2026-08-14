@@ -271,3 +271,54 @@ Add `CODEOWNERS` when a second maintainer joins, covering at minimum
 `docs/HARDWARE_CONTRACT.md`, `docs/vendor/`, `scripts/ci.sh`,
 `.github/workflows/`, the crate manifests, and `SECURITY.md`. That is the point
 at which it starts routing review rather than describing a single person.
+
+## D-026 — Reconfiguration is shutdown-first
+
+**Date:** 2026-08-14 **Status:** Current
+
+Every mutating operation writes the shutdown bit before changing any other
+field, and returns the device to active last. `set_power_state` is not a
+reconfiguration and is unaffected.
+
+This is not a defensive choice. The vendor's own software flow sets `ALS_SD = 1`
+before any reconfiguration, changes gain or integration time while shut down,
+and clears `ALS_SD` afterwards. `docs/HARDWARE_CONTRACT.md` §5 records it as an
+owner-verified row. It is a positive requirement, not an absence of permission
+to write while active, and that distinction is what settled the question.
+
+The driver and the independent model disagreed here: the driver accepted
+monitor-disabled active starting states, and the model rejected changed or
+repeated active configuration. **The disagreement was resolved against the
+driver.** The model was correct and was not relaxed to admit the sequence it had
+been rejecting — which is the outcome an independent oracle exists to produce.
+Relaxing it would have destroyed the only evidence that the two derivations
+disagree at all.
+
+Three costs are accepted deliberately:
+
+1. **More transactions.** `set_measurement_config` and `set_power_saving` take
+   three writes instead of one when the device is active. A single write that
+   moved both the shutdown bit and another field would be cheaper and is exactly
+   what the sources forbid.
+2. **A different failure state.** Because shutdown comes first, a failure part
+   way through can leave an originally active device shut down. The contract
+   states the read-back obligation rather than pretending the operation is
+   atomic; the transport cannot make it so.
+3. **A new public stage.** `MeasureStage::EnterShutdown` and
+   `ThresholdMonitorStage::EnterShutdown` name the pre-reconfiguration write, so
+   a failure there is attributable instead of folded into a later stage. Both
+   enums are `#[non_exhaustive]`, so this is additive. See D-024.
+
+Entering shutdown first also fixed recovery, which was not the goal but is the
+stronger argument. Previously an active start failed *and* its restoration
+failed, because restoration wrote the power-saving register to a still-active
+device. Every stage after the first now runs on a shut-down device. The one
+remaining case — a failure of the shutdown write itself — reports without
+attempting restoration, because nothing has been mutated and the generic
+sequence would commit the very active write this decision removes.
+
+Two writes remain legal while active because both are transitions rather than
+reconfigurations: setting the shutdown bit alone, and disabling an enabled
+monitor alone. They cannot be combined. Re-arming an enabled monitor on an
+active device therefore shuts down first with the monitored domain intact, then
+disables the monitor while shut down.

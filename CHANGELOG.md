@@ -180,6 +180,19 @@ than a change from a prior version.
 
   This resolves the driver-versus-model disagreement against the driver. The
   model's rejection of active reconfiguration was correct and was not relaxed.
+- `set_measurement_config` and `set_power_saving` now return successfully
+  without writing when the requested value already matches. Previously an
+  idempotent call still cycled power, which would interrupt an enabled monitor's
+  active domain for a call that changes no field.
+- `arm_threshold_monitor` re-arming an enabled monitor on an active device now
+  shuts down with the monitored domain intact, then disables the monitor while
+  shut down. The shutdown and monitor bits cannot move in one write: each is
+  accepted alone as a transition, but together they are a reconfiguration.
+- A failed shutdown write in `measure_once_with_timing` reports without
+  attempting restoration. Nothing has been mutated at that point and the device
+  may still be active, so the generic restoration sequence would have committed
+  the very active write this change removes, turning one fault into
+  `RecoveryFailed`.
 - `MeasureStage::EnterShutdown` names the new pre-reconfiguration write, so a
   failure at that point is attributable rather than folded into a later stage.
   Entering shutdown first also makes the recovery path safe: every later stage
