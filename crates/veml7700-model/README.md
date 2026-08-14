@@ -77,7 +77,7 @@ stay provisional and are not physical-support claims.
 | Abstracted | Analog conversion latches the currently held raw ALS/white pair at the conservative completion boundary. The timing bound is deterministic rather than an oscillator or tolerance simulation. |
 | Injected | Raw ALS/white pair and relative elapsed duration. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, scheduler/topology, HIL evidence, and silicon calibration. |
-| Unsupported | Threshold registers, persistence and status; power-saving-enabled cadence; standalone sequences beyond this slice; source-undeclared or reserved interactions; mid-conversion reconfiguration beyond the supported freeze; all other registers or sequences not needed by `probe` and successful `measure_once`. |
+| Unsupported | Threshold registers, persistence and status; power-saving-enabled cadence; standalone sequences beyond this slice; source-undeclared or reserved interactions; repeated active configuration writes; mid-conversion reconfiguration beyond the supported freeze; all other registers or sequences not needed by `probe` and successful `measure_once`. |
 
 ## Source decisions
 

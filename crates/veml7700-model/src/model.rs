@@ -196,14 +196,12 @@ impl Veml7700Model {
     }
 
     const fn write_configuration_while_active(&mut self, word: u16) -> Result<(), TransportError> {
-        if without_shutdown(word) != without_shutdown(self.configuration) {
+        if !is_shutdown(word) || without_shutdown(word) != without_shutdown(self.configuration) {
             return Err(TransportError::Unsupported(
                 Unsupported::MidConversionReconfiguration,
             ));
         }
-        if is_shutdown(word) {
-            self.remaining_ns = None;
-        }
+        self.remaining_ns = None;
         self.configuration = word;
         Ok(())
     }

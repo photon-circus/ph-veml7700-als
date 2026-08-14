@@ -37,7 +37,8 @@ pub enum Unsupported {
     ConfigurationWord(u16),
     /// Power-saving word contains behavior outside the declared slice.
     PowerSavingWord(u16),
-    /// Configuration fields other than the shutdown bit changed while active.
+    /// An active configuration write was repeated, or configuration fields were
+    /// changed while active.
     MidConversionReconfiguration,
     /// Integration-time field is a reserved encoding, so no bound exists.
     ReservedIntegrationTime(u16),
@@ -74,7 +75,7 @@ impl fmt::Display for Unsupported {
                 "power-saving word 0x{observed:04X} is outside this slice"
             ),
             Self::MidConversionReconfiguration => {
-                f.write_str("mid-conversion reconfiguration is outside this slice")
+                f.write_str("configuration write while active is outside this slice")
             }
             Self::ReservedIntegrationTime(observed) => {
                 write!(

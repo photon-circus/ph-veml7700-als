@@ -160,6 +160,23 @@ fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
 }
 
 #[test]
+fn repeated_active_configuration_is_rejected_without_mutation() {
+    let mut model = Veml7700Model::new();
+    wake_100ms(&mut model);
+    model.advance(RelativeDuration::from_micros(10_000));
+    let before = model.inspect();
+    let [low, high] = ACTIVE_100MS.to_le_bytes();
+
+    assert_eq!(
+        model.write(I2C_ADDRESS, &[CONFIG, low, high]),
+        Err(TransportError::Unsupported(
+            Unsupported::MidConversionReconfiguration
+        ))
+    );
+    assert_eq!(model.inspect(), before);
+}
+
+#[test]
 fn repeated_reads_are_stable_at_an_unchanged_frontier() {
     let mut model = Veml7700Model::new();
     model.set_raw_sample(0xABCD, 0xDCBA);

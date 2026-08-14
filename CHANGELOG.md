@@ -4,7 +4,7 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
-Last updated: 2026-08-13 UTC
+Last updated: 2026-08-14 UTC
 
 ### Added
 
@@ -20,6 +20,8 @@ Last updated: 2026-08-13 UTC
 
 ### Changed
 
+- Reject repeated active configuration writes in the bounded device model
+  instead of inventing conversion restart-or-continuation behavior.
 - Lock crates.io publication with `publish = false` until independent model and
   reviewed physical evidence support the claimed scope.
 - Consolidate routine verification into one bounded local Git Bash gate with
