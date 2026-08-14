@@ -33,8 +33,14 @@ permissive redistribution rights.
 ## Retrieval record
 
 These entries record provenance only. They establish which bytes the repository
-interpretation was derived from; they do not check any owner-verification box in
-[`HARDWARE_CONTRACT.md`](../HARDWARE_CONTRACT.md).
+interpretation was derived from. They do not by themselves establish any device
+fact: a matching digest proves the right document was read, not that the
+document is right.
+
+The owner has since recomputed both digests over the retrieved local copies and
+matched them, which is what closes §1 of
+[`HARDWARE_CONTRACT.md`](../HARDWARE_CONTRACT.md). That check is repeatable by
+anyone holding the same files.
 
 | Document | Local copy observed | Size | SHA-256 |
 | --- | --- | --- | --- |
@@ -51,10 +57,12 @@ are coupled and must change together.
 ## Owner record to complete
 
 - [x] local copy observed and its SHA-256 recorded;
-- [ ] every hardware-contract verification box reviewed — **partly complete.**
-      §2, the §6 refresh table, §8 in full, the §5 gain and integration
-      encodings and reconfiguration sequence, and the §7 wake-up delay are
-      verified. Both §1 source-baseline entries and the remaining rows are not;
+- [x] every hardware-contract verification box reviewed — 37 rows verified,
+      including both §1 source-baseline entries. Four rows remain open and each
+      says why in place: three are declared **Assumptions** under D-029 that no
+      further reading can close, and one is a provisional row still waiting on a
+      passage. Reviewed is not the same as all-checked; an open row that states
+      its own obstacle is a completed review of that row;
 - [x] discrepancies between vendor prose and the register tables logged —
       recorded in `docs/HARDWARE_CONTRACT.md` beside the rows they affect rather
       than in `DECISIONS.md`, so a reader meets the caveat with the fact. Two so

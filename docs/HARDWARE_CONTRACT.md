@@ -33,7 +33,7 @@ ones a hardware-in-the-loop effort should start from.
 
 Counts of "verified" rows in the changelog and elsewhere refer to the bullet
 rows in §2 onward. The two §1 source-baseline entries are tracked in that
-section's table and are unchecked; every other row depends on them.
+section's table and are verified; every other row depends on them.
 
 A row that fails to verify becomes its own issue rather than an in-place edit,
 because correcting the contract is a behavior change to the driver, the model,
@@ -43,8 +43,20 @@ or both. See #21.
 
 | Source | Revision | Status |
 | --- | --- | --- |
-| VEML7700 datasheet, document 84286 | Rev. 1.8, 28-Nov-2024 | [ ] owner verified |
-| Designing the VEML7700 Into an Application, document 84323 | 06-Mar-2025 | [ ] owner verified |
+| VEML7700 datasheet, document 84286 | Rev. 1.8, 28-Nov-2024 | [x] owner verified |
+| Designing the VEML7700 Into an Application, document 84323 | 06-Mar-2025 | [x] owner verified |
+
+Both rows were closed by the owner computing SHA-256 over the retrieved local
+copies and matching the digests recorded in
+[`docs/vendor/README.md`](vendor/README.md) and the model's source declaration.
+The two records agree, so every row below is anchored to a known byte sequence
+rather than to "the datasheet" as a moving target — a later Vishay revision
+becomes a visible digest change and a re-verification, not a silent drift.
+
+What this establishes is provenance and nothing further. It fixes *which bytes*
+were read; it says nothing about whether those bytes describe the silicon
+correctly. A verified row means the repository recorded the source faithfully.
+Only physical evidence can make it a claim about a part.
 
 The datasheet and application note occasionally use inconsistent prose such as
 “six registers” while their command table includes `0x00` through `0x07` and a
@@ -271,16 +283,39 @@ coherence policy, not a vendor-stated atomic pair primitive.
 
 - [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
       source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
-- [ ] The ±30 % integration-time tolerance. **Provisional, and closable by
-      reading** — unlike the gain assumption above, a tolerance figure is an
-      ordinary datasheet parameter, so this row is waiting on a passage rather
-      than on hardware. It is not in Absolute Maximum Ratings or Basic
-      Characteristics; the application note's timing section is the likely place.
+- [ ] **Assumption: integration time is within ±30 % of nominal.**
+      *Requires physical validation. Further reading cannot close this row.*
 
-      Note that §7's prose already says *assumed* ±30 %, which is the hedge this
-      row exists to remove. Two outcomes: a source states it and the word goes,
-      or none does and `INTEGRATION_TOLERANCE_PERCENT` is a driver policy value
-      that must say so — the same treatment `MEASUREMENT_MARGIN_US` received.
+      Neither source states it. It appears in neither Absolute Maximum Ratings
+      nor Basic Characteristics, and the reviewed timing material specifies the
+      I²C bus but not the conversion clock.
+
+      This row was briefly recorded as waiting on a passage. That was wrong
+      about the kind of fact it is. Integration intervals are counted off the
+      part's **internal oscillator**, so their spread is that oscillator's
+      tolerance — a process-dependent silicon characteristic, not a separately
+      specified timing parameter that a further page would list. Vishay
+      publishes no oscillator accuracy for this part, and an untrimmed
+      integrated RC oscillator drifting tens of percent over process, voltage
+      and temperature is ordinary. Waiting for a passage here is waiting for a
+      document that was never going to exist.
+
+      The ±30 % figure itself is third-party in origin and is **not** adopted as
+      a source-backed value. What the sources do support is that the timing is
+      oscillator-derived and unspecified; ±30 % is this repository's
+      conservative stand-in for an unpublished tolerance.
+
+      **This driver assumes it.** `INTEGRATION_TOLERANCE_PERCENT` is why the
+      conservative wait is 130 % of the selected integration time, so the margin
+      is conservative *given the assumption* rather than in general. A real
+      spread wider than ±30 % would make the driver read a register before the
+      conversion behind it completed — the freshness guarantee fails silently,
+      returning a stale value that is indistinguishable from a new one.
+
+      **Settled by:** clocking actual conversion completion against the wake
+      edge across all six integration times on several parts, ideally over the
+      operating temperature range, since oscillator drift is where the spread
+      comes from. One part at room temperature bounds nothing.
 - [x] Data registers retain the last result while shut down. The source calls
       this *Auto-Memorization*: the part memorizes the last ambient data before
       shutdown, the host may read it directly while shut down, and on wake the
@@ -449,10 +484,25 @@ write-to-clear, or latched GPIO behavior.
       states is the qualification rule itself — whether the count is over
       consecutive refreshes and whether a non-qualifying refresh resets it.
 
-      The model implements consecutive counting with reset on any non-qualifying
-      refresh. If the sources turn out not to state that rule, it becomes a
-      declared model abstraction rather than derived behavior, alongside the
-      construction abstraction already declared in the model README.
+      This row is **not** an Assumption in the D-029 sense. A qualification rule
+      is functional behavior a datasheet can state in prose, unlike an
+      oscillator tolerance, so further reading could still close it.
+
+      Under D-030 it resolves without one. The driver acts **defensively**: it
+      encodes the persistence protect number and promises nothing about when the
+      flag asserts, which costs it nothing because no driver logic reads the
+      count — `Persistence::count()` is an accessor, not an input to any
+      computation. The model **declares undefined** rather than assuming,
+      because nothing in the model requires a qualification rule either.
+
+      The model currently implements consecutive counting with reset on any
+      non-qualifying refresh, and that is the finding here: driver-model
+      conformance appeared to establish persistence semantics when it could not.
+      The driver only programs the field, so
+      `threshold_monitor_public_operations_qualify_after_configured_persistence`
+      confirms a register write while reading like a behavioral result.
+      Correcting that is a behavior change to the model and lands as its own
+      issue, per this document's own rule.
 
       Third-party libraries describe this register in terms of an INT pin that
       latches and clears on read. This part has neither — §9 records that the
