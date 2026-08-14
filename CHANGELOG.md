@@ -107,6 +107,35 @@ than a change from a prior version.
   ALS gain. The source states the relation at gain ×2 only, so this is an
   inference; it is now visible in the contract rather than implicit in
   `nominal_refresh_time_ms`.
+- Verified the complete twenty-four-entry resolution table and recorded the
+  matching maximum-detection-range table beside it, so the full-scale range of
+  every gain and integration pair is stated rather than derived at the call
+  site. Gain ×1/8 at 25 ms reaches 140 926 lx; at 100 ms it reaches 35 232 lx.
+- Recorded the source's linearity limits and correction guidance: gain ×1 and
+  ×2 are confined to illumination below 100 lx, linear behavior spans 0.0042 lx
+  to about 1 klx, and correction is called for with gain ×1/4 and ×1/8 and above
+  1 000 lx. The driver still does not apply the polynomial — that remains D-007 —
+  but the contract now states the consequence for `nominal_illuminance` instead
+  of leaving it implied, and records the coefficients so a consumer can apply
+  them in the application layer.
+- Recorded the source's starting-configuration guidance: begin at the lowest
+  gain for unknown brightness, and use an integration time below 100 ms to cover
+  the brightest conditions. This is the source basis a first-use preset needs.
+- Recorded that the source places auto-ranging in application software, so
+  automatic range selection remaining a non-claim follows the source's own
+  framing rather than being only a scope decision.
+- Logged two vendor prose-versus-table discrepancies: a stated range of "0 lx to
+  230 lx" where the table gives 275 lx, and a ranging example that computes
+  46 lx where its own arithmetic and stated logic give 54 lx.
+- **Established that reconfiguration requires shutdown first.** The source's
+  software flow sets `ALS_SD = 1` before any reconfiguration, changes gain or
+  integration time while shut down, and clears `ALS_SD` afterwards. This is a
+  positive requirement rather than an absent permission, and it resolves the
+  driver-versus-model disagreement in #29 against the driver: the model's
+  rejection of active reconfiguration is correct, and `set_measurement_config`
+  currently writes without entering shutdown. Correcting that is a behavior
+  change owned by #29.
+- Verified the integration-time encodings and the 2.5 ms minimum wake-up delay.
 
 ### Known issues
 
@@ -115,11 +144,14 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification is partly complete: 8 of 28 hardware-contract rows
-  are owner-verified — the electrical and bus boundary, the sixteen power-saving
-  refresh times, and the gain ×2 resolution column. The remaining 20 are
-  provisional, including both §1 source-baseline rows. None of these are
-  physical-support claims. Two gaps block open work: the configuration
-  active-write rule (#29) and the gain ×1/8 and 25 ms resolution entries (#32).
+- Vendor owner-verification is well advanced but incomplete: the electrical and
+  bus boundary, the power-saving refresh table, the complete resolution and
+  maximum-range tables, the gain encodings, the linearity limits, and the
+  vendor's starting-configuration guidance are owner-verified. Still
+  provisional: both §1 source-baseline rows, the integration/persistence/
+  shutdown encodings, the register map, word transfer order, wake-up timing,
+  the threshold monitor, and the identity word. None of these are
+  physical-support claims. One gap still blocks open work: the configuration
+  active-write rule (#29).
 - No reviewed physical or calibrated-optical evidence exists, and candidate
   version `0.1.0-incubating.1` remains unpublished with `publish = false`.

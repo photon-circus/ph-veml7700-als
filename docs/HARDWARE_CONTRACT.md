@@ -93,11 +93,40 @@ Reserved integration encodings and non-zero reserved bits are decode errors, not
 values to preserve as ordinary typed state.
 
 - [ ] Reset/default word `0x0001` and the state it denotes.
-- [ ] Gain, integration, persistence, monitor-enable, and shutdown encodings.
-- [ ] Which bits are reserved and must be zero.
-- [ ] Whether configuration writes are accepted while the sensor is active, or
-      require shutdown first. Blocks #29; the driver and the model currently
-      disagree about this and neither position is source-backed yet.
+- [x] Reserved bits 15:13, stated by the source as `000b`.
+- [x] Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that the
+      encoding order is not the magnitude order — `10` is ×1/8 and `11` is ×1/4,
+      so a table sorted by gain does not match a table sorted by bit pattern.
+- [x] Integration-time encodings, bits 9:6: `1100` 25 ms, `1000` 50 ms, `0000`
+      100 ms, `0001` 200 ms, `0010` 400 ms, `0011` 800 ms. Like gain, the
+      encoding order is not the magnitude order.
+- [ ] Persistence encodings, bits 5:4.
+- [ ] Monitor-enable, bit 1, and shutdown, bit 0.
+- [ ] Reserved bits 10 and 3:2.
+- [x] **Reconfiguration requires shutdown first.** The source's own software
+      flow sets `ALS_SD = 1` (standby) before any reconfiguration, changes gain
+      or integration time while shut down, and clears `ALS_SD` afterwards.
+
+### Reconfiguration sequence
+
+This is a positive source requirement, not merely an absence of permission to
+write while active. The vendor's flow chart annotates the step directly: *before
+any reconfiguration set `ALS_SD` to 1 = stand_by*.
+
+Two consequences follow, and #29 owns both:
+
+1. The independent model's rejection of changed or repeated active configuration
+   is **correct and source-backed**. It should not be relaxed to admit the
+   driver's current behavior.
+2. `set_measurement_config`, and every other path that writes configuration or
+   power-saving fields, must enter shutdown first, write while shut down, and
+   restore the active state last. The driver currently reads the configuration
+   and writes the new one without entering shutdown, so it can reconfigure an
+   active sensor. That is the mismatch #29 records, and this row resolves it
+   against the driver rather than against the model.
+
+Correcting it is a behavior change with its own tests and contract updates, so
+it belongs to #29 and not to this verification pass.
 
 ## 6. Power-saving register `0x03`
 
@@ -149,7 +178,8 @@ It then enters shutdown before reading ALS and white so that autonomous refresh
 cannot occur between those two sequential register reads. This is a software
 coherence policy, not a vendor-stated atomic pair primitive.
 
-- [ ] The 2.5 ms minimum wake-up delay after clearing the shutdown bit.
+- [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
+      source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
 - [ ] The ±30 % integration-time tolerance.
 - [ ] Data registers retain the last result while shut down.
 
@@ -170,20 +200,98 @@ The nominal resolution table is:
 | 50 ms | 0.0672 | 0.1344 | 0.5376 | 1.0752 | lx/count |
 | 25 ms | 0.1344 | 0.2688 | 1.0752 | 2.1504 | lx/count |
 
-The core uses exact integer micro-lux-per-count values. It does not apply the
-vendor's empirical high-illuminance polynomial because its applicability depends
-on optical window, source spectrum, geometry, and application validation.
+The source states the maximum possible illumination for each pair. It is the
+resolution multiplied by 65 535, and all twenty-four entries are internally
+consistent with the resolution table:
 
-- [x] Gain ×2 resolution for 100, 200, 400, and 800 ms, from the refresh time /
-      I_DD / resolution relation.
-- [ ] Gain ×1, ×1/4, and ×1/8 resolution columns.
-- [ ] The 25 ms and 50 ms rows, at any gain.
-- [ ] Both channels are unsigned 16-bit counts.
+| IT | gain ×2 | gain ×1 | gain ×1/4 | gain ×1/8 | unit |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| 800 ms | 275 | 550 | 2 202 | 4 404 | lx |
+| 400 ms | 550 | 1 101 | 4 404 | 8 808 | lx |
+| 200 ms | 1 101 | 2 202 | 8 808 | 17 616 | lx |
+| 100 ms | 2 202 | 4 404 | 17 616 | 35 232 | lx |
+| 50 ms | 4 404 | 8 808 | 35 232 | 70 463 | lx |
+| 25 ms | 8 808 | 17 616 | 70 463 | 140 926 | lx |
 
-The unchecked resolution entries block #32. The nominal full-scale range of a
-preset is the resolution multiplied by 65 535, so naming a preset for its range —
-`maximum_range_start` at gain ×1/8 and 25 ms — asserts the one entry in this
-table that is furthest from anything yet verified.
+The core uses exact integer micro-lux-per-count values.
+
+### Linearity and the correction polynomial
+
+The source constrains where uncorrected counts mean anything:
+
+- above about 100 lx, gain ×1 and ×2 should not be used because the sensor
+  becomes non-linear;
+- when using gain ×1/4 or ×1/8, the correction formula should be used; and
+- above 1 000 lx a correction formula needs to be applied.
+
+The vendor's polynomial, applied to the uncorrected lux value, is:
+
+```text
+corrected = a·x⁴ + b·x³ + c·x² + d·x
+a = 6.0135e-13   b = -9.3924e-9   c = 8.1488e-5   d = 1.0023
+```
+
+**This driver does not apply it.** That remains D-007, and the reason is
+unchanged: applicability depends on optical window, source spectrum, geometry,
+and application validation, none of which a driver owns.
+
+The consequence must be stated plainly rather than left implied. The driver's
+own low-gain presets sit inside the range where the source says correction is
+needed, so `nominal_illuminance` above roughly 1 000 lx is an uncorrected value
+the vendor does not consider a lux estimate. It is honest as *nominal* output and
+is never calibrated system lux; a consumer wanting corrected lux applies the
+polynomial above, with its stated caveats, in the application layer.
+
+- [x] The complete twenty-four-entry resolution table, every gain and every
+      integration time.
+- [x] The twenty-four-entry maximum-detection-range table.
+- [x] Gain ×1/8 at 25 ms is 2.1504 lx/count, reaching 140 926 lx — the widest
+      range the part offers.
+- [x] Above 100 lx, gain ×1 and ×2 are outside the linear region.
+- [x] Correction is called for with gain ×1/4 and ×1/8, and above 1 000 lx.
+- [x] The correction polynomial coefficients, checked against the source's own
+      worked example: 5581 counts at ×1/4 and 100 ms give 1500 lx uncorrected
+      and 1658 lx corrected.
+- [x] ALS output is a 16-bit word.
+- [ ] The white channel is an unsigned 16-bit count. Not stated in the passages
+      reviewed so far.
+
+### Starting configuration and ranging
+
+The source gives explicit application guidance, and it decides what a first-use
+preset should be:
+
+- for unknown brightness the application should always start at the lowest gain,
+  ×1/8 or ×1/4, to avoid overload if strong sunlight suddenly reaches the sensor;
+- to show such a high value, an integration time **lower than 100 ms may be
+  needed**;
+- gain ×1 and ×2 are for low illumination below 100 lx — at 100 ms they saturate
+  at 4 404 lx and 2 202 lx respectively; and
+- linear behavior runs from 0.0042 lx to about 1 klx.
+
+The source also sketches an auto-ranging loop — start at ×1/8, and while counts
+stay at or below 100, step the gain up through ×1/4, ×1, ×2, then lengthen the
+integration time toward 800 ms. It places that loop in **application software**,
+which is where this driver leaves it. Automatic range selection stays a non-claim
+under §11, and this is the source's own framing rather than a driver limitation.
+
+- [x] Start at the lowest gain for unknown brightness, and reduce integration
+      time below 100 ms to cover the brightest conditions.
+- [x] Gain ×1 and ×2 are confined to illumination below 100 lx.
+- [x] Linear behavior spans 0.0042 lx to about 1 klx.
+- [x] Auto-ranging is application-software responsibility in the source.
+
+Two prose-versus-table discrepancies are recorded rather than normalized:
+
+1. The narrative calls 0.0042 lx/count a range of "approximately 0 lx to 230 lx",
+   while the table gives 275 lx for that pair.
+2. The ranging example states that 100 counts at ×1/8 is 54 lx, then that after
+   switching to ×1/4 the same light gives 200 counts and "the same lux value of
+   46 lx". Both cannot hold: 200 × 0.2688 is 53.76 lx, so 54 lx is right and the
+   46 lx is a slip. The example's own logic — that the lux value is unchanged
+   across a gain switch — is correct.
+
+The tables govern in both cases, consistent with §1.
 
 ## 9. Threshold monitor
 
