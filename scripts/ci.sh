@@ -131,13 +131,19 @@ fi
 # not the gate.
 #
 # Read the resolved version through Cargo rather than parsing manifest text.
-# Both crates inherit `version` from `[workspace.package]`, so no literal
+# Both product crates inherit `version` from `[workspace.package]`, so no literal
 # `version = "..."` line exists in either crate manifest and a text parser would
 # silently read nothing at all -- which is worse than failing, because an empty
 # version compares equal to an empty version and the drift check would pass.
 # `cargo pkgid` reports the same resolved metadata as `cargo metadata` without
 # requiring a JSON parser, keeping `jq` off the prerequisite list.
+#
+# It reads `Cargo.lock`, which is why the refresh below is not optional. A
+# manifest edit that has not been resolved yet leaves the lock holding the
+# previous version, and every later gate command runs *after* this step, so the
+# authoritative check would report a version no manifest still declares.
 step "verify the Incubating candidate version"
+cargo metadata --format-version 1 >/dev/null
 package_version() {
     cargo pkgid -p "$1" | sed 's/.*@//'
 }
@@ -163,7 +169,43 @@ if ! printf '%s\n' "$driver_version" \
     exit 1
 fi
 printf '        candidate version %s\n' "$driver_version"
-evidence "- Candidate version: \`$driver_version\` (both crates, inherited from \`[workspace.package]\`)"
+
+# The conformance package is deliberately outside the product version. Checking
+# it is not pedantry: making it inherit would be the natural-looking edit, and
+# it would silently enrol a package no consumer can observe into the release
+# lifecycle -- so a release bump would start touching it, and D-022's claim
+# about the product crates would quietly become false.
+#
+# Read the manifest, not the resolved metadata. The sentinel is deliberately a
+# literal, so the literal is what to check: `version.workspace = true` with a
+# stale lock resolves to the *old* value and would slip past a version
+# comparison. Reading the file cannot be fooled that way, and it also rejects
+# the inheriting form outright rather than inferring it from a number.
+conformance_manifest=tests/conformance/Cargo.toml
+if grep -Eq '^[[:space:]]*version\.workspace' "$conformance_manifest"; then
+    printf 'the conformance package must not inherit the product version: %s declares version.workspace
+'         "$conformance_manifest" >&2
+    exit 1
+fi
+if ! grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"0\.0\.0"[[:space:]]*$' "$conformance_manifest"; then
+    printf 'the conformance package must pin the literal 0.0.0 sentinel in %s
+'         "$conformance_manifest" >&2
+    exit 1
+fi
+# Belt and braces: the resolved value must agree with the manifest. If these
+# ever disagree the lock is stale in a way the refresh above did not fix, which
+# is itself worth failing on.
+conformance_version=$(package_version ph-veml7700-als-conformance)
+if [ "$conformance_version" != "0.0.0" ]; then
+    printf 'resolved conformance version %s does not match the 0.0.0 sentinel in its manifest
+'         "$conformance_version" >&2
+    exit 1
+fi
+if ! grep -q '^publish = false' "$conformance_manifest"; then
+    echo "the conformance package must keep publish = false" >&2
+    exit 1
+fi
+evidence "- Candidate version: \`$driver_version\` (both product crates, inherited from \`[workspace.package]\`; \`ph-veml7700-als-conformance\` pins the \`0.0.0\` sentinel and is never published)"
 
 # `.gitignore` keeps vendor documents out by default, but `git add -f` and any
 # previously tracked file bypass it. This check is what actually enforces the
@@ -215,7 +257,7 @@ done
 # The second direction is the one that matters for honesty. Only the first is
 # obvious.
 step "the conformance matrix matches the conformance tests"
-conformance_source=crates/veml7700/tests/device_model.rs
+conformance_source=tests/conformance/tests/device_model.rs
 matrix_source=crates/veml7700/README.md
 actual_tests=$(grep -A1 '^#\[test\]' "$conformance_source" | sed -n 's/^fn \([a-z0-9_]*\).*/\1/p' | sort -u)
 if [ -z "$actual_tests" ]; then
@@ -371,17 +413,29 @@ printf '        %s public error variants, all reachable\n' \
 step "formatting"
 cargo fmt --all -- --check
 
-step "host tests, including doctests, without default features"
+# Three commands, not one, because they establish three different things and a
+# combined invocation hides which layer failed. Driver tests must not build the
+# model: if that ever becomes possible again, a driver test could reach the
+# model directly and the independence the conformance layer claims would be
+# gone without anything failing.
+step "driver host tests, including doctests, without default features"
 cargo test -p ph-veml7700-als --no-default-features
+
+step "model host tests, independent of the production driver"
 cargo test -p ph-veml7700-als-model --no-default-features
+
+step "driver-versus-model conformance"
+cargo test -p ph-veml7700-als-conformance
 
 step "feature-complete compilation"
 cargo check -p ph-veml7700-als --all-features
 cargo check -p ph-veml7700-als-model
+cargo check -p ph-veml7700-als-conformance
 
 step "lints with warnings denied"
 cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
 cargo clippy -p ph-veml7700-als-model --all-targets -- -D warnings
+cargo clippy -p ph-veml7700-als-conformance --all-targets -- -D warnings
 
 step "documentation build"
 RUSTDOCFLAGS="-D warnings" cargo doc -p ph-veml7700-als --all-features --no-deps

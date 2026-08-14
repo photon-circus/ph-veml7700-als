@@ -199,7 +199,7 @@ unchanged, and disabling an enabled monitor with every other field unchanged.
 This was the one place the driver and the model disagreed. It was resolved
 against the driver: the driver now shuts down before reconfiguring, so the model
 was not relaxed to admit the sequence it had been rejecting. Two
-driver-versus-model traces in `crates/veml7700/tests/device_model.rs` start from
+driver-versus-model traces in `tests/conformance/` start from
 an active device and would fail against the previous driver with
 `Unsupported::MidConversionReconfiguration`.
 

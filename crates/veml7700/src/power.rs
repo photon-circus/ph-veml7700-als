@@ -146,6 +146,51 @@ impl core::error::Error for PowerSavingDecodeError {}
 mod tests {
     use super::*;
 
+    /// Literal words from `docs/HARDWARE_CONTRACT.md` §6 (Table 4), not round
+    /// trips.
+    ///
+    /// Same reasoning as the configuration vectors: the exhaustive round trip
+    /// below proves encoder and decoder agree, which they would continue to do
+    /// with `PSM` shifted to the wrong bits. These vectors pin the positions.
+    ///
+    /// The `PSM_EN` bit sits *below* the mode field, so a word for "mode 2
+    /// enabled" is `0b011`, not `0b101`. Getting that backwards is the natural
+    /// mistake and the reason the enable case is tested separately from the
+    /// mode case.
+    #[test]
+    fn power_saving_fields_occupy_the_contract_bit_positions() {
+        // Mode selection is bits 2:1; with the enable bit clear the word is the
+        // mode alone.
+        for (mode, bits) in [
+            (PowerSavingMode::Mode1, 0b00_u16),
+            (PowerSavingMode::Mode2, 0b01),
+            (PowerSavingMode::Mode3, 0b10),
+            (PowerSavingMode::Mode4, 0b11),
+        ] {
+            assert_eq!(
+                PowerSavingConfig::new(false, mode).encode(),
+                bits << 1,
+                "{mode:?} must occupy bits 2:1"
+            );
+        }
+
+        // PSM_EN is bit 0.
+        assert_eq!(
+            PowerSavingConfig::new(true, PowerSavingMode::Mode1).encode(),
+            0b001
+        );
+        // Mode 4 enabled: mode `11` in bits 2:1, enable in bit 0.
+        assert_eq!(
+            PowerSavingConfig::new(true, PowerSavingMode::Mode4).encode(),
+            0b111
+        );
+        // The reset word is every field zero: mode 1, cadence disabled.
+        assert_eq!(
+            decode_power_saving(0x0000).unwrap().as_config(),
+            PowerSavingConfig::new(false, PowerSavingMode::Mode1)
+        );
+    }
+
     #[test]
     fn every_power_saving_configuration_round_trips() {
         for mode in [

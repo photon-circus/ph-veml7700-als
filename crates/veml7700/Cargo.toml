@@ -13,7 +13,6 @@ homepage = "https://github.com/photon-circus/ph-veml7700-als"
 keywords = ["ambient-light", "veml7700", "embedded", "no-std", "i2c"]
 categories = ["embedded", "no-std", "hardware-support"]
 publish = false
-exclude = ["tests/device_model.rs"]
 
 [dependencies]
 embedded-hal-async = { version = "1.0.0", default-features = false }
@@ -24,8 +23,10 @@ default = []
 defmt = ["dep:defmt"]
 
 [dev-dependencies]
+# Retained: private scripted-transport tests still block_on. The model
+# dev-dependency left with the conformance traces -- this package no longer
+# builds the model at all.
 futures = { version = "0.3", default-features = false, features = ["std", "executor"] }
-ph-veml7700-als-model = { path = "../veml7700-model" }
 
 [package.metadata.docs.rs]
 all-features = true

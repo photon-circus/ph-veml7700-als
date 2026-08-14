@@ -428,6 +428,118 @@ mod tests {
         );
     }
 
+    /// Literal words from `docs/HARDWARE_CONTRACT.md` §5, not round trips.
+    ///
+    /// The exhaustive round-trip test below proves the encoder and decoder agree
+    /// with each other. It cannot detect them agreeing on the *wrong* bit
+    /// position: shift both fields by one and every round trip still passes.
+    /// These vectors are the only tests here that would fail.
+    ///
+    /// Each field is placed alone so a failure names the field rather than the
+    /// word. The encodings deliberately include the two cases where bit order
+    /// and magnitude order disagree — gain `10` is ×1/8 while `11` is ×1/4, and
+    /// integration `1100` is the *shortest* time — because a plausible-looking
+    /// table sorted by magnitude would encode both backwards.
+    #[test]
+    fn configuration_fields_occupy_the_contract_bit_positions() {
+        let base = ConfigurationSnapshot {
+            measurement: MeasurementConfig::new(Gain::X1, IntegrationTime::Ms100),
+            persistence: Persistence::One,
+            threshold_monitor: ThresholdMonitorState::Disabled,
+            power_state: PowerState::Active,
+        };
+        // Every field at its zero encoding is the all-zero word.
+        assert_eq!(base.encode(), 0x0000);
+
+        // Gain, bits 12:11.
+        for (gain, bits) in [
+            (Gain::X1, 0b00_u16),
+            (Gain::X2, 0b01),
+            (Gain::Div8, 0b10),
+            (Gain::Div4, 0b11),
+        ] {
+            let word = ConfigurationSnapshot {
+                measurement: MeasurementConfig::new(gain, IntegrationTime::Ms100),
+                ..base
+            }
+            .encode();
+            assert_eq!(word, bits << 11, "gain {gain:?} must occupy bits 12:11");
+        }
+
+        // Integration time, bits 9:6.
+        for (integration_time, bits) in [
+            (IntegrationTime::Ms25, 0b1100_u16),
+            (IntegrationTime::Ms50, 0b1000),
+            (IntegrationTime::Ms100, 0b0000),
+            (IntegrationTime::Ms200, 0b0001),
+            (IntegrationTime::Ms400, 0b0010),
+            (IntegrationTime::Ms800, 0b0011),
+        ] {
+            let word = ConfigurationSnapshot {
+                measurement: MeasurementConfig::new(Gain::X1, integration_time),
+                ..base
+            }
+            .encode();
+            assert_eq!(
+                word,
+                bits << 6,
+                "integration time {integration_time:?} must occupy bits 9:6"
+            );
+        }
+
+        // Persistence, bits 5:4.
+        for (persistence, bits) in [
+            (Persistence::One, 0b00_u16),
+            (Persistence::Two, 0b01),
+            (Persistence::Four, 0b10),
+            (Persistence::Eight, 0b11),
+        ] {
+            let word = ConfigurationSnapshot {
+                persistence,
+                ..base
+            }
+            .encode();
+            assert_eq!(
+                word,
+                bits << 4,
+                "persistence {persistence:?} must occupy bits 5:4"
+            );
+        }
+
+        // Monitor enable is bit 1; shutdown is bit 0.
+        assert_eq!(
+            ConfigurationSnapshot {
+                threshold_monitor: ThresholdMonitorState::Enabled,
+                ..base
+            }
+            .encode(),
+            1 << 1
+        );
+        assert_eq!(
+            ConfigurationSnapshot {
+                power_state: PowerState::Shutdown,
+                ..base
+            }
+            .encode(),
+            1 << 0
+        );
+
+        // One word carrying every field at once, decoded back. ×1/4 gain,
+        // 800 ms, persistence 8, monitor enabled, shut down:
+        // 0b0001_1000_1111_0011.
+        let combined = (0b11 << 11) | (0b0011 << 6) | (0b11 << 4) | (1 << 1) | 1;
+        assert_eq!(combined, 0x18F3);
+        assert_eq!(
+            ConfigWord(combined).decode(),
+            Ok(ConfigurationSnapshot {
+                measurement: MeasurementConfig::new(Gain::Div4, IntegrationTime::Ms800),
+                persistence: Persistence::Eight,
+                threshold_monitor: ThresholdMonitorState::Enabled,
+                power_state: PowerState::Shutdown,
+            })
+        );
+    }
+
     #[test]
     fn every_documented_configuration_field_combination_round_trips() {
         let gains = [Gain::X1, Gain::X2, Gain::Div8, Gain::Div4];

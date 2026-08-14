@@ -1,0 +1,29 @@
+[package]
+name = "ph-veml7700-als-conformance"
+# Deliberately NOT the workspace version. D-022 synchronizes the two *product*
+# crates because they share one release boundary; this package has none. Giving
+# it `0.1.0-incubating.1` would imply it participates in that lifecycle and
+# would make a release bump touch a package no consumer can observe.
+version = "0.0.0"
+description = "Host-only driver-versus-model conformance traces. Repository-internal; never published."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+# The driver is consumed exactly as a downstream crate would consume it:
+# public API only, default features off. If a trace ever needs something not
+# reachable this way, that is a finding about the driver's public surface, not
+# a reason to reach past it.
+ph-veml7700-als = { path = "../../crates/veml7700", default-features = false }
+ph-veml7700-als-model = { path = "../../crates/veml7700-model" }
+embedded-hal-async = { version = "1.0.0", default-features = false }
+
+[dev-dependencies]
+futures = { version = "0.3", default-features = false, features = ["std", "executor"] }
