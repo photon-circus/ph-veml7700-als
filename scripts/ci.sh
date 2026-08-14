@@ -137,7 +137,13 @@ fi
 # version compares equal to an empty version and the drift check would pass.
 # `cargo pkgid` reports the same resolved metadata as `cargo metadata` without
 # requiring a JSON parser, keeping `jq` off the prerequisite list.
+#
+# It reads `Cargo.lock`, which is why the refresh below is not optional. A
+# manifest edit that has not been resolved yet leaves the lock holding the
+# previous version, and every later gate command runs *after* this step, so the
+# authoritative check would report a version no manifest still declares.
 step "verify the Incubating candidate version"
+cargo metadata --format-version 1 >/dev/null
 package_version() {
     cargo pkgid -p "$1" | sed 's/.*@//'
 }
@@ -169,13 +175,33 @@ printf '        candidate version %s\n' "$driver_version"
 # it would silently enrol a package no consumer can observe into the release
 # lifecycle -- so a release bump would start touching it, and D-022's claim
 # about the product crates would quietly become false.
+#
+# Read the manifest, not the resolved metadata. The sentinel is deliberately a
+# literal, so the literal is what to check: `version.workspace = true` with a
+# stale lock resolves to the *old* value and would slip past a version
+# comparison. Reading the file cannot be fooled that way, and it also rejects
+# the inheriting form outright rather than inferring it from a number.
+conformance_manifest=tests/conformance/Cargo.toml
+if grep -Eq '^[[:space:]]*version\.workspace' "$conformance_manifest"; then
+    printf 'the conformance package must not inherit the product version: %s declares version.workspace
+'         "$conformance_manifest" >&2
+    exit 1
+fi
+if ! grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"0\.0\.0"[[:space:]]*$' "$conformance_manifest"; then
+    printf 'the conformance package must pin the literal 0.0.0 sentinel in %s
+'         "$conformance_manifest" >&2
+    exit 1
+fi
+# Belt and braces: the resolved value must agree with the manifest. If these
+# ever disagree the lock is stale in a way the refresh above did not fix, which
+# is itself worth failing on.
 conformance_version=$(package_version ph-veml7700-als-conformance)
 if [ "$conformance_version" != "0.0.0" ]; then
-    printf 'the conformance package must stay at the 0.0.0 sentinel, not the product version: %s
+    printf 'resolved conformance version %s does not match the 0.0.0 sentinel in its manifest
 '         "$conformance_version" >&2
     exit 1
 fi
-if ! grep -q '^publish = false' tests/conformance/Cargo.toml; then
+if ! grep -q '^publish = false' "$conformance_manifest"; then
     echo "the conformance package must keep publish = false" >&2
     exit 1
 fi
