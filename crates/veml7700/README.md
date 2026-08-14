@@ -52,12 +52,13 @@ tests assert exact transactions, not device behavior. Neither is conformance.
 | `probe` | any | — | `probe_accepts_the_fixed_address_little_endian_id` |
 | `measure_once` | reset / shut down | ×1/8, 25 ms, cadence disabled | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state` |
 | `measure_once` | active | ×1/8, 25 ms, cadence disabled | `measure_once_from_an_active_start_agrees_with_the_model` |
-| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 4, cadence disabled | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
+| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 1, cadence disabled | `threshold_monitor_public_operations_qualify_at_protect_number_one` |
+| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 4, cadence disabled — **programming only, no qualification** | `arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_status` |
 | `arm_threshold_monitor` | active, monitor disabled | ×1/8, 100 ms, persistence 4, Mode 2 | `arming_the_monitor_from_an_active_start_agrees_with_the_model` |
 | `arm_threshold_monitor` | active, monitor **enabled** | ×1/8, 100 ms, persistence 4, Mode 2 | `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
-| `read_threshold_status` | armed | **high direction only** | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
+| `read_threshold_status` | armed | **high direction only**, protect number one | `threshold_monitor_public_operations_qualify_at_protect_number_one`, and `arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_status` for the unmodeled case |
 | `read_thresholds` | armed | — | same, and `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
-| `disable_threshold_monitor` | armed, active | — | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
+| `disable_threshold_monitor` | armed, active | — | `threshold_monitor_public_operations_qualify_at_protect_number_one` |
 | `set_power_saving` | shut down | Mode 2 enabled | `public_power_operations_observe_the_documented_mode_2_refresh_boundary` |
 | `set_power_state` | reset / shut down | requests active only; no trace shuts an active device down | four traces |
 | `read_als_snapshot` | active | — | `public_power_operations_observe_the_documented_mode_2_refresh_boundary`, `public_channel_reads_can_observe_independently_refreshed_generations` |
@@ -87,12 +88,20 @@ operations, conformance traces exercise only:
 | --- | --- | --- |
 | Gain | ×1/8 | ×1, ×2, ×1/4 |
 | Integration time | 25 ms (fresh capture), 100 ms (threshold) | 50, 200, 400, 800 ms |
-| Persistence | 4 | 1, 2, 8 |
+| Persistence | 1 (qualification), 4 (programming only) | 2, 8; and **qualification above protect number one is unmodeled, not merely unexercised** |
 | Power-saving mode | Mode 1, Mode 2 | Mode 3, Mode 4 |
 | Threshold direction | high qualification | **low qualification is never exercised** |
 
 A claim about a gain, integration time, persistence value, cadence mode, or
 threshold direction outside this table has no conformance evidence behind it.
+
+The persistence row is the one exception worth reading twice, because it is not
+a coverage gap that more traces would close. The sources establish the four
+`ALS_PERS` encodings but never state the qualification rule — whether the count
+runs over consecutive refreshes, or whether a non-qualifying one resets it. This
+driver therefore programs the field and promises nothing about *when* a flag
+asserts above protect number one, and the model declares that rule undefined
+rather than inventing one. See `docs/DECISIONS.md` D-030.
 
 Threshold traces deliberately use 100 ms rather than the
 [`maximum_range_start`] preset: 25 ms has no vendor-documented power-saving

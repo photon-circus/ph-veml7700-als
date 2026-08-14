@@ -102,50 +102,57 @@ interpretation matches a recorded document establishes nothing about silicon.
 
 | Classification | Included behavior |
 | --- | --- |
-| Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming, persistence and polled status; configuration and power-saving restoration. |
-| Abstracted | **Four declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
+| Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming at every protect number, and polled status at protect number one; configuration and power-saving restoration. |
+| Abstracted | **Three declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
-| Unsupported | Enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+| Unsupported | Threshold qualification above protect number one, whose rule the sources never state (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ### Declared assumptions
 
-Four model behaviors rest on facts the pinned sources do not state. They are
+Three model behaviors rest on facts the pinned sources do not state. They are
 collected here rather than left in the code, because a reader deciding what
 model agreement is worth needs to know where the model is guessing.
 
-Each is recorded in `docs/HARDWARE_CONTRACT.md` beside the row it affects, with
-the observation that would settle it. **They are not all in the same state**, and
-the difference decides who can close them: three are declared **Assumptions**
-under D-029 — unresolvable by any further reading, closable only with a part on a
-bench — while one is a provisional row still waiting on a passage someone may yet
-find.
+Each is recorded in `docs/HARDWARE_CONTRACT.md` beside the row it affects. All
+three are declared **Assumptions** under D-029: unresolvable by any further
+reading, closable only with a part on a bench. Each row names the observation
+that would settle it; the procedures live in #58, because this repository does
+not carry physical-evidence plans.
 
 | Assumption | Where the model relies on it | Contract state | Observable consequence |
 | --- | --- | --- | --- |
 | Register `0x03` reads `0x0000` before it is written | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. The **driver** has no such assumption — it reads the register before acting on it. |
 | Refresh time does not depend on ALS gain | `refresh_interval_ns`, which takes no gain argument | **Assumption** (D-029) | Every cadence the model predicts is gain-independent. If silicon disagreed, model and driver would agree with each other and both diverge from the part. |
 | Integration time is within ±30 % of nominal | `conversion_bound_ns`, via the 130 % conservative bound | **Assumption** (D-029) | Conversion completion is predicted at 130 % of nominal. A wider real spread would make the model complete a conversion the device has not. |
-| Persistence counts consecutive refreshes, resetting on any non-qualifying one | `update_threshold_status` streak handling | **Being withdrawn** — see below | A crossing broken by one non-qualifying refresh restarts the count rather than resuming. |
 
 The integration-time row is an Assumption rather than unread reading because of
 where the number comes from: intervals are counted off the part's internal
 oscillator, so the spread is an oscillator characteristic, and Vishay publishes
 no oscillator accuracy for this part. There is no page to go back to.
 
-The persistence row is different in kind, and it is being removed rather than
-declared. Under D-030 a model assumes only what it needs to run; nothing here
-forces a qualification rule, so the model will declare it **undefined** and
-answer `TransportError::Unsupported` instead of counting streaks.
+### The assumption this model removed
 
-This one is worth stating bluntly because it is the failure the whole
-model-conformance apparatus exists to prevent, caught in this repository rather
-than in the field. The driver only *programs* `ALS_PERS` — no driver logic reads
-the count. So a driver-versus-model trace at persistence 4 confirms a register
-write, while reading like confirmation of when the flag asserts. The model
-invented a rule, the driver never had one to disagree with, and the resulting
-agreement looked like evidence. Correcting it lands as its own issue, because
-changing what the model does is a behavior change and not a documentation edit.
+There were four. The persistence qualification rule is no longer among them,
+because under D-030 a model assumes only what it needs to run, and nothing here
+forced a rule: `update_threshold_status` now qualifies at protect number one and
+reports `Unsupported::UndefinedQualificationRule` above it.
+
+It is worth recording what that assumption had been doing, because it is the
+failure the whole model-conformance apparatus exists to prevent, found in this
+repository rather than in the field.
+
+The driver only *programs* `ALS_PERS`; `Persistence::count()` is an accessor and
+no driver logic reads it. So the conformance trace at persistence 4 advanced
+four refreshes and asserted the flag — confirming a register write while reading
+like confirmation of when the flag asserts. The model had invented a counting
+rule, the driver never had one to disagree with, and the agreement between them
+looked exactly like evidence.
+
+The lesson generalizes past this row: **an invented model behavior does not
+produce a conformance failure.** It produces agreement, because the driver is
+usually silent wherever the sources are. Where the model guesses, it must guess
+visibly or not at all.
 
 The second is the one that most limits what conformance establishes. Driver and
 model derive it independently but from the same silent source, so agreement
@@ -206,9 +213,11 @@ an active device and would fail against the previous driver with
   white offset permits cross-generation tests without inventing a fixed silicon
   phase relationship.
 - Threshold qualification: evaluate strict below-low and above-high conditions
-  on ALS refresh and assert status after 1, 2, 4, or 8 consecutive qualifying
-  results. Reads do not clear status; later clearing semantics remain outside
-  the slice.
+  on ALS refresh, and assert status **only at protect number one**, where a
+  single qualifying refresh needs no counting rule. Above one the sources state
+  no rule, so the model reports `UndefinedQualificationRule` rather than
+  selecting one. Reads do not clear status; later clearing semantics remain
+  outside the slice.
 - Initial threshold-status history: the sources declare no reset value for
   `0x06`, and this model asserts flags without ever clearing them, so a
   refresh that qualifies nothing cannot by itself prove a flag is clear. The

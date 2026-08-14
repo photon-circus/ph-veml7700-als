@@ -147,6 +147,38 @@ than a change from a prior version.
 
 ### Changed
 
+- The independent model no longer counts persistence streaks. It qualifies
+  threshold status at protect number one — where a single refresh needs no
+  counting rule — and reports the new
+  `Unsupported::UndefinedQualificationRule` above it. Programming any protect
+  number still works: Table 1 is verified, so only *qualification* is withdrawn,
+  not the register field.
+
+  The withdrawn behavior was an invented rule. No reviewed passage states
+  whether the count runs over consecutive refreshes or whether a non-qualifying
+  one resets it, and the model had chosen both. Under D-030 a model assumes only
+  what it needs to run, and nothing here required a rule.
+
+  What makes this worth more than a coverage note: **the invented rule could not
+  have produced a conformance failure.** The driver only programs `ALS_PERS` —
+  `Persistence::count()` is an accessor no driver logic reads — so the trace at
+  persistence 4 advanced four refreshes, asserted the flag, and passed. It
+  confirmed a register write while reading like confirmation of when the flag
+  asserts. The model guessed, the driver had no rule to disagree with, and the
+  agreement looked exactly like evidence. An independent model catches what one
+  side invented only when the other side has an opinion.
+
+  The model's covered surface is smaller as a result, and the packaged coverage
+  matrix says so. That is the intended direction: a narrower oracle that is sound
+  beats a broader one that manufactures agreement.
+
+  `every_persistence_setting_qualifies_both_threshold_directions` became
+  `protect_number_one_qualifies_both_threshold_directions` plus
+  `protect_numbers_above_one_declare_the_qualification_rule_undefined`, and
+  `disabling_the_monitor_resets_incomplete_qualification_without_clearing_status`
+  lost its streak-reset half — the surviving half, that disabling does not clear
+  an established flag, is still source-grounded. The conformance trace split the
+  same way, so the write path stays covered.
 - Both crates now inherit `version` from `[workspace.package]`, so a bump edits
   one manifest line and drift between the two crates is unrepresentable rather
   than merely gate-detected. The gate reads the resolved version back through

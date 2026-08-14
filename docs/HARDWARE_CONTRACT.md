@@ -498,14 +498,17 @@ write-to-clear, or latched GPIO behavior.
       computation. The model **declares undefined** rather than assuming,
       because nothing in the model requires a qualification rule either.
 
-      The model currently implements consecutive counting with reset on any
-      non-qualifying refresh, and that is the finding here: driver-model
+      The model previously implemented consecutive counting with reset on any
+      non-qualifying refresh, and that was the finding here: driver-model
       conformance appeared to establish persistence semantics when it could not.
-      The driver only programs the field, so
-      `threshold_monitor_public_operations_qualify_after_configured_persistence`
-      confirms a register write while reading like a behavioral result.
-      Correcting that is a behavior change to the model and lands as its own
-      issue, per this document's own rule.
+      The driver only programs the field, so the trace at persistence 4 confirmed
+      a register write while reading like a behavioral result.
+
+      Resolved in #56. `update_threshold_status` qualifies at protect number one
+      and reports `Unsupported::UndefinedQualificationRule` above it, so the
+      model no longer answers a question the sources never settled. Programming
+      any protect number still works, because Table 1 is verified — only
+      qualification is withdrawn.
 
       Third-party libraries describe this register in terms of an INT pin that
       latches and clears on read. This part has neither — §9 records that the
