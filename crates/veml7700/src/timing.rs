@@ -7,6 +7,34 @@ pub const WAKE_UP_DELAY_US: u32 = 2_500;
 /// Maximum documented integration-time tolerance magnitude.
 pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 /// Additional software margin beyond wake-up and maximum integration time.
+///
+/// # Why 1 ms, and what it does not cover
+///
+/// This is a **driver policy value, not a source-derived one.** No vendor
+/// document specifies it. It exists so the total wait does not land exactly on
+/// the computed worst-case boundary, where a value equal to the bound is
+/// indistinguishable from one just past it.
+///
+/// 1 ms was chosen as the smallest round figure that is negligible against the
+/// shortest integration time — 4 % of 25 ms, and under 0.1 % of 800 ms — so it
+/// costs nothing measurable while removing exact-boundary equality. A larger
+/// margin would buy no additional correctness, because the real uncertainty is
+/// already carried by [`INTEGRATION_TOLERANCE_PERCENT`].
+///
+/// It does **not** cover, and must not be relied on for:
+///
+/// - integration-time error beyond the documented ±30 %, which is what
+///   [`INTEGRATION_TOLERANCE_PERCENT`] is for;
+/// - I²C transaction time, which is the caller's bus speed and is unbounded from
+///   this driver's perspective;
+/// - executor scheduling latency, which
+///   `embedded_hal_async::delay::DelayNs` may add without limit; or
+/// - any silicon behavior. Waiting longer cannot make an undocumented
+///   conversion time documented.
+///
+/// The wait is a lower bound on request, never a guarantee about elapsed time —
+/// see
+/// [`FreshMeasurement::requested_wait_us`](crate::FreshMeasurement::requested_wait_us).
 pub const MEASUREMENT_MARGIN_US: u32 = 1_000;
 
 /// Timing applied by a complete fresh measurement.

@@ -267,6 +267,45 @@ than a change from a prior version.
   category-level list of what conformance establishes, which the exact matrix
   immediately contradicted, and a second list is a second thing to keep true.
 
+- **Breaking:** `MeasurementConfig::safe_bright_start()` is renamed
+  `maximum_range_start()` and changed from gain ×1/8 / 100 ms to ×1/8 / **25 ms**.
+  The old name promised range the configuration did not have: it saturates at
+  ~35 232 lx, below direct sunlight, while being named for safety in bright
+  light. The gain was always right — the sources recommend starting at ×1/8 or
+  ×1/4 for unknown brightness — but they also say an integration time below
+  100 ms may be needed to show such a value. ×1/8 at 25 ms reaches ~140 926 lx,
+  the widest the part offers.
+- **Breaking:** `FreshMeasurement.waited_us` is renamed `requested_wait_us`. It
+  is the delay this driver requested, not measured elapsed time: `DelayNs`
+  guarantees at least the request and may take arbitrarily longer, and the driver
+  reads no clock.
+- **Breaking:** `MeasurementConfig::default()` now returns `maximum_range_start()`
+  and documents itself as this crate's software policy, explicitly not the device
+  reset domain. `silicon_reset_default()` remains the device's own power-up state
+  and now says it is not a recommendation — gain ×1 saturates at 4 404 lx.
+- Added `NominalScale::full_scale_micro_lux`, so the saturation point of a
+  gain/integration pair is a tested value rather than a number a reader derives.
+  The spread across configurations is four orders of magnitude.
+- `nominal_illuminance` now states that it is **invalid as a point estimate when
+  the counts are saturated**: at maximum code the true illuminance is at least
+  the reported value and otherwise unknown. Saturation is not an error, so an
+  unchecked read looks like an ordinary value.
+- The usage example now checks `fresh.als.is_saturated()` and shows the manual
+  response, including that nothing wider exists at maximum range.
+- Recorded why the 1 ms software margin is 1 ms — a driver policy value, not a
+  source-derived one — and what it explicitly does not cover: integration
+  tolerance beyond ±30 %, I²C transaction time, executor latency, or any silicon
+  behavior.
+- Documented the `defmt` boundary. It is target-firmware integration only: it
+  references `_defmt_panic` and a global logger the firmware supplies, so
+  `cargo test --all-features` cannot link a host test binary. The supported host
+  test profile is `--no-default-features`; the gate still compiles, lints,
+  documents and cross-builds the feature.
+- Threshold conformance traces use 100 ms rather than the new preset, because
+  25 ms has no vendor-documented power-saving refresh time — pairing it with an
+  enabled cadence would ask for behavior no source establishes. The preset
+  documents that constraint.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

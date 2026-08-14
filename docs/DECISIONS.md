@@ -20,10 +20,20 @@ on and never reach.
 All 16-bit register transfers use little-endian wire order, protected by exact
 transaction tests.
 
-## D-004 — Bright-start is explicit policy
+## D-004 — The starting configuration is explicit policy
 
-`MeasurementConfig::safe_bright_start()` is a value constructor, not hidden
+`MeasurementConfig::maximum_range_start()` is a value constructor, not hidden
 driver state or automatic ranging.
+
+**Superseded name.** It was `safe_bright_start()` at gain ×1/8 and 100 ms, which
+saturates at ~35 232 lx — under direct sunlight, while being named for safety in
+bright light. The name promised range the configuration did not have.
+
+The replacement is source-backed rather than merely renamed: the vendor says to
+start at the lowest gain for unknown brightness, and that an integration time
+below 100 ms may be needed to show such a value. ×1/8 with 25 ms reaches
+~140 926 lx, the widest the part offers. The gain was always right; the
+integration time and the name were not.
 
 ## D-005 — Snapshot and fresh results are distinct
 

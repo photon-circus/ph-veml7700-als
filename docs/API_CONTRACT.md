@@ -35,12 +35,12 @@ The contract includes these public functions:
 DeviceId::from_raw, raw, device_code, address_option_code, is_supported
 IntegrationTime::milliseconds
 Persistence::count
-MeasurementConfig::new, silicon_reset_default, safe_bright_start, gain, integration_time
+MeasurementConfig::new, silicon_reset_default, maximum_range_start, gain, integration_time
 ConfigurationSnapshot::silicon_reset_default
 PowerSavingMode::nominal_refresh_time_ms
 PowerSavingConfig::new, disabled
 MicroLux::from_micro_lux, as_micro_lux, whole_lux_floor, milli_lux_rounded
-NominalScale::for_config, micro_lux_per_count, scale_counts
+NominalScale::for_config, micro_lux_per_count, scale_counts, full_scale_micro_lux
 AlsCounts::from_counts, counts, is_saturated, nominal_micro_lux
 WhiteCounts::from_counts, counts
 Thresholds::new, low, high
@@ -185,4 +185,13 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   A flag set under a previous domain can read as asserted after re-arming; the
   sources establish no clearing contract, so none is promised.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
-- `MicroLux` values are nominal, not calibrated.
+- `MicroLux` values are nominal, not calibrated, and are **invalid as a point
+  estimate when the source counts are saturated**: at maximum code the true
+  illuminance is at least the reported value and otherwise unknown. Saturation is
+  not an error, so `AlsCounts::is_saturated` must be checked.
+- `MeasurementConfig::default()` is this crate's software policy — the widest
+  range — and is deliberately **not** the device reset domain, which is
+  `silicon_reset_default`.
+- `FreshMeasurement::requested_wait_us` is the delay this driver requested, not
+  measured elapsed time. `DelayNs` guarantees at least the request and may take
+  longer; the driver reads no clock.

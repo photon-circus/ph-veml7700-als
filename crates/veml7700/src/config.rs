@@ -205,13 +205,40 @@ impl MeasurementConfig {
     }
 
     /// Vendor silicon reset-domain measurement fields: gain ×1 and 100 ms.
+    ///
+    /// This is what the device powers up in, not a recommendation. The sources
+    /// confine gain ×1 to illumination below 100 lx, so this domain saturates at
+    /// 4 404 lx — well under office daylight. It exists so a caller can name the
+    /// reset state, not so they can start from it.
     pub const fn silicon_reset_default() -> Self {
         Self::new(Gain::X1, IntegrationTime::Ms100)
     }
 
-    /// Conservative unknown-light starting point: gain ×1/8 and 100 ms.
-    pub const fn safe_bright_start() -> Self {
-        Self::new(Gain::Div8, IntegrationTime::Ms100)
+    /// Widest range the part offers: gain ×1/8 and 25 ms, saturating at
+    /// ~140 926 lx.
+    ///
+    /// This is the starting point for unknown brightness. The sources say to
+    /// begin at the lowest gain — ×1/8 or ×1/4 — so strong sunlight cannot
+    /// overload the sensor, and that an integration time below 100 ms may be
+    /// needed to show such a value. Both are recorded in
+    /// `docs/HARDWARE_CONTRACT.md` §8.
+    ///
+    /// The cost is resolution: 2.1504 lx per count, the coarsest the part
+    /// offers. Once the ambient range is known, a longer integration time or
+    /// higher gain gives a finer reading — see
+    /// [`NominalScale::full_scale_micro_lux`](crate::NominalScale::full_scale_micro_lux)
+    /// for what each pair reaches.
+    ///
+    /// # Not usable with power-saving cadence
+    ///
+    /// The vendor publishes refresh times for 100, 200, 400 and 800 ms only, so
+    /// 25 ms has no documented cadence. Pairing this preset with an enabled
+    /// [`PowerSavingConfig`](crate::PowerSavingConfig) in
+    /// [`arm_threshold_monitor`](crate::Veml7700::arm_threshold_monitor) asks for
+    /// behavior no source establishes. Use 100 ms or longer when monitoring with
+    /// cadence enabled.
+    pub const fn maximum_range_start() -> Self {
+        Self::new(Gain::Div8, IntegrationTime::Ms25)
     }
 
     /// Return the selected gain.
@@ -230,8 +257,19 @@ impl MeasurementConfig {
 }
 
 impl Default for MeasurementConfig {
+    /// This crate's software policy, **not** the device's reset state.
+    ///
+    /// Returns [`maximum_range_start`](Self::maximum_range_start): the widest
+    /// range, chosen so an unconfigured first measurement cannot silently
+    /// saturate in bright light. The device's own reset domain is
+    /// [`silicon_reset_default`](Self::silicon_reset_default) and is different —
+    /// a caller who wants what the hardware powers up in must ask for it by
+    /// name.
+    ///
+    /// The two are deliberately distinct. Conflating them is how a caller ends
+    /// up believing `Default` describes the device.
     fn default() -> Self {
-        Self::safe_bright_start()
+        Self::maximum_range_start()
     }
 }
 

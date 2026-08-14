@@ -16,6 +16,25 @@ Incubating async, allocation-free `no_std` VEML7700 ambient-light driver.
 > evidence exists. Evidence applies only to the named operations, and eventual
 > publication would not imply hardware qualification.
 
+## Features
+
+Default features are **empty**. The crate has one optional feature.
+
+| Feature | Effect |
+| --- | --- |
+| `defmt` | Derives `defmt::Format` on public value and error types |
+
+`defmt` is **target-firmware integration only.** It emits references to
+`_defmt_panic` and a global logger, which the firmware supplies (typically
+`defmt-rtt` plus a panic handler). A host test binary has neither, so
+`cargo test --all-features` cannot link on a development machine. That is a
+property of `defmt`, not a defect here.
+
+The supported host test profile is therefore `--no-default-features`. The
+canonical gate still compiles, lints and documents the feature with
+`--all-features`, and builds it for the bare-metal targets, so the feature is
+verified everywhere it can be — only the host *test binary* is out of scope.
+
 ## Model conformance coverage
 
 Every positive claim below maps to one named test that drives the **public
@@ -31,11 +50,11 @@ tests assert exact transactions, not device behavior. Neither is conformance.
 | Public operation | Accepted initial state | Configuration exercised | Conformance test |
 | --- | --- | --- | --- |
 | `probe` | any | — | `probe_accepts_the_fixed_address_little_endian_id` |
-| `measure_once` | reset / shut down | Div8, 100 ms, cadence disabled | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state` |
-| `measure_once` | active | Div8, 100 ms, cadence disabled | `measure_once_from_an_active_start_agrees_with_the_model` |
-| `arm_threshold_monitor` | reset / shut down | Div8, 100 ms, persistence 4, cadence disabled | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
-| `arm_threshold_monitor` | active, monitor disabled | Div8, 100 ms, persistence 4, Mode 2 | `arming_the_monitor_from_an_active_start_agrees_with_the_model` |
-| `arm_threshold_monitor` | active, monitor **enabled** | Div8, 100 ms, persistence 4, Mode 2 | `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
+| `measure_once` | reset / shut down | ×1/8, 25 ms, cadence disabled | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state` |
+| `measure_once` | active | ×1/8, 25 ms, cadence disabled | `measure_once_from_an_active_start_agrees_with_the_model` |
+| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 4, cadence disabled | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
+| `arm_threshold_monitor` | active, monitor disabled | ×1/8, 100 ms, persistence 4, Mode 2 | `arming_the_monitor_from_an_active_start_agrees_with_the_model` |
+| `arm_threshold_monitor` | active, monitor **enabled** | ×1/8, 100 ms, persistence 4, Mode 2 | `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
 | `read_threshold_status` | armed | **high direction only** | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
 | `read_thresholds` | armed | — | same, and `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
 | `disable_threshold_monitor` | armed, active | — | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
@@ -67,13 +86,20 @@ operations, conformance traces exercise only:
 | Domain | Exercised | Not exercised |
 | --- | --- | --- |
 | Gain | ×1/8 | ×1, ×2, ×1/4 |
-| Integration time | 100 ms | 25, 50, 200, 400, 800 ms |
+| Integration time | 25 ms (fresh capture), 100 ms (threshold) | 50, 200, 400, 800 ms |
 | Persistence | 4 | 1, 2, 8 |
 | Power-saving mode | Mode 1, Mode 2 | Mode 3, Mode 4 |
 | Threshold direction | high qualification | **low qualification is never exercised** |
 
 A claim about a gain, integration time, persistence value, cadence mode, or
 threshold direction outside this table has no conformance evidence behind it.
+
+Threshold traces deliberately use 100 ms rather than the
+[`maximum_range_start`] preset: 25 ms has no vendor-documented power-saving
+refresh time, so pairing it with an enabled cadence would ask for behavior no
+source establishes.
+
+[`maximum_range_start`]: https://docs.rs/ph-veml7700-als/latest/ph_veml7700_als/struct.MeasurementConfig.html#method.maximum_range_start
 
 ### Boundaries
 
@@ -107,12 +133,25 @@ where
     // sequentially and may straddle an autonomous refresh.
     let snapshot = sensor.snapshot().await.expect("snapshot failed");
 
-    // A fresh measurement is deliberately configured, timed, and frozen
-    // before the ALS and white registers are read.
+    // Start at the widest range. Unknown light can be direct sunlight, and a
+    // narrower domain would saturate without saying so.
     let fresh = sensor
-        .measure_once(delay, MeasurementConfig::safe_bright_start())
+        .measure_once(delay, MeasurementConfig::maximum_range_start())
         .await
         .expect("fresh measurement failed");
+
+    // Saturation is not an error, so it must be checked. At maximum code the
+    // sensor reports the largest value it can represent, not the light that was
+    // present: `nominal_illuminance` is then a lower bound, not a measurement.
+    if fresh.als.is_saturated() {
+        // Nothing wider exists — this is already the maximum range. Attenuate
+        // optically, or record the reading as "at least full scale" rather than
+        // treating it as a value.
+    } else {
+        // Once the ambient range is known, a longer integration time or higher
+        // gain gives a finer reading over a narrower span.
+        let _micro_lux = fresh.nominal_illuminance.as_micro_lux();
+    }
 
     let _counts = (snapshot.als.counts(), fresh.als.counts());
 }
