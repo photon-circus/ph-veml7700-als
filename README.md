@@ -17,65 +17,42 @@ light sensor.
 > evidence exists. Evidence applies only to the named operations, and eventual
 > publication would not imply hardware qualification.
 
-## Responsibility
+**Consumers start at [`crates/veml7700/README.md`](crates/veml7700/README.md).**
+That is the packaged documentation — install syntax, MSRV, supported targets,
+features, the usage example, and the exact model-conformance coverage. It is
+also the crate documentation, included verbatim by `lib.rs`, so there is one
+description of this crate rather than two that can disagree.
 
-The crate owns complete single-device operations over caller-provided async I²C:
+This page is for people working *on* the repository.
 
-- explicit snapshot versus fresh-measurement semantics;
-- fixed-address identity checks and little-endian register framing;
-- conservative wake/integration timing with provenance;
-- restoration-aware fresh capture;
-- typed power-saving and threshold-monitor domains;
-- raw ALS and white counts; and
-- integer, nominal ALS count-to-lux scaling.
+## Layout
 
-## Scope boundaries
+| Path | Contents |
+| --- | --- |
+| `crates/veml7700` | The driver. Published; packaged README is the consumer source of truth. |
+| `crates/veml7700-model` | Independent behavioral model. **Repository-only and unpublished** — a test oracle, not a dependency. |
+| `docs/` | Device contract, API contract, invariants, verification plan, decision log, vendor provenance. |
+| `scripts/ci.sh` | The canonical gate. One implementation; `tools/check.ps1` launches it on Windows. |
 
-The crate does not own an MCU, HAL, executor, bus recovery, optical fixture,
-window/diffuser compensation, source-spectrum correction, empirical high-lux
-correction, calibrated metrology, automatic ranging, or a fictitious interrupt
-pin. The VEML7700 threshold output is polled through its status register.
+Document authority varies and is stated per file in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) — not everything under `docs/` is normative.
 
-Nominal lux is a datasheet-table conversion, not a claim about illuminance at a
-finished product's aperture.
+## Verifying a change
 
-## Repository layout
-
-```text
-crates/veml7700/         driver and host-side tests
-crates/veml7700-model/   independent device behavioral model (bounded slice)
-docs/                    device, API, architecture, invariant, and test contracts
-scripts/ci.sh            canonical bounded local verification
-tools/check.ps1          PowerShell launcher for the same gate under Git Bash
+```sh
+CI_PROFILE=full sh scripts/ci.sh
 ```
 
-Contracts: [hardware](docs/HARDWARE_CONTRACT.md),
-[invariants](docs/INVARIANTS.md),
-[architecture](docs/ARCHITECTURE.md),
-[API](docs/API_CONTRACT.md),
-[test plan](docs/TEST_PLAN.md),
-[decisions](docs/DECISIONS.md),
-[documentation standards](docs/DOCUMENTATION_STANDARDS.md),
-[vendor record](docs/vendor/README.md).
-The model's maintained claim is
-[`crates/veml7700-model/README.md`](crates/veml7700-model/README.md).
-
-## Local verification
-
-Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
-`./tools/check.ps1` from PowerShell, which locates Git Bash and runs the same
-script.
-
-Hosted CI runs the same script with `CI_PROFILE=bounded`, which skips the
-dependency policy, four of the five bare-metal targets, and packaging, printing
-each skip. A skipped check is not a passed check: the bounded profile is
-contributor feedback, never the release gate.
+`full` is authoritative. `bounded` is the subset hosted CI runs and is never
+authoritative — a skipped check is not a passed check. `release` adds artifact
+identity and refuses a dirty worktree. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
+for setup and the pinned toolchain.
 
 ## Publication status
 
-The package retains `publish = false`. Preparation, visibility, and crates.io
-publication are separate maintainer-controlled steps in
-[RELEASING.md](RELEASING.md).
+The package retains `publish = false`. Preparation, repository visibility, and
+crates.io publication are separate maintainer decisions recorded in
+[`RELEASING.md`](RELEASING.md); none follows automatically from another.
 
 ## License
 

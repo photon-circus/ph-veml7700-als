@@ -179,9 +179,11 @@ else
     skip "no Git work tree, so tracked vendor documents cannot be checked"
 fi
 
-# The packaged README and crate documentation are what a consumer reads. They
-# drifted apart once already; this keeps the required disclosure identical.
-step "status disclosures agree across README, packaged README, and lib.rs"
+# The packaged README *is* the crate documentation now: `lib.rs` includes it with
+# `include_str!`, so those two cannot drift. The root README is a separate file
+# with its own audience, and it still carries the same disclosure, so that pair
+# is what remains to compare.
+step "the status disclosure agrees between the root and packaged READMEs"
 disclosure() {
     sed -n '/\*\*Lifecycle:\*\*/,/hardware qualification\./p' "$1" \
         | sed -e 's|^[[:space:]]*//!||' -e 's|^[[:space:]]*>||' \
@@ -192,7 +194,7 @@ if [ -z "$root_disclosure" ]; then
     echo "no status disclosure found in README.md" >&2
     exit 1
 fi
-for disclosure_file in crates/veml7700/README.md crates/veml7700/src/lib.rs; do
+for disclosure_file in crates/veml7700/README.md; do
     other_disclosure=$(disclosure "$disclosure_file")
     if [ "$root_disclosure" != "$other_disclosure" ]; then
         printf '%s disclosure differs from README.md\n  README.md: %s\n  %s: %s\n' \
@@ -200,23 +202,6 @@ for disclosure_file in crates/veml7700/README.md crates/veml7700/src/lib.rs; do
         exit 1
     fi
 done
-
-# Only the `lib.rs` copy is compiled; a README fence is inert. Without this the
-# packaged README could render an example that no longer builds.
-step "the usage example agrees between the packaged README and lib.rs"
-example() {
-    sed -n '/```rust,no_run/,/^\(\/\/! \)\?```$/p' "$1" \
-        | sed -e 's|^//! \{0,1\}||' -e 's|^//!$||'
-}
-lib_example=$(example crates/veml7700/src/lib.rs)
-if [ -z "$lib_example" ]; then
-    echo "no compiled usage example found in crates/veml7700/src/lib.rs" >&2
-    exit 1
-fi
-if [ "$lib_example" != "$(example crates/veml7700/README.md)" ]; then
-    echo "the packaged README usage example differs from the lib.rs doctest" >&2
-    exit 1
-fi
 
 # The coverage matrix is the packaged claim about what model conformance
 # establishes. It names tests, so it rots the moment a test is renamed, removed,
@@ -280,18 +265,6 @@ if [ -n "$missing_from_tests" ]; then
 fi
 printf '        %s conformance tests, all disclosed\n' \
     "$(printf '%s\n' "$actual_tests" | wc -l | tr -d ' ')"
-
-# The matrix must reach a consumer, so it lives in the packaged README and is
-# mirrored into the crate documentation. Compare them rather than trusting that
-# two edits happened.
-step "the coverage matrix agrees between the packaged README and lib.rs"
-lib_matrix=$(sed -n '/^\/\/! ## Model conformance coverage/,/^\/\/! # Status/p' crates/veml7700/src/lib.rs \
-    | sed -e 's|^//! \{0,1\}||' -e 's|^//!$||' | sed '/^# Status/d')
-readme_matrix=$(printf '%s\n' "$matrix_block" | sed '/^## Usage/d')
-if [ "$(printf '%s\n' "$lib_matrix" | sed '/^$/d')" != "$(printf '%s\n' "$readme_matrix" | sed '/^$/d')" ]; then
-    echo "the coverage matrix differs between crates/veml7700/README.md and lib.rs" >&2
-    exit 1
-fi
 
 # Rustdoc validates intra-doc links but never looks at repository Markdown, so
 # a renamed or deleted document breaks its inbound links silently. That matters
