@@ -155,6 +155,20 @@ an active device and would fail against the previous driver with
   chosen to keep the polled-status path testable, not a source-backed reset
   value, and it is the only bit of `0x06` behavior not derived from a
   qualification transition.
+- Power-saving construction: the sources declare no reset value for `0x03`, so
+  the model *declares* that construction represents a device that has not been
+  written since power-on, reading `0x0000` — power saving disabled, mode 1,
+  reserved bits clear. Observable consequence: a harness that never writes
+  `0x03` sees continuous-conversion cadence. The driver has no equivalent
+  assumption; it reads the register before acting on it. Recorded as an
+  assumption in `docs/HARDWARE_CONTRACT.md` §4, and settled by reading `0x03`
+  on an unwritten device.
+- Threshold qualification rule: the sources establish the persistence *counts*
+  (1, 2, 4, 8) but not the rule they apply to. The model declares that the count
+  is over consecutive monitored refreshes and that any non-qualifying refresh
+  resets it to zero. Observable consequence: a crossing broken by one
+  non-qualifying refresh restarts the count rather than resuming. Recorded as an
+  assumption in `docs/HARDWARE_CONTRACT.md` §9.
 - Shutdown: entering shutdown prevents further conversion progress and preserves
   the last completed pair.
 - Unsupported interactions: reject or leave unavailable. Do not fabricate a

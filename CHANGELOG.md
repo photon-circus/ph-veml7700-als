@@ -412,6 +412,23 @@ than a change from a prior version.
   and their settling observation, so a future hardware-in-the-loop effort has
   somewhere to start.
 
+- Declared three further assumptions under D-029, each naming the code that
+  relies on it and the observation that would settle it: register `0x03` reading
+  `0x0000` before it is written, integration time falling within ±30 % of
+  nominal, and the persistence count being over consecutive refreshes with reset
+  on any non-qualifying one.
+- Resolved the §4 reset-value row. `0x00` and `0x07` are source-declared; every
+  other register, including `0x03`, is **not**. The §4 table previously listed
+  `0x0000` for `0x03` unqualified, in a column whose other entries said *not
+  declared by sources*.
+- The `0x03` assumption turns out to be narrower than it looked: **the driver
+  does not rely on it at all**, because every path reads the register before
+  acting on it. The dependency is confined to the model's construction, and is
+  now declared there alongside its existing threshold-status abstraction.
+- By contrast the ±30 % assumption is load-bearing. `INTEGRATION_TOLERANCE_PERCENT`
+  is why the conservative wait is 130 % of the selected integration time, so the
+  margin is conservative *given the assumption* rather than in general.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

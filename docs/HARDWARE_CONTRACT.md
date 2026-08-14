@@ -113,13 +113,28 @@ No public raw-register accessor exists in v0.1.
       `06` ALS_INT R, `07` ID R. This is the table §1 names as governing, and
       it resolves the prose that calls `03h` "not defined": the register format
       defines it as power saving.
-- [ ] Which registers have a source-declared reset value, and which do not.
-      **Partly resolved, and it exposes an overclaim.** `0x00` has a declared
-      default (`0x0001`, from the register-format note) and `0x07` a
-      source-declared fixed identity (Table 8); both are now verified. The §4 table also lists `0x0000` for
-      `0x03` without qualification, but neither the register-format table nor
-      Table 4 states a power-saving default — Table 4 constrains bits 15:3 to
-      zero, which is a validity rule, not a reset value. See #55.
+- [x] Which registers have a source-declared reset value, and which do not.
+      `0x00` is declared (`0x0001`, register-format note) and `0x07` carries a
+      declared fixed identity (Table 8). Every other register is **not declared**,
+      including `0x03` — Table 4 constrains bits 15:3 to zero, which is a write
+      validity rule rather than a power-on value.
+
+- [ ] **Assumption: register `0x03` reads `0x0000` before it is written.**
+      *Requires physical validation.*
+
+      No passage declares it. It is the value every defined field takes at zero —
+      `PSM_EN` disabled, `PSM` mode 1, reserved bits clear — so a device that has
+      never had power saving written is expected to read it.
+
+      **The driver does not rely on this.** Every path reads register `0x03`
+      before acting on it, so a different power-on value changes nothing the
+      driver does. The dependency is confined to the model, whose construction
+      uses `RESET_POWER_SAVING` to represent a device in its power-on state, and
+      it is declared as an abstraction in the model README rather than presented
+      as derived behavior.
+
+      **What would settle it:** reading `0x03` on a device that has not been
+      written since power-on.
 
 ## 5. Configuration register `0x00`
 
