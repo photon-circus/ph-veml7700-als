@@ -24,7 +24,7 @@ Prerequisites:
 | Rust | 1.92.0, Edition 2024 | `rust-toolchain.toml` — rustup installs it automatically |
 | Clippy, rustfmt | bundled | `rust-toolchain.toml` components |
 | Bare-metal targets | five triples | `rust-toolchain.toml` targets |
-| `cargo-deny` | **not pinned yet** | required by the full gate; `cargo install cargo-deny` |
+| `cargo-deny` | 0.20.2 | asserted by the gate; `cargo install cargo-deny --version 0.20.2 --locked` |
 | POSIX shell | any | Git Bash is fine on Windows |
 
 ```sh
@@ -36,36 +36,42 @@ cargo fetch --locked
 The toolchain file does the work: `cargo` commands inside the repository use
 1.92.0 and the five reference targets without further setup.
 
-`cargo-deny` is the exception, and it is a real gap rather than an oversight:
-`deny.toml` configures the dependency and licence policy but pins no binary
-version, and the gate invokes `cargo deny check -D warnings` without a version
-constraint. Two contributors can therefore run the authoritative gate with
-different `cargo-deny` releases and get different advisory results. Issue #34
-owns provisioning an exact version; until it lands, record the version you used
-(`cargo deny --version`) in the handoff section of your pull request.
+`cargo-deny` is the exception: `deny.toml` configures the dependency and licence
+policy but pins no binary version, so the gate asserts the version itself and
+fails on a mismatch. That is deliberate — `cargo-deny` changes its own lint set
+between releases, and an unpinned advisory tool makes the authoritative gate
+non-reproducible.
+
+## Verification profiles
+
+| Profile | Command | Purpose |
+| --- | --- | --- |
+| `full` | `CI_PROFILE=full sh scripts/ci.sh` | Authoritative. Run before opening a PR. |
+| `bounded` | `CI_PROFILE=bounded sh scripts/ci.sh` | The subset hosted CI runs. Never authoritative. |
+| `release` | `CI_PROFILE=release sh scripts/ci.sh` | `full` plus artifact identity. Maintainer use at release. |
+
+`release` refuses a dirty worktree, packages without `--allow-dirty`, and writes
+`target/release-evidence/evidence.md` recording the commit, archive name and
+SHA-256, file inventory, normalized manifest, and VCS metadata. It performs no
+registry action — no publish, no tag, no release, no credentials.
 
 ## Changing the candidate version
 
-The gate machine-checks that both crate manifests agree and that the version is
-a lifecycle-matching `-incubating.N` prerelease. It does **not** store the
-literal, and it cannot see the copies scattered through tracked prose — those
-rot silently.
+Both crates inherit `version` from `[workspace.package]` in the root
+`Cargo.toml`, so a bump edits **one line**. The gate reads the resolved value
+back through Cargo, so the check survives that inheritance.
 
-Grep for the literal before and after any bump:
+What the gate cannot see is the copies of the literal in tracked prose. Grep
+before and after any bump:
 
 ```sh
 grep -rn '0\.1\.0-incubating\.1' --exclude-dir=.git --exclude-dir=target .
 ```
 
-At the time of writing it appears in both crate manifests, `Cargo.lock`, the
+At the time of writing it appears in the root `Cargo.toml`, `Cargo.lock`, the
 root and packaged READMEs, `crates/veml7700/src/lib.rs`, `AGENTS.md`,
 `CHANGELOG.md`, `RELEASING.md`, `docs/API_CONTRACT.md`, `docs/DECISIONS.md`, and
 the bug-report form. A green gate does not mean you found them all.
-
-Issue #34 centralizes the version under `[workspace.package]` and moves the gate
-to `cargo metadata`, which removes the manifest copies. The prose copies that
-consumers and release records genuinely need will stay, so this procedure
-survives in reduced form.
 
 ## Verifying a change
 

@@ -94,13 +94,22 @@ rather than by `.gitignore` alone.
 
 ## D-017 — Local bounded validation
 
-There is one canonical gate, `scripts/ci.sh`, and it has two profiles. `full` is
-authoritative and is what a maintainer runs. `bounded` is the subset hosted CI
-runs; it drops the checks needing an extra binary or substantial runner time and
-reports each as an explicit skip, so a green hosted run can never be mistaken
-for a green release gate. Only the PowerShell launcher is retained beside the
-script, because locating Git Bash on Windows is real work and a POSIX
-passthrough wrapper is not.
+There is one canonical gate, `scripts/ci.sh`, and it has three profiles. `full`
+is authoritative for ordinary work and is what a maintainer runs. `bounded` is
+the subset hosted CI runs; it drops the checks needing an extra binary or
+substantial runner time and reports each as an explicit skip, so a green hosted
+run can never be mistaken for a green release gate. `release` is `full` plus
+artifact identity: it refuses a dirty worktree, packages without
+`--allow-dirty`, and records the source-to-archive relationship as evidence.
+
+`release` is a superset rather than a replacement. `full` deliberately keeps
+packaging permissive so a work-in-progress tree stays checkable, which is the
+common case; demanding a clean worktree for every routine run would make the
+gate hostile to ordinary development. The two therefore differ only in what they
+demand of the tree, not in what they verify about the code.
+
+Only the PowerShell launcher is retained beside the script, because locating Git
+Bash on Windows is real work and a POSIX passthrough wrapper is not.
 
 The hosted workflow is prepared before the repository is public, but is
 dispatch-only until then; its automatic triggers belong to the visibility
