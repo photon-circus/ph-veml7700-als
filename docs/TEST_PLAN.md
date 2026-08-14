@@ -54,5 +54,6 @@ board, electrical, or silicon claims.
 ## Canonical gate
 
 `scripts/ci.sh` runs formatting, host tests/checks, clippy, rustdoc, doctests,
-representative bare-metal targets, dependency policy, and package verification.
+representative bare-metal targets, dependency policy, package verification,
+and tests against the unpacked distributable package.
 A green gate proves only the implemented host boundary.

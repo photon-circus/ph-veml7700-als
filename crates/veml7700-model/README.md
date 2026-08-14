@@ -42,6 +42,8 @@ stay provisional and are not physical-support claims.
   `write_read` of a one-byte pointer returning two data bytes, at address `0x10`,
   limited to configuration (`0x00`), power saving (`0x03`), ALS (`0x04`), white
   (`0x05`), and ID (`0x07`).
+- Address values outside `0x00..=0x7F` are model-input limitations, not device
+  NACKs. Other valid 7-bit addresses receive the modeled address NACK.
 - Applied stimuli: a persistent raw pair `{ als_counts, white_counts }`. This is
   the result available to a completed conversion, not ambient lux.
 - Relative-duration input: non-negative nanosecond-resolution elapsed duration.

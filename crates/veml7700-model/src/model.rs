@@ -134,7 +134,11 @@ impl Veml7700Model {
     }
 
     const fn require_address(address: u8) -> Result<(), TransportError> {
-        if address == I2C_ADDRESS {
+        if address > 0x7f {
+            Err(TransportError::Unsupported(Unsupported::AddressOutOfRange(
+                address,
+            )))
+        } else if address == I2C_ADDRESS {
             Ok(())
         } else {
             Err(TransportError::NoAcknowledge {

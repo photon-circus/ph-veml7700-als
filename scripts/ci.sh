@@ -31,3 +31,4 @@ done
 cargo deny check -D warnings
 cargo package -p ph-veml7700-als --locked --allow-dirty --list
 cargo package -p ph-veml7700-als --locked --allow-dirty
+cargo test --manifest-path target/package/ph-veml7700-als-0.1.0/Cargo.toml

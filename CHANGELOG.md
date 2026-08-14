@@ -20,6 +20,8 @@ Last updated: 2026-08-14 UTC
 
 ### Changed
 
+- Reject addresses outside the 7-bit input domain as model limitations, exclude
+  conformance-only tests from the driver package, and test the unpacked package.
 - Reject repeated active configuration writes in the bounded device model
   instead of inventing conversion restart-or-continuation behavior.
 - Lock crates.io publication with `publish = false` until independent model and
