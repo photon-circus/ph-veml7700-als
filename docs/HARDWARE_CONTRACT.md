@@ -19,13 +19,13 @@ silently normalized.
 
 ## 2. Electrical and bus boundary
 
-- [ ] VDD operating range is 2.5 V to 3.6 V.
-- [ ] I²C bus high-level supply may be 1.7 V to 3.6 V.
-- [ ] Standard and fast mode are supported from 10 kHz through 400 kHz.
-- [ ] The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in 8-bit form).
-- [ ] Pull-ups are external; the vendor suggests values above 1 kΩ, commonly
+- [x] VDD operating range is 2.5 V to 3.6 V.
+- [x] I²C bus high-level supply may be 1.7 V to 3.6 V.
+- [x] Standard and fast mode are supported from 10 kHz through 400 kHz. Standard kHz to 100kHz, fast mode 10kHz to 400kHz.
+- [x] The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in 8-bit form).
+- [x] Pull-ups are external; the vendor suggests values above 1 kΩ, commonly
       2.2 kΩ to 4.7 kΩ.
-- [ ] The driver never owns sensor power, board pull-ups, cover-window geometry,
+- [x] The driver never owns sensor power, board pull-ups, cover-window geometry,
       or an external optical source.
 
 ## 3. Word transfer order
