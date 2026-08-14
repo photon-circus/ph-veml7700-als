@@ -92,6 +92,54 @@ than a change from a prior version.
   and handoff fields, and now distinguishes scripted-I²C from pure unit evidence.
 - Recorded D-025: no `CODEOWNERS` while the project has one maintainer, with the
   paths it should cover when a second joins.
+- **Corrected the I²C clock-frequency row.** It read "standard and fast mode are
+  supported from 10 kHz through 400 kHz", one range spanning both modes. The
+  source specifies `f(SMBCLK)` separately per mode: 10 kHz to 100 kHz standard,
+  10 kHz to 400 kHz fast. The old wording would have permitted standard mode at
+  400 kHz. The row also now records that the source marks these values as
+  protocol-derived and not production tested.
+- The hardware contract tracks verification per fact rather than per section,
+  so a partly source-backed section can record both states. §6 and §8 are now
+  both: the refresh table and the gain ×2 resolution column are verified, while
+  the register field layout, the other gain columns, and the 25 ms and 50 ms
+  rows are not.
+- Recorded that the driver treats power-saving refresh time as independent of
+  ALS gain. The source states the relation at gain ×2 only, so this is an
+  inference; it is now visible in the contract rather than implicit in
+  `nominal_refresh_time_ms`.
+- Verified the complete twenty-four-entry resolution table and recorded the
+  matching maximum-detection-range table beside it, so the full-scale range of
+  every gain and integration pair is stated rather than derived at the call
+  site. Gain ×1/8 at 25 ms reaches 140 926 lx; at 100 ms it reaches 35 232 lx.
+- Recorded the source's linearity limits and correction guidance: gain ×1 and
+  ×2 are confined to illumination below 100 lx, linear behavior spans 0.0042 lx
+  to about 1 klx, and correction is called for with gain ×1/4 and ×1/8 and above
+  1 000 lx. The driver still does not apply the polynomial — that remains D-007 —
+  but the contract now states the consequence for `nominal_illuminance` instead
+  of leaving it implied, and records the coefficients as a device fact rather
+  than as work owed by this crate. Evaluating the quartic on target would mean
+  floating point, which neither crate uses and several supported triples have no
+  FPU for; the contract names `ph-curves` as the intended home, since it fits
+  curves host-side and emits integer tables, and notes that `ph-temt6000-als`
+  already pairs an illuminance layer with it.
+- Recorded the source's starting-configuration guidance: begin at the lowest
+  gain for unknown brightness, and use an integration time below 100 ms to cover
+  the brightest conditions. This is the source basis a first-use preset needs.
+- Recorded that the source places auto-ranging in application software, so
+  automatic range selection remaining a non-claim follows the source's own
+  framing rather than being only a scope decision.
+- Logged two vendor prose-versus-table discrepancies: a stated range of "0 lx to
+  230 lx" where the table gives 275 lx, and a ranging example that computes
+  46 lx where its own arithmetic and stated logic give 54 lx.
+- **Established that reconfiguration requires shutdown first.** The source's
+  software flow sets `ALS_SD = 1` before any reconfiguration, changes gain or
+  integration time while shut down, and clears `ALS_SD` afterwards. This is a
+  positive requirement rather than an absent permission, and it resolves the
+  driver-versus-model disagreement in #29 against the driver: the model's
+  rejection of active reconfiguration is correct, and `set_measurement_config`
+  currently writes without entering shutdown. Correcting that is a behavior
+  change owned by #29.
+- Verified the integration-time encodings and the 2.5 ms minimum wake-up delay.
 
 ### Known issues
 
@@ -100,8 +148,14 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
-  retrieved documents and their digests, but the hardware-contract verification
-  boxes remain unchecked and are not physical-support claims.
+- Vendor owner-verification is well advanced but incomplete: the electrical and
+  bus boundary, the power-saving refresh table, the complete resolution and
+  maximum-range tables, the gain encodings, the linearity limits, and the
+  vendor's starting-configuration guidance are owner-verified. Still
+  provisional: both §1 source-baseline rows, the integration/persistence/
+  shutdown encodings, the register map, word transfer order, wake-up timing,
+  the threshold monitor, and the identity word. None of these are
+  physical-support claims. One gap still blocks open work: the configuration
+  active-write rule (#29).
 - No reviewed physical or calibrated-optical evidence exists, and candidate
   version `0.1.0-incubating.1` remains unpublished with `publish = false`.

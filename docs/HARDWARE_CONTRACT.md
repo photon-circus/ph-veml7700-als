@@ -4,6 +4,29 @@ Binding interpreted device facts for `ph-veml7700-als`. A checked row means the
 owner has verified the recorded official Vishay source. Unchecked rows remain
 provisional and must not be promoted to physical-support claims.
 
+Verification is tracked per fact rather than per section, because a section can
+be partly source-backed: §6 and §8 each have both.
+
+A row is in one of three states, and they must not be conflated:
+
+| State | Meaning |
+| --- | --- |
+| `[x]` | Reviewed against the pinned sources and confirmed. |
+| `[ ]` | **Provisional — not yet reviewed.** No claim either way. |
+| `[ ]` with an explicit note | Reviewed, and the sources do not state the fact. The absence is the finding. |
+
+Only the third form records a confirmed omission, and it says so in the row. An
+unchecked row with no note means nobody has looked yet; it is not evidence that
+the sources are silent.
+
+Counts of "verified" rows in the changelog and elsewhere refer to the bullet
+rows in §2 onward. The two §1 source-baseline entries are tracked in that
+section's table and are unchecked; every other row depends on them.
+
+A row that fails to verify becomes its own issue rather than an in-place edit,
+because correcting the contract is a behavior change to the driver, the model,
+or both. See #21.
+
 ## 1. Source baseline
 
 | Source | Revision | Status |
@@ -21,7 +44,11 @@ silently normalized.
 
 - [x] VDD operating range is 2.5 V to 3.6 V.
 - [x] I²C bus high-level supply may be 1.7 V to 3.6 V.
-- [x] Standard and fast mode are supported from 10 kHz through 400 kHz. Standard kHz to 100kHz, fast mode 10kHz to 400kHz.
+- [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
+      10 kHz to 400 kHz in fast mode. The two modes have different maxima; a
+      single 10–400 kHz range would wrongly permit standard mode at 400 kHz.
+      The source marks these values as based on the standard I²C protocol
+      requirement and **not tested in production**.
 - [x] The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in 8-bit form).
 - [x] Pull-ups are external; the vendor suggests values above 1 kΩ, commonly
       2.2 kΩ to 4.7 kΩ.
@@ -40,6 +67,8 @@ Consequences:
 - a big-endian register helper is a review-blocking defect;
 - strict transaction tests inspect exact byte order.
 
+- [ ] Low byte then high byte for every 16-bit register, on reads and writes.
+
 ## 4. Register map
 
 | Pointer | Semantic name | Access | Driver treatment | Reset value |
@@ -54,6 +83,9 @@ Consequences:
 | `0x07` | ID | R | expected word `0xC481` at the fixed address option | source-declared identity `0xC481` |
 
 No public raw-register accessor exists in v0.1.
+
+- [ ] Pointer values and access direction for all eight registers.
+- [ ] Which registers have a source-declared reset value, and which do not.
 
 ## 5. Configuration register `0x00`
 
@@ -74,6 +106,42 @@ persistence one, and threshold monitoring disabled.
 Reserved integration encodings and non-zero reserved bits are decode errors, not
 values to preserve as ordinary typed state.
 
+- [ ] Reset/default word `0x0001` and the state it denotes.
+- [x] Reserved bits 15:13, stated by the source as `000b`.
+- [x] Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that the
+      encoding order is not the magnitude order — `10` is ×1/8 and `11` is ×1/4,
+      so a table sorted by gain does not match a table sorted by bit pattern.
+- [x] Integration-time encodings, bits 9:6: `1100` 25 ms, `1000` 50 ms, `0000`
+      100 ms, `0001` 200 ms, `0010` 400 ms, `0011` 800 ms. Like gain, the
+      encoding order is not the magnitude order.
+- [ ] Persistence encodings, bits 5:4.
+- [ ] Monitor-enable, bit 1, and shutdown, bit 0.
+- [ ] Reserved bits 10 and 3:2.
+- [x] **Reconfiguration requires shutdown first.** The source's own software
+      flow sets `ALS_SD = 1` (standby) before any reconfiguration, changes gain
+      or integration time while shut down, and clears `ALS_SD` afterwards.
+
+### Reconfiguration sequence
+
+This is a positive source requirement, not merely an absence of permission to
+write while active. The vendor's flow chart annotates the step directly: *before
+any reconfiguration set `ALS_SD` to 1 = stand_by*.
+
+Two consequences follow, and #29 owns both:
+
+1. The independent model's rejection of changed or repeated active configuration
+   is **correct and source-backed**. It should not be relaxed to admit the
+   driver's current behavior.
+2. `set_measurement_config`, and every other path that writes configuration or
+   power-saving fields, must enter shutdown first, write while shut down, and
+   restore the active state last. The driver currently reads the configuration
+   and writes the new one without entering shutdown, so it can reconfigure an
+   active sensor. That is the mismatch #29 records, and this row resolves it
+   against the driver rather than against the model.
+
+Correcting it is a behavior change with its own tests and contract updates, so
+it belongs to #29 and not to this verification pass.
+
 ## 6. Power-saving register `0x03`
 
 - bits 15:3 are reserved and must be zero;
@@ -90,6 +158,20 @@ The vendor explicitly documents refresh times for 100, 200, 400, and 800 ms:
 | 4 | 4100 ms | 4200 ms | 4400 ms | 4800 ms |
 
 The driver does not extrapolate a documented refresh interval for 25 or 50 ms.
+The source table has no rows for those integration times, which is why they are
+unsupported rather than computed.
+
+The source records this relation at ALS gain ×2 only. The driver treats refresh
+time as independent of gain — `nominal_refresh_time_ms` takes an integration
+time and no gain. The pattern is exact (refresh = integration + 500, 1000, 2000,
+or 4000 ms for Modes 1 to 4), but exactness is not the same as a source
+statement, so the inference is recorded here rather than left implicit in code.
+
+- [ ] Register `0x03` field layout: bits 15:3 reserved, bits 2:1 mode, bit 0
+      enable.
+- [x] The sixteen refresh times above match the vendor's refresh time / I_DD /
+      resolution relation, at gain ×2.
+- [ ] Refresh time is independent of ALS gain.
 
 ## 7. Wake-up, integration, and freshness
 
@@ -110,6 +192,11 @@ It then enters shutdown before reading ALS and white so that autonomous refresh
 cannot occur between those two sequential register reads. This is a software
 coherence policy, not a vendor-stated atomic pair primitive.
 
+- [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
+      source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
+- [ ] The ±30 % integration-time tolerance.
+- [ ] Data registers retain the last result while shut down.
+
 ## 8. ALS and white channels
 
 Both outputs are unsigned 16-bit counts. The ALS channel follows photopic
@@ -127,9 +214,113 @@ The nominal resolution table is:
 | 50 ms | 0.0672 | 0.1344 | 0.5376 | 1.0752 | lx/count |
 | 25 ms | 0.1344 | 0.2688 | 1.0752 | 2.1504 | lx/count |
 
-The core uses exact integer micro-lux-per-count values. It does not apply the
-vendor's empirical high-illuminance polynomial because its applicability depends
-on optical window, source spectrum, geometry, and application validation.
+The source states the maximum possible illumination for each pair. It is the
+resolution multiplied by 65 535, and all twenty-four entries are internally
+consistent with the resolution table:
+
+| IT | gain ×2 | gain ×1 | gain ×1/4 | gain ×1/8 | unit |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| 800 ms | 275 | 550 | 2 202 | 4 404 | lx |
+| 400 ms | 550 | 1 101 | 4 404 | 8 808 | lx |
+| 200 ms | 1 101 | 2 202 | 8 808 | 17 616 | lx |
+| 100 ms | 2 202 | 4 404 | 17 616 | 35 232 | lx |
+| 50 ms | 4 404 | 8 808 | 35 232 | 70 463 | lx |
+| 25 ms | 8 808 | 17 616 | 70 463 | 140 926 | lx |
+
+The core uses exact integer micro-lux-per-count values.
+
+### Linearity and the correction polynomial
+
+The source constrains where uncorrected counts mean anything:
+
+- above about 100 lx, gain ×1 and ×2 should not be used because the sensor
+  becomes non-linear;
+- when using gain ×1/4 or ×1/8, the correction formula should be used; and
+- above 1 000 lx a correction formula needs to be applied.
+
+The vendor's polynomial, applied to the uncorrected lux value, is:
+
+```text
+corrected = a·x⁴ + b·x³ + c·x² + d·x
+a = 6.0135e-13   b = -9.3924e-9   c = 8.1488e-5   d = 1.0023
+```
+
+**This driver does not apply it.** That remains D-007, and the reason is
+unchanged: applicability depends on optical window, source spectrum, geometry,
+and application validation, none of which a driver owns.
+
+The consequence must be stated plainly rather than left implied. The driver's
+own low-gain presets sit inside the range where the source says correction is
+needed, so `nominal_illuminance` above roughly 1 000 lx is an uncorrected value
+the vendor does not consider a lux estimate. It is honest as *nominal* output and
+is never calibrated system lux.
+
+The coefficients are recorded here as a device fact, not as work owed by this
+crate. Evaluating a quartic on the target would also mean floating point, which
+this driver does not use anywhere: both crates are integer-only, and several
+supported triples have no FPU.
+
+The intended home is [`ph-curves`](https://github.com/photon-circus/ph-curves),
+whose transfer functions fit a curve **host-side** and emit integer or
+fixed-point tables, so firmware evaluates without floating point. It is
+explicitly not a driver crate and does not touch buses or device lifecycle, so
+the boundary matches D-007 from the other side. `ph-temt6000-als` already pairs
+an illuminance integration layer with it; a corrected-lux layer for this part
+would follow that shape rather than move correction into the driver.
+
+Nothing above commits this repository to building that layer. It records where
+the work belongs if it is done.
+
+- [x] The complete twenty-four-entry resolution table, every gain and every
+      integration time.
+- [x] The twenty-four-entry maximum-detection-range table.
+- [x] Gain ×1/8 at 25 ms is 2.1504 lx/count, reaching 140 926 lx — the widest
+      range the part offers.
+- [x] Above 100 lx, gain ×1 and ×2 are outside the linear region.
+- [x] Correction is called for with gain ×1/4 and ×1/8, and above 1 000 lx.
+- [x] The correction polynomial coefficients, checked against the source's own
+      worked example: 5581 counts at ×1/4 and 100 ms give 1500 lx uncorrected
+      and 1658 lx corrected.
+- [x] ALS output is a 16-bit word.
+- [ ] The white channel is an unsigned 16-bit count. Not stated in the passages
+      reviewed so far.
+
+### Starting configuration and ranging
+
+The source gives explicit application guidance, and it decides what a first-use
+preset should be:
+
+- for unknown brightness the application should always start at the lowest gain,
+  ×1/8 or ×1/4, to avoid overload if strong sunlight suddenly reaches the sensor;
+- to show such a high value, an integration time **lower than 100 ms may be
+  needed**;
+- gain ×1 and ×2 are for low illumination below 100 lx — at 100 ms they saturate
+  at 4 404 lx and 2 202 lx respectively; and
+- linear behavior runs from 0.0042 lx to about 1 klx.
+
+The source also sketches an auto-ranging loop — start at ×1/8, and while counts
+stay at or below 100, step the gain up through ×1/4, ×1, ×2, then lengthen the
+integration time toward 800 ms. It places that loop in **application software**,
+which is where this driver leaves it. Automatic range selection stays a non-claim
+under §11, and this is the source's own framing rather than a driver limitation.
+
+- [x] Start at the lowest gain for unknown brightness, and reduce integration
+      time below 100 ms to cover the brightest conditions.
+- [x] Gain ×1 and ×2 are confined to illumination below 100 lx.
+- [x] Linear behavior spans 0.0042 lx to about 1 klx.
+- [x] Auto-ranging is application-software responsibility in the source.
+
+Two prose-versus-table discrepancies are recorded rather than normalized:
+
+1. The narrative calls 0.0042 lx/count a range of "approximately 0 lx to 230 lx",
+   while the table gives 275 lx for that pair.
+2. The ranging example states that 100 counts at ×1/8 is 54 lx, then that after
+   switching to ×1/4 the same light gives 200 counts and "the same lux value of
+   46 lx". Both cannot hold: 200 × 0.2688 is 53.76 lx, so 54 lx is right and the
+   46 lx is a slip. The example's own logic — that the lux value is unchanged
+   across a gain switch — is correct.
+
+The tables govern in both cases, consistent with §1.
 
 ## 9. Threshold monitor
 
@@ -151,6 +342,13 @@ The official sources do not provide a reliable flag-clearing contract. The v0.1
 API exposes observed status only and does not promise read-to-clear,
 write-to-clear, or latched GPIO behavior.
 
+- [ ] Status register `0x06`: bit 15 low qualification, bit 14 high.
+- [ ] Persistence requires 1, 2, 4, or 8 consecutive qualifying measurements.
+- [ ] The part has no dedicated interrupt pin.
+- [ ] The sources state no flag-clearing behavior. An unchecked box here is the
+      expected result: this records that the absence was confirmed, not that a
+      contract was found.
+
 ## 10. Identity and support claim
 
 At fixed 7-bit address `0x10`, the ID register is expected to transfer bytes
@@ -163,6 +361,9 @@ At fixed 7-bit address `0x10`, the ID register is expected to transfer bytes
 
 This is compatibility evidence, not package-orientation, lot, authenticity, or
 calibration proof.
+
+- [ ] The ID register transfers bytes `0x81, 0xC4`, decoding to `0xC481`, at the
+      fixed address option.
 
 ## 11. Explicit non-claims
 

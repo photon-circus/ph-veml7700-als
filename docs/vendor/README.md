@@ -47,7 +47,13 @@ are coupled and must change together.
 ## Owner record to complete
 
 - [x] local copy observed and its SHA-256 recorded;
-- [ ] every hardware-contract verification box reviewed;
-- [ ] discrepancies between vendor prose and the register tables logged in
-      `DECISIONS.md`;
+- [ ] every hardware-contract verification box reviewed — **partly complete.**
+      §2, the §6 refresh table, §8 in full, the §5 gain and integration
+      encodings and reconfiguration sequence, and the §7 wake-up delay are
+      verified. Both §1 source-baseline entries and the remaining rows are not;
+- [x] discrepancies between vendor prose and the register tables logged —
+      recorded in `docs/HARDWARE_CONTRACT.md` beside the rows they affect rather
+      than in `DECISIONS.md`, so a reader meets the caveat with the fact. Two so
+      far: a stated range of "0 lx to 230 lx" where the table gives 275 lx, and
+      a ranging example computing 46 lx where its own arithmetic gives 54 lx;
 - [ ] any later source revision reviewed before release.
