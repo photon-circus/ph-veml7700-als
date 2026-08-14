@@ -115,8 +115,19 @@ where
     /// That matters most after
     /// [`arm_threshold_monitor`](Self::arm_threshold_monitor), which does not
     /// clear status either. A flag set under a *previous* set of thresholds can
-    /// still read as asserted against the new ones. Treat the first read after
-    /// arming as unreliable, or read and discard one before acting on the next.
+    /// still read as asserted against the new ones.
+    ///
+    /// There is no procedure that fixes this. Reading and discarding does not
+    /// help: with no read-to-clear contract, a set flag stays set, so the second
+    /// read is exactly as stale as the first. **Every** asserted read is
+    /// potentially stale unless the caller has independently established a
+    /// clearing mechanism for their part.
+    ///
+    /// What a caller can rely on is the *unasserted* case: a clear flag has not
+    /// qualified since the last time the device set it. Treat a set flag as
+    /// "qualified at some point", and corroborate with
+    /// [`read_als_snapshot`](Self::read_als_snapshot) against the thresholds if
+    /// the current condition is what matters.
     ///
     /// This is a limitation of what the sources support, not of the
     /// implementation, and it will not change without a source that establishes
@@ -287,7 +298,25 @@ where
     ///
     /// A failure part way through can leave an originally active device shut
     /// down, with the cadence either old or new. Read both registers back to
-    /// establish which.
+    /// establish which. As everywhere, an error does not establish that the
+    /// failing write was rejected — see [`set_power_state`](Self::set_power_state).
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// Two reads then up to three writes, and dropping at any of them leaves the
+    /// device where that boundary reached:
+    ///
+    /// | Dropped at | Device is left |
+    /// | --- | --- |
+    /// | Either read | Unchanged; nothing was written |
+    /// | Entering shutdown | Active or shut down, cadence unchanged |
+    /// | Writing the cadence | Shut down; cadence old or new |
+    /// | Returning to active | Shut down or active, cadence new |
+    ///
+    /// The middle rows leave an originally active device asleep. Recover by
+    /// reading [`read_configuration`](Self::read_configuration) and
+    /// [`read_power_saving`](Self::read_power_saving), then reinstating what you
+    /// want; both are idempotent, so repeating the call is safe.
     pub async fn set_power_saving(
         &mut self,
         power_saving: PowerSavingConfig,
@@ -609,10 +638,15 @@ where
     ///
     /// Dropping it leaves the monitor programmed up to whichever write had
     /// completed, with no error to inspect. The boundaries are the same
-    /// sequence: observing configuration writes nothing; dropping at or after
-    /// the disable write leaves the monitor disabled and the device shut down,
-    /// with some prefix of the thresholds and cadence installed; dropping at the
-    /// final enable leaves the monitor either disabled or fully armed.
+    /// sequence: observing configuration writes nothing; dropping *after* a
+    /// completed disable write leaves the monitor disabled and the device shut
+    /// down, with some prefix of the thresholds and cadence installed; dropping
+    /// at the final enable leaves the monitor either disabled or fully armed.
+    ///
+    /// Dropping *at* the disable write itself is the ambiguous case, and it is
+    /// not covered by the sentence above. That write may or may not have landed,
+    /// so from an active monitor-disabled start the device may still be active,
+    /// and while re-arming an enabled monitor it may still be enabled.
     ///
     /// Recover the same way as after a failure: read
     /// [`read_configuration`](Self::read_configuration),
@@ -729,6 +763,24 @@ where
     }
 
     /// Disable threshold monitoring while preserving all other configuration fields.
+    ///
+    /// This clears the monitor bit only. It does **not** restore whatever power
+    /// state preceded arming: a device armed from shutdown stays active after
+    /// disabling. Follow with [`set_power_state`](Self::set_power_state) if you
+    /// want it asleep.
+    ///
+    /// It does not clear threshold status either — see
+    /// [`read_threshold_status`](Self::read_threshold_status).
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// One read then one write. Dropping at the read changes nothing; dropping
+    /// at the write leaves the monitor either enabled or disabled, and a
+    /// returned error does not distinguish those either — see
+    /// [`set_power_state`](Self::set_power_state) for the general rule.
+    ///
+    /// Recover by reading [`read_configuration`](Self::read_configuration) and
+    /// repeating the call, which is idempotent.
     pub async fn disable_threshold_monitor(&mut self) -> Result<(), Error<I2C::Error>> {
         let current = self
             .read_configuration_for(Operation::ThresholdMonitor)
@@ -1532,6 +1584,71 @@ mod tests {
                 boundary,
                 "boundary {boundary} issued the wrong number of transactions"
             );
+        }
+    }
+
+    #[test]
+    fn dropping_an_active_start_covers_the_conditional_shutdown_boundaries() {
+        // The scripts above start shut down, where `EnterShutdown` is skipped
+        // entirely — so on their own they do not reach the boundary that only
+        // exists on an active start. These do.
+        let fresh_from_active = [
+            read_word(0x00, 0x0000),
+            read_word(0x03, 0x0000),
+            write_word(0x00, 0x0001, Ok(())), // EnterShutdown
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0000, Ok(())),
+        ];
+        let total = fresh_from_active.len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(fresh_from_active.clone()), boundary);
+            let mut delay = CancellableDelay::ready();
+            let mut sensor = Veml7700::new(bus);
+            let polled = poll_once_then_drop(
+                sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
+            );
+            assert!(polled.is_pending(), "active-start boundary {boundary}");
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(
+                total - remaining,
+                boundary,
+                "active-start boundary {boundary}"
+            );
+        }
+
+        // Re-arming an enabled monitor on an active device is the only threshold
+        // path with its own `EnterShutdown` write.
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let arm_from_active_enabled = [
+            read_word(0x00, 0x0002),
+            write_word(0x00, 0x0003, Ok(())), // EnterShutdown, monitor still enabled
+            write_word(0x00, 0x0001, Ok(())), // DisableMonitor, now shut down
+            write_word(0x02, 100, Ok(())),
+            write_word(0x01, 1_000, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            write_word(0x00, 0x1022, Ok(())),
+        ];
+        let total = arm_from_active_enabled.len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(arm_from_active_enabled.clone()), boundary);
+            let mut sensor = Veml7700::new(bus);
+            let polled =
+                poll_once_then_drop(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
+                    MeasurementConfig::safe_bright_start(),
+                    thresholds,
+                    Persistence::Four,
+                    PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+                )));
+            assert!(polled.is_pending(), "re-arm boundary {boundary}");
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(total - remaining, boundary, "re-arm boundary {boundary}");
         }
     }
 

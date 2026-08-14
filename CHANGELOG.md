@@ -222,9 +222,15 @@ than a change from a prior version.
   rolled back or not applied.
 - `read_threshold_status` and `arm_threshold_monitor` now state that a set flag
   may be stale, and that arming does not clear status — a flag set under a
-  previous set of thresholds can read as asserted against the new ones. This is a
-  limitation of what the sources support, recorded where a caller meets it rather
-  than only in repository contracts.
+  previous set of thresholds can read as asserted against the new ones. There is
+  no procedure that fixes it: with no read-to-clear contract, discarding a read
+  changes nothing, so every asserted read is potentially stale. What a caller can
+  rely on is the unasserted case, and corroborating a set flag against a fresh
+  snapshot. This is a limitation of what the sources support, recorded where a
+  caller meets it rather than only in repository contracts.
+- `disable_threshold_monitor` now states that it clears the monitor bit only and
+  does not restore the power state that preceded arming, so a device armed from
+  shutdown stays active after disabling.
 - Recorded D-027: why cancellation is documented rather than defended, why a
   cleanup guard or background task would trade an honest limitation for a hidden
   one, and why these tests assert sequencing rather than device state.

@@ -165,9 +165,12 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   future does not undo what it has already done: the driver is not an executor
   and cannot run cleanup during a drop, so restoration happens only on paths that
   return. Every restoration guarantee in this contract holds *when polled to
-  completion*. Each operation's rustdoc tabulates the state left at every await
-  boundary and gives a deterministic read-back procedure using public operations
-  only.
+  completion*. Every operation that writes — `set_measurement_config`,
+  `set_power_state`, `set_power_saving`, `measure_once_with_timing`,
+  `arm_threshold_monitor` and `disable_threshold_monitor` — tabulates in its
+  rustdoc the state left at each await boundary, and gives a deterministic
+  read-back procedure using public operations only. Read-only operations issue
+  no writes, so a drop leaves the device unchanged.
 - **a failed write is not a rejected write.** An `Err` establishes that the
   operation did not complete, not that the device is unchanged: an I²C error can
   mean the byte never arrived, or that it arrived, took effect, and the

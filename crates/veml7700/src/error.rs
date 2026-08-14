@@ -233,9 +233,15 @@ pub enum ThresholdMonitorStage {
 /// [`read_thresholds`] and [`read_power_saving`] together establish the actual
 /// state, and re-arming from there installs a known domain.
 ///
-/// A failure at or after [`ThresholdMonitorStage::DisableMonitor`] leaves the
-/// monitor disabled and the device shut down, so it is not qualifying against a
-/// half-programmed domain while a caller decides what to do.
+/// Once [`ThresholdMonitorStage::DisableMonitor`] appears in
+/// [`confirmed`](Self::confirmed), the monitor is disabled and the device is
+/// shut down, so it is not qualifying against a half-programmed domain while a
+/// caller decides what to do.
+///
+/// That guarantee needs the write *confirmed*, not merely reached. A failure of
+/// the disable write itself leaves it unknown: from an active monitor-disabled
+/// start the device may still be active, and while re-arming an enabled monitor
+/// it may still be enabled. Neither state is safe to assume — read back.
 ///
 /// [`read_configuration`]: crate::Veml7700::read_configuration
 /// [`read_thresholds`]: crate::Veml7700::read_thresholds
