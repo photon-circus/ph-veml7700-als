@@ -442,8 +442,29 @@ than a change from a prior version.
   confirms a register write while reading like a behavioral result. The model
   will declare the qualification rule undefined and answer `Unsupported`; the
   driver will stop describing persistence in terms of *consecutive* measurements
-  it cannot observe. Both land as their own issue, because changing what the
-  model does is a behavior change rather than a documentation edit.
+  it cannot observe. The model half lands as its own issue, because changing what
+  the model does is a behavior change rather than a documentation edit.
+- Corrected the public rustdoc that still promised what these rows withdrew.
+  Declaring an assumption in the contract and leaving the shipped API describing
+  the old certainty is worse than not declaring it, because the surface a
+  consumer actually reads is the one that keeps the promise.
+  - `Persistence` and its four variants described *consecutive qualifying
+    measurements*, and `ThresholdMonitorConfig::persistence` repeated it. They
+    now name the protect number, state that the qualification rule is not
+    source-backed, and direct callers to poll status rather than compute an
+    assertion time. `Persistence::count()` says it feeds no driver calculation.
+  - `measure_once` advertised "conservative vendor-derived timing" for a wait
+    only partly vendor-derived. It now separates the three components — the
+    vendor's 2.5 ms wake delay, the assumed 130 %, and the 1 ms policy margin —
+    and names the failure: if the real spread exceeds ±30 %, a stale value comes
+    back indistinguishable from a new one.
+  - `measure_once_with_timing` and `MeasurementTiming::with_additional_margin_us`
+    called the floor a "documented conservative minimum". Dropped, with the note
+    that adding margin cannot convert an assumption into a guarantee.
+- Moved the settling procedures for the three Assumptions to #58, leaving each
+  row a one-sentence observation. Naming what would settle a row is D-029's
+  requirement; carrying the procedure would make this document a
+  physical-evidence plan, which the product boundary excludes.
 - Resolved the §4 reset-value row. `0x00` and `0x07` are source-declared; every
   other register, including `0x03`, is **not**. The §4 table previously listed
   `0x0000` for `0x03` unqualified, in a column whose other entries said *not

@@ -89,22 +89,45 @@ impl IntegrationTime {
     }
 }
 
-/// Number of consecutive qualifying measurements required by the threshold monitor.
+/// Threshold persistence protect number (`ALS_PERS`).
+///
+/// # What this selects, and what it does not promise
+///
+/// The four values are source-backed: Table 1 defines `ALS_PERS` and its
+/// encodings as a *persistence protect number*, and that is what this driver
+/// programs.
+///
+/// **The qualification rule is not source-backed.** No reviewed passage states
+/// whether the count is over consecutive refreshes, nor whether a non-qualifying
+/// refresh resets it. This driver therefore promises nothing about *when*
+/// [`read_threshold_status`](crate::Veml7700::read_threshold_status) will report
+/// a flag for any value above [`Persistence::One`].
+///
+/// Poll the status. Do not compute an expected assertion time from the count and
+/// the refresh cadence — that calculation needs a rule the sources never stated.
+///
+/// `docs/HARDWARE_CONTRACT.md` §8 records the finding; D-030 records why the
+/// driver stays silent here rather than assuming.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Persistence {
-    /// One qualifying measurement.
+    /// Protect number 1 — one qualifying measurement.
+    ///
+    /// The only value with no rule ambiguity: there is no sequence to count.
     One,
-    /// Two consecutive qualifying measurements.
+    /// Protect number 2.
     Two,
-    /// Four consecutive qualifying measurements.
+    /// Protect number 4.
     Four,
-    /// Eight consecutive qualifying measurements.
+    /// Protect number 8.
     Eight,
 }
 
 impl Persistence {
-    /// Return the qualifying-measurement count.
+    /// Return the programmed protect number.
+    ///
+    /// This is the encoded field value, not an input to any timing calculation
+    /// the driver performs — nothing in this driver reads it.
     pub const fn count(self) -> u8 {
         match self {
             Self::One => 1,

@@ -28,8 +28,11 @@ The fourth exists because "not in the sources" and "not knowable from the
 sources" are different problems. A missing statement might be found on another
 page. An assumption about how silicon behaves cannot be — no amount of reading
 resolves it, and the honest response is to name it, name what it would take to
-settle, and let the driver's behavior depend on it visibly. These rows are the
-ones a hardware-in-the-loop effort should start from.
+settle, and let the driver's behavior depend on it visibly.
+
+Each Assumption row therefore names an **observation**, in one sentence. It does
+not carry a procedure: this repository excludes physical-evidence plans, so the
+procedures live in #58 and the rows link to it.
 
 Counts of "verified" rows in the changelog and elsewhere refer to the bullet
 rows in §2 onward. The two §1 source-baseline entries are tracked in that
@@ -146,7 +149,7 @@ No public raw-register accessor exists in v0.1.
       as derived behavior.
 
       **What would settle it:** reading `0x03` on a device that has not been
-      written since power-on.
+      written since power-on. See #58.
 
 ## 5. Configuration register `0x00`
 
@@ -257,10 +260,10 @@ statement, so the inference is recorded here rather than left implicit in code.
       `refresh_interval_ns`.
 
       **What would settle it:** measuring refresh interval at a fixed integration
-      time and power-saving mode across all four gains, on silicon. If the
-      intervals match, the assumption holds; if any differs, both the driver
-      signature and the model change. Nothing in the documents can substitute for
-      that observation, which is why this is declared rather than left open.
+      time and power-saving mode across all four gains, on silicon. If any
+      differs, both the driver signature and the model change. Nothing in the
+      documents can substitute for that observation, which is why this is
+      declared rather than left open. See #58.
 
 ## 7. Wake-up, integration, and freshness
 
@@ -312,10 +315,10 @@ coherence policy, not a vendor-stated atomic pair primitive.
       conversion behind it completed — the freshness guarantee fails silently,
       returning a stale value that is indistinguishable from a new one.
 
-      **Settled by:** clocking actual conversion completion against the wake
-      edge across all six integration times on several parts, ideally over the
-      operating temperature range, since oscillator drift is where the spread
-      comes from. One part at room temperature bounds nothing.
+      **What would settle it:** clocking actual conversion completion against
+      the shutdown-to-active wake edge. Procedure and sampling considerations
+      are in #58, not here — this document names the observation; it does not
+      carry a physical-evidence plan.
 - [x] Data registers retain the last result while shut down. The source calls
       this *Auto-Memorization*: the part memorizes the last ambient data before
       shutdown, the host may read it directly while shut down, and on wake the

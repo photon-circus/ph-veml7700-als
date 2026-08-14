@@ -81,8 +81,13 @@ impl MeasurementTiming {
 
     /// Construct conservative timing plus an additional caller-selected margin.
     ///
-    /// The resulting timing can only be equal to or longer than the documented
-    /// conservative minimum; this type cannot represent a shortened fresh wait.
+    /// The resulting timing can only be equal to or longer than the conservative
+    /// minimum; this type cannot represent a shortened fresh wait.
+    ///
+    /// Lengthening does not convert an assumption into a guarantee. The minimum
+    /// is partly built on [`INTEGRATION_TOLERANCE_PERCENT`], so a caller who
+    /// suspects a wider real spread can add margin here — but no margin makes
+    /// the conversion time source-specified.
     pub const fn with_additional_margin_us(
         integration_time: IntegrationTime,
         additional_margin_us: u32,
