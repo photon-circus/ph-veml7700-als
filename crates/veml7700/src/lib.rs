@@ -54,6 +54,7 @@ mod power;
 mod register;
 mod threshold;
 mod timing;
+mod transfer;
 
 pub use config::{
     ConfigDecodeError, ConfigurationSnapshot, Gain, IntegrationTime, MeasurementConfig,
@@ -77,6 +78,19 @@ pub use threshold::{
 pub use timing::{
     INTEGRATION_TOLERANCE_PERCENT, MEASUREMENT_MARGIN_US, MeasurementTiming, WAKE_UP_DELAY_US,
 };
+
+#[cfg(feature = "ph-curves")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ph-curves")))]
+pub use transfer::{
+    AlsTransferMember, CorrectionApplicability, DESCRIPTION, PH_CURVES_FAMILY_TOML, TransferGap,
+    TransferGapStatus, Veml7700TransferDescription, VendorPolynomial,
+};
+
+#[cfg(feature = "ph-curves")]
+mod transfer_export;
+#[cfg(feature = "ph-curves")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ph-curves")))]
+pub use transfer_export::{FAMILY_TOML, generate_als_family};
 
 #[cfg(test)]
 extern crate alloc;

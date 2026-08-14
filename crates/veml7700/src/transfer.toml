@@ -1,0 +1,94 @@
+# VEML7700 ALS transfer family — smoke-test payload for a future ph-curves.
+#
+# This document does not compile against ph-curves 0.2.1: unknown tables are
+# either ignored (today) or rejected (after the suggested patch). The driver
+# feature calls DefinitionsFile::transfer_families / gaps, which 0.2.1 lacks.
+#
+# Dense [curves] LUTs are forbidden in the same file (see the patch).
+# Generation domain is uncorrected lux [100, 22000] (≈100 klx corrected),
+# not the full 16-bit ALS count domain.
+
+[transfer_families.als_scaled_polynomial]
+input_unit = "als_count"
+output_unit = "lux"
+output_scale = 1000
+max_interpolation_error = 500
+max_knots = 64
+max_knots_hard = 256
+interpolate_selectors = false
+below = "error"
+above = "error"
+saturation = "error"
+extrapolation = "error"
+
+[transfer_families.als_scaled_polynomial.model]
+kind = "scaled_polynomial"
+coefficients = [0.0, 1.0023, 8.1488e-5, -9.3924e-9, 6.0135e-13]
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 800 }
+scale_micro_lux_per_count = 33600
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 400 }
+scale_micro_lux_per_count = 67200
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 200 }
+scale_micro_lux_per_count = 134400
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 100 }
+scale_micro_lux_per_count = 268800
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 50 }
+scale_micro_lux_per_count = 537600
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div4", integration_time_ms = 25 }
+scale_micro_lux_per_count = 1075200
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 800 }
+scale_micro_lux_per_count = 67200
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 400 }
+scale_micro_lux_per_count = 134400
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 200 }
+scale_micro_lux_per_count = 268800
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 100 }
+scale_micro_lux_per_count = 537600
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 50 }
+scale_micro_lux_per_count = 1075200
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[[transfer_families.als_scaled_polynomial.members]]
+selectors = { gain = "div8", integration_time_ms = 25 }
+scale_micro_lux_per_count = 2150400
+applicability = { correction = "required", uncorrected_lux = [100.0, 22000.0] }
+
+[gaps.white_channel]
+status = "undefined"
+reason = "sources give 16-bit counts only; no lux scale"
+
+[gaps.ir_lux_optimization]
+status = "undefined"
+reason = "AN states white/ALS ratio ≳ 2 for IR-rich sources; no conversion formula"

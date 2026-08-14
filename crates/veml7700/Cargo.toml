@@ -17,10 +17,14 @@ publish = false
 [dependencies]
 embedded-hal-async = { version = "1.0.0", default-features = false }
 defmt = { version = "1.1.1", optional = true }
+ph-curves = { version = "0.2.1", optional = true, default-features = false, features = ["gen-lib"] }
 
 [features]
 default = []
 defmt = ["dep:defmt"]
+# Exploration: host export against a future ph-curves gen-lib API. Does not
+# compile on ph-curves 0.2.1. See exploration/ph-curves-transfer/README.md.
+ph-curves = ["dep:ph-curves"]
 
 [dev-dependencies]
 # Retained: private scripted-transport tests still block_on. The model

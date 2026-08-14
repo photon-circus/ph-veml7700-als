@@ -8,6 +8,15 @@ This section will become the first release, `0.1.0-incubating.1`. Nothing has
 been released or published, so every entry describes the initial surface rather
 than a change from a prior version.
 
+### Notes
+
+- **Exploration (not a shipped feature):** branch probe for issue #46. The
+  optional `ph-curves` Cargo feature is written against a *future* `ph-curves`
+  generator (see `exploration/ph-curves-transfer/`). Default-feature builds
+  are unchanged. `--all-features` / `--features ph-curves` is **expected not
+  to compile** on `ph-curves` 0.2.1; that is the smoke test, not a product
+  regression. Do not merge this as a compiling capability.
+
 ### Added
 
 - Async, `no_std`, allocation-free VEML7700 driver over caller-provided

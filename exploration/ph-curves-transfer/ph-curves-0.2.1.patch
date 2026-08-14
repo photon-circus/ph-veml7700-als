@@ -1,0 +1,872 @@
+diff --git a/src/gen/codegen.rs b/src/gen/codegen.rs
+index c746ae1..4eff3c1 100644
+--- a/src/gen/codegen.rs
++++ b/src/gen/codegen.rs
+@@ -17,9 +17,25 @@ pub fn generate(
+     value_type: &str,
+     lut_size: usize,
+ ) -> Result<String, String> {
++    if !curves_file.curves.is_empty() && !curves_file.transfer_families.is_empty() {
++        return Err(
++            "transfer families forbid [curves] in the same document (dense LUT path is not allowed)"
++                .into(),
++        );
++    }
++
++    let resolved = curves_file.resolved_transfers()?;
++    if resolved.is_empty()
++        && curves_file.curves.is_empty()
++        && curves_file.transfer_families.is_empty()
++        && curves_file.transfers.is_empty()
++    {
++        // Empty input is still valid: emit the header only.
++    }
++
+     let mut curves: Vec<(&String, &CurveDef)> = curves_file.curves.iter().collect();
+     curves.sort_by_key(|(name, _)| *name);
+-    let mut transfers: Vec<(&String, &TransferDef)> = curves_file.transfers.iter().collect();
++    let mut transfers: Vec<(&String, &TransferDef)> = resolved.iter().collect();
+     transfers.sort_by_key(|(name, _)| *name);
+ 
+     let const_names = emitted_const_names(&curves, &transfers)?;
+@@ -29,7 +45,7 @@ pub fn generate(
+     if !curves_file.curves.is_empty() {
+         out.push_str("use ph_curves::{CurveLut, MonotonicCurveLut};\n\n");
+     }
+-    if !curves_file.transfers.is_empty() {
++    if !resolved.is_empty() {
+         out.push_str(
+             "use ph_curves::{BoundaryBehavior, MonotonicDirection, \
+              PiecewiseLinearTransfer, TransferMetadata};\n\n",
+@@ -412,6 +428,7 @@ mod tests {
+         let cf = DefinitionsFile {
+             curves,
+             transfers: BTreeMap::new(),
++            ..Default::default()
+         };
+         let out = generate(&cf, "u8", 256).unwrap();
+         assert!(out.contains("AUTO_LINEAR_FWD") || out.contains("LINEAR_FWD"));
+@@ -435,6 +452,7 @@ mod tests {
+         let cf = DefinitionsFile {
+             curves,
+             transfers: BTreeMap::new(),
++            ..Default::default()
+         };
+         let out = generate(&cf, "u8", 256).unwrap();
+         assert!(out.contains("WAVE_FWD"));
+@@ -457,6 +475,7 @@ mod tests {
+         let cf = DefinitionsFile {
+             curves,
+             transfers: BTreeMap::new(),
++            ..Default::default()
+         };
+         let out = generate(&cf, "u16", 10).unwrap();
+         assert!(out.contains("u16"));
+@@ -481,6 +500,7 @@ mod tests {
+             &DefinitionsFile {
+                 curves,
+                 transfers: BTreeMap::new(),
++                ..Default::default()
+             },
+             "u8",
+             256,
+@@ -508,6 +528,7 @@ mod tests {
+             &DefinitionsFile {
+                 curves,
+                 transfers: BTreeMap::new(),
++                ..Default::default()
+             },
+             "u8",
+             256,
+@@ -533,6 +554,7 @@ mod tests {
+             &DefinitionsFile {
+                 curves,
+                 transfers: BTreeMap::new(),
++                ..Default::default()
+             },
+             "u8",
+             256,
+@@ -581,7 +603,16 @@ mod tests {
+                 output_range: None,
+             },
+         );
+-        let error = generate(&DefinitionsFile { curves, transfers }, "u8", 256).unwrap_err();
++        let error = generate(
++            &DefinitionsFile {
++                curves,
++                transfers,
++                ..Default::default()
++            },
++            "u8",
++            256,
++        )
++        .unwrap_err();
+         assert!(error.contains("both normalize"));
+         assert!(error.contains("`SENSOR`"));
+     }
+@@ -621,6 +652,7 @@ mod tests {
+             &DefinitionsFile {
+                 curves: BTreeMap::new(),
+                 transfers,
++                ..Default::default()
+             },
+             "u8",
+             256,
+@@ -654,6 +686,7 @@ mod tests {
+             &DefinitionsFile {
+                 curves: BTreeMap::new(),
+                 transfers,
++                ..Default::default()
+             },
+             "u8",
+             256,
+@@ -688,4 +721,82 @@ mod tests {
+         assert!(!output.contains("f32"));
+         assert!(!output.contains("f64"));
+     }
++
++    #[test]
++    fn transfer_family_forbids_dense_curve_lut_in_the_same_document() {
++        let toml = r#"
++[curves.linear]
++builtin = "linear"
++
++[transfer_families.als]
++input_unit = "als_count"
++output_unit = "lux"
++output_scale = 1000
++max_interpolation_error = 50
++interpolate_selectors = false
++below = "error"
++above = "error"
++saturation = "error"
++extrapolation = "error"
++
++[transfer_families.als.model]
++kind = "scaled_polynomial"
++coefficients = [0.0, 1.0]
++
++[[transfer_families.als.members]]
++selectors = { gain = "div4", integration_time_ms = 100 }
++scale_micro_lux_per_count = 268800
++applicability = { correction = "required", uncorrected_lux = [100.0, 1000.0] }
++"#;
++        let definition: DefinitionsFile = toml::from_str(toml).unwrap();
++        let error = generate(&definition, "u8", 256).unwrap_err();
++        assert!(error.contains("forbid [curves]"));
++    }
++
++    #[test]
++    fn scaled_polynomial_family_emits_sparse_integer_transfer() {
++        let toml = r#"
++[transfer_families.als]
++input_unit = "als_count"
++output_unit = "lux"
++output_scale = 1000
++max_interpolation_error = 500
++max_knots = 64
++interpolate_selectors = false
++below = "error"
++above = "error"
++saturation = "error"
++extrapolation = "error"
++
++[transfer_families.als.model]
++kind = "scaled_polynomial"
++coefficients = [0.0, 1.0023, 8.1488e-5, -9.3924e-9, 6.0135e-13]
++
++[[transfer_families.als.members]]
++selectors = { gain = "div4", integration_time_ms = 100 }
++scale_micro_lux_per_count = 268800
++applicability = { correction = "required", uncorrected_lux = [100.0, 2200.0] }
++
++[gaps.white_channel]
++status = "undefined"
++reason = "counts only"
++"#;
++        let definition: DefinitionsFile = toml::from_str(toml).unwrap();
++        assert!(!definition.transfer_families().is_empty());
++        assert!(definition.gaps().contains_key("white_channel"));
++        let output = generate(&definition, "u8", 256).unwrap();
++        assert!(output.contains("PiecewiseLinearTransfer"));
++        assert!(output.contains("ALS_DIV4_100"));
++        assert!(!output.contains("CurveLut"));
++        assert!(!output.contains("f32"));
++        assert!(!output.contains("f64"));
++    }
++
++    #[test]
++    fn unknown_top_level_key_is_rejected() {
++        let error = toml::from_str::<DefinitionsFile>("[invented]\nfoo = 1\n")
++            .unwrap_err()
++            .to_string();
++        assert!(error.contains("unknown field") || error.contains("invented"));
++    }
+ }
+diff --git a/src/gen/curve.rs b/src/gen/curve.rs
+index cb6119e..7a1bf0a 100644
+--- a/src/gen/curve.rs
++++ b/src/gen/curve.rs
+@@ -27,7 +27,8 @@ use super::{builtin, formula, points, transfer};
+ /// Construct via [`Self::from_toml_str`] or [`super::generate_from_str`].
+ /// Field access is crate-visible; dependents should prefer the `generate_*`
+ /// helpers over hand-building schema graphs.
+-#[derive(Debug, Deserialize)]
++#[derive(Debug, Default, Deserialize)]
++#[serde(deny_unknown_fields)]
+ pub struct DefinitionsFile {
+     /// Normalized LUT curves keyed by TOML table name.
+     #[serde(default)]
+@@ -35,6 +36,12 @@ pub struct DefinitionsFile {
+     /// Sparse physical transfer functions keyed by TOML table name.
+     #[serde(default)]
+     pub(crate) transfers: BTreeMap<String, transfer::TransferDef>,
++    /// Shared-model families expanded into sparse transfers at generation.
++    #[serde(default)]
++    pub(crate) transfer_families: BTreeMap<String, transfer::TransferFamilyDef>,
++    /// Channels or procedures that must not be generated as transfers.
++    #[serde(default)]
++    pub(crate) gaps: BTreeMap<String, transfer::GapDef>,
+ }
+ 
+ impl DefinitionsFile {
+@@ -42,6 +49,39 @@ impl DefinitionsFile {
+     pub fn from_toml_str(toml: &str) -> Result<Self, toml::de::Error> {
+         toml::from_str(toml)
+     }
++
++    /// Declared transfer families. Empty on documents that only use `[transfers]`.
++    pub fn transfer_families(&self) -> &BTreeMap<String, transfer::TransferFamilyDef> {
++        &self.transfer_families
++    }
++
++    /// Declared gaps. A missing gap is not the same as an undefined one.
++    pub fn gaps(&self) -> &BTreeMap<String, transfer::GapDef> {
++        &self.gaps
++    }
++
++    /// Standalone transfers plus expanded family members.
++    pub fn resolved_transfers(&self) -> Result<BTreeMap<String, transfer::TransferDef>, String> {
++        for (name, gap) in &self.gaps {
++            if gap.status != transfer::family::GapStatus::Undefined {
++                return Err(format!("gap `{name}`: status must be \"undefined\""));
++            }
++            if gap.reason.is_empty() {
++                return Err(format!("gap `{name}`: reason must not be empty"));
++            }
++        }
++
++        let mut resolved = self.transfers.clone();
++        let expanded = transfer::family::expand_families(&self.transfer_families)?;
++        for (name, def) in expanded {
++            if resolved.insert(name.clone(), def).is_some() {
++                return Err(format!(
++                    "expanded family member `{name}` collides with a standalone [transfers] entry"
++                ));
++            }
++        }
++        Ok(resolved)
++    }
+ }
+ 
+ /// One normalized curve definition from the TOML `[curves]` map.
+diff --git a/src/gen/mod.rs b/src/gen/mod.rs
+index 9e79910..abde3ad 100644
+--- a/src/gen/mod.rs
++++ b/src/gen/mod.rs
+@@ -41,7 +41,8 @@ pub(crate) mod points;
+ pub(crate) mod transfer;
+ 
+ pub use api::{
+-    Error, GenerateOptions, ValueType, generate, generate_from_str, generate_from_toml,
+-    generate_to_path,
++    generate, generate_from_str, generate_from_toml, generate_to_path, Error, GenerateOptions,
++    ValueType,
+ };
+ pub use curve::DefinitionsFile;
++pub use transfer::{GapDef, TransferFamilyDef};
+diff --git a/src/gen/transfer/family.rs b/src/gen/transfer/family.rs
+new file mode 100644
+index 0000000..a9f6e4f
+--- /dev/null
++++ b/src/gen/transfer/family.rs
+@@ -0,0 +1,347 @@
++//! Discrete transfer families: one model, explicit members, no interpolation.
++
++// Host-only: module-local std link (crate root stays `#![no_std]`).
++extern crate std;
++
++use std::collections::BTreeMap;
++use std::format;
++use std::prelude::v1::*;
++
++use serde::Deserialize;
++
++use super::model::ModelDef;
++use super::{default_boundary, BoundaryDef, TransferDef};
++
++/// Hard cap on knots for a family member. Stricter than the standalone
++/// transfer cap (4096): families must not become dense ADC tables.
++pub const FAMILY_MAX_KNOTS_HARD: usize = 256;
++
++fn default_family_max_knots() -> usize {
++    64
++}
++
++fn default_family_max_knots_hard() -> usize {
++    FAMILY_MAX_KNOTS_HARD
++}
++
++/// One named family: shared model, per-member scale and applicability.
++///
++/// Fields are crate-visible. Dependents inspect the map via
++/// [`crate::r#gen::DefinitionsFile::transfer_families`].
++#[derive(Debug, Clone, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct TransferFamilyDef {
++    pub(crate) input_unit: String,
++    pub(crate) output_unit: String,
++    pub(crate) output_scale: u32,
++    pub(crate) max_interpolation_error: u32,
++    #[serde(default = "default_family_max_knots")]
++    pub(crate) max_knots: usize,
++    #[serde(default = "default_family_max_knots_hard")]
++    pub(crate) max_knots_hard: usize,
++    #[serde(default)]
++    pub(crate) interpolate_selectors: bool,
++    #[serde(default = "default_boundary")]
++    pub(crate) below: BoundaryDef,
++    #[serde(default = "default_boundary")]
++    pub(crate) above: BoundaryDef,
++    #[serde(default = "default_boundary")]
++    pub(crate) saturation: BoundaryDef,
++    #[serde(default = "default_boundary")]
++    pub(crate) extrapolation: BoundaryDef,
++    pub(crate) model: ModelDef,
++    pub(crate) members: Vec<FamilyMemberDef>,
++}
++
++/// One explicit selector combination. Never synthesized by interpolation.
++#[derive(Debug, Clone, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct FamilyMemberDef {
++    pub(crate) selectors: BTreeMap<String, toml::Value>,
++    pub(crate) scale_micro_lux_per_count: u32,
++    pub(crate) applicability: ApplicabilityDef,
++}
++
++/// Where this member's mapping is source-backed.
++#[derive(Debug, Clone, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct ApplicabilityDef {
++    pub(crate) correction: CorrectionKind,
++    pub(crate) uncorrected_lux: [f64; 2],
++}
++
++/// Whether the shared model applies to this member.
++#[derive(Debug, Clone, Copy, Deserialize, Eq, PartialEq)]
++#[serde(rename_all = "snake_case")]
++pub enum CorrectionKind {
++    /// Generate this member (default family emission).
++    Required,
++    /// Recorded on the description; not generated.
++    None,
++    /// Recorded as forbidden in this region; not generated.
++    DoNotUse,
++}
++
++/// A channel or procedure the sources do not define as a transfer.
++#[derive(Debug, Clone, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct GapDef {
++    pub(crate) status: GapStatus,
++    pub(crate) reason: String,
++}
++
++/// Only `undefined` is valid: a gap must not be filled with a plausible model.
++#[derive(Debug, Clone, Copy, Deserialize, Eq, PartialEq)]
++#[serde(rename_all = "snake_case")]
++pub enum GapStatus {
++    /// The sources do not define this mapping; do not invent one.
++    Undefined,
++}
++
++/// Expand families into standalone transfer defs. Members that are not
++/// `correction = "required"` are skipped (description-only).
++pub fn expand_families(
++    families: &BTreeMap<String, TransferFamilyDef>,
++) -> Result<BTreeMap<String, TransferDef>, String> {
++    let mut out = BTreeMap::new();
++    for (family_name, family) in families {
++        if family.interpolate_selectors {
++            return Err(format!(
++                "transfer family `{family_name}`: interpolate_selectors = true is not supported; \
++                 list members explicitly"
++            ));
++        }
++        if family.max_knots_hard > FAMILY_MAX_KNOTS_HARD {
++            return Err(format!(
++                "transfer family `{family_name}`: max_knots_hard {} exceeds family cap {FAMILY_MAX_KNOTS_HARD}",
++                family.max_knots_hard
++            ));
++        }
++        if family.max_knots < 2 || family.max_knots > family.max_knots_hard {
++            return Err(format!(
++                "transfer family `{family_name}`: max_knots must be in 2..={}",
++                family.max_knots_hard
++            ));
++        }
++        if matches!(family.extrapolation, BoundaryDef::Clamp) {
++            return Err(format!(
++                "transfer family `{family_name}`: extrapolation = clamp is not supported; \
++                 use error, or list a wider applicability window explicitly"
++            ));
++        }
++        if family.members.is_empty() {
++            return Err(format!(
++                "transfer family `{family_name}`: members must not be empty"
++            ));
++        }
++
++        let mut generated = 0usize;
++        for member in &family.members {
++            if member.applicability.correction != CorrectionKind::Required {
++                continue;
++            }
++            let (member_name, def) = expand_member(family_name, family, member)?;
++            if out.insert(member_name.clone(), def).is_some() {
++                return Err(format!(
++                    "transfer family `{family_name}`: duplicate expanded name `{member_name}`"
++                ));
++            }
++            generated += 1;
++        }
++        if generated == 0 {
++            return Err(format!(
++                "transfer family `{family_name}`: no members with correction = \"required\""
++            ));
++        }
++    }
++    Ok(out)
++}
++
++fn expand_member(
++    family_name: &str,
++    family: &TransferFamilyDef,
++    member: &FamilyMemberDef,
++) -> Result<(String, TransferDef), String> {
++    if member.scale_micro_lux_per_count == 0 {
++        return Err(format!(
++            "transfer family `{family_name}`: scale_micro_lux_per_count must be positive"
++        ));
++    }
++    let [lux_lo, lux_hi] = member.applicability.uncorrected_lux;
++    if !lux_lo.is_finite() || !lux_hi.is_finite() || lux_lo >= lux_hi || lux_lo < 0.0 {
++        return Err(format!(
++            "transfer family `{family_name}`: uncorrected_lux must be two increasing non-negative finite values"
++        ));
++    }
++
++    let scale_lx = f64::from(member.scale_micro_lux_per_count) / 1_000_000.0;
++    let count_lo = (lux_lo / scale_lx).ceil();
++    let count_hi = (lux_hi / scale_lx).floor();
++    if count_lo < 0.0 || count_hi > f64::from(u16::MAX) {
++        // Still representable as a domain after saturation clipping below;
++        // reject only if the low bound itself is unrepresentable.
++    }
++    if count_lo > f64::from(u16::MAX) {
++        return Err(format!(
++            "transfer family `{family_name}`: applicability window starts above the 16-bit observation domain"
++        ));
++    }
++
++    let domain_min = count_lo.max(0.0) as u16;
++    let mut domain_max = count_hi.min(f64::from(u16::MAX)) as u16;
++    if matches!(family.saturation, BoundaryDef::Error) && domain_max == u16::MAX {
++        domain_max = u16::MAX - 1;
++    }
++    if domain_min >= domain_max {
++        return Err(format!(
++            "transfer family `{family_name}`: applicability window contains fewer than two observation codes"
++        ));
++    }
++
++    let member_name = expanded_name(family_name, &member.selectors)?;
++    let model = match &family.model {
++        ModelDef::ScaledPolynomial { coefficients, .. } => ModelDef::ScaledPolynomial {
++            coefficients: coefficients.clone(),
++            scale_micro_lux_per_count: member.scale_micro_lux_per_count,
++        },
++        ModelDef::NtcBetaDivider { .. } => {
++            return Err(format!(
++                "transfer family `{family_name}`: ntc_beta_divider is not a family model; \
++                 declare a standalone transfer"
++            ));
++        }
++    };
++
++    Ok((
++        member_name,
++        TransferDef {
++            input_unit: family.input_unit.clone(),
++            output_unit: family.output_unit.clone(),
++            output_scale: family.output_scale,
++            max_interpolation_error: family.max_interpolation_error,
++            max_knots: family.max_knots,
++            below: family.below,
++            above: family.above,
++            points: None,
++            formula: None,
++            model: Some(model),
++            domain: Some([domain_min, domain_max]),
++            output_range: None,
++        },
++    ))
++}
++
++fn expanded_name(
++    family_name: &str,
++    selectors: &BTreeMap<String, toml::Value>,
++) -> Result<String, String> {
++    if selectors.is_empty() {
++        return Err(format!(
++            "transfer family `{family_name}`: member selectors must not be empty"
++        ));
++    }
++    let mut name = family_name.to_string();
++    for (key, value) in selectors {
++        let token = match value {
++            toml::Value::String(text) => text.clone(),
++            toml::Value::Integer(int) => int.to_string(),
++            other => {
++                return Err(format!(
++                    "transfer family `{family_name}`: selector `{key}` must be a string or integer, got {other}"
++                ));
++            }
++        };
++        name.push('_');
++        name.push_str(&token);
++    }
++    Ok(name)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::vec;
++
++    fn polynomial_family() -> TransferFamilyDef {
++        TransferFamilyDef {
++            input_unit: "als_count".into(),
++            output_unit: "lux".into(),
++            output_scale: 1000,
++            max_interpolation_error: 50,
++            max_knots: 64,
++            max_knots_hard: 256,
++            interpolate_selectors: false,
++            below: BoundaryDef::Error,
++            above: BoundaryDef::Error,
++            saturation: BoundaryDef::Error,
++            extrapolation: BoundaryDef::Error,
++            model: ModelDef::ScaledPolynomial {
++                coefficients: vec![0.0, 1.0023, 8.1488e-5, -9.3924e-9, 6.0135e-13],
++                scale_micro_lux_per_count: 0,
++            },
++            members: vec![FamilyMemberDef {
++                selectors: BTreeMap::from([
++                    ("gain".into(), toml::Value::String("div4".into())),
++                    ("integration_time_ms".into(), toml::Value::Integer(100)),
++                ]),
++                scale_micro_lux_per_count: 268_800,
++                applicability: ApplicabilityDef {
++                    correction: CorrectionKind::Required,
++                    uncorrected_lux: [100.0, 2_200.0],
++                },
++            }],
++        }
++    }
++
++    #[test]
++    fn required_member_expands_to_a_bounded_domain() {
++        let mut families = BTreeMap::new();
++        families.insert("als".into(), polynomial_family());
++        let expanded = expand_families(&families).unwrap();
++        assert_eq!(expanded.len(), 1);
++        let def = expanded
++            .get("als_div4_100")
++            .expect("selector order is BTreeMap");
++        let [lo, hi] = def.domain.expect("domain");
++        assert!(lo < hi);
++        assert_ne!(hi, u16::MAX);
++        match def.model.as_ref() {
++            Some(ModelDef::ScaledPolynomial {
++                scale_micro_lux_per_count: 268_800,
++                ..
++            }) => {}
++            other => panic!("unexpected model {other:?}"),
++        }
++    }
++
++    #[test]
++    fn interpolate_selectors_is_rejected() {
++        let mut family = polynomial_family();
++        family.interpolate_selectors = true;
++        let mut families = BTreeMap::new();
++        families.insert("als".into(), family);
++        let error = expand_families(&families).unwrap_err();
++        assert!(error.contains("interpolate_selectors"));
++    }
++
++    #[test]
++    fn saturation_excludes_u16_max() {
++        let mut family = polynomial_family();
++        family.members[0].applicability.uncorrected_lux = [0.0, 1.0e9];
++        family.members[0].scale_micro_lux_per_count = 4_200;
++        let mut families = BTreeMap::new();
++        families.insert("als".into(), family);
++        let def = &expand_families(&families).unwrap()["als_div4_100"];
++        assert_eq!(def.domain.unwrap()[1], u16::MAX - 1);
++    }
++
++    #[test]
++    fn do_not_use_members_are_not_generated() {
++        let mut family = polynomial_family();
++        family.members[0].applicability.correction = CorrectionKind::DoNotUse;
++        let mut families = BTreeMap::new();
++        families.insert("als".into(), family);
++        let error = expand_families(&families).unwrap_err();
++        assert!(error.contains("no members with correction"));
++    }
++}
+diff --git a/src/gen/transfer/mod.rs b/src/gen/transfer/mod.rs
+index d552b05..eef858d 100644
+--- a/src/gen/transfer/mod.rs
++++ b/src/gen/transfer/mod.rs
+@@ -7,6 +7,7 @@ use std::format;
+ use std::prelude::v1::*;
+ 
+ mod adaptive;
++pub(crate) mod family;
+ mod model;
+ mod points;
+ 
+@@ -33,10 +34,12 @@ impl BoundaryDef {
+     }
+ }
+ 
+-fn default_boundary() -> BoundaryDef {
++pub(crate) fn default_boundary() -> BoundaryDef {
+     BoundaryDef::Error
+ }
+ 
++pub use family::{GapDef, TransferFamilyDef};
++
+ fn default_max_knots() -> usize {
+     256
+ }
+@@ -47,7 +50,7 @@ pub struct PhysicalPoint {
+     pub output: f64,
+ }
+ 
+-#[derive(Debug, Deserialize)]
++#[derive(Debug, Clone, Deserialize)]
+ pub struct TransferDef {
+     pub input_unit: String,
+     pub output_unit: String,
+@@ -135,6 +138,30 @@ pub fn build(name: &str, def: &TransferDef) -> Result<TransferData, String> {
+             scale_truth(name, &physical, def.output_scale)?,
+             format!("formula y = {expression}"),
+         )
++    } else if let Some(model::ModelDef::ScaledPolynomial {
++        coefficients,
++        scale_micro_lux_per_count,
++    }) = &def.model
++    {
++        if def.output_range.is_some() {
++            return Err(format!(
++                "transfer `{name}`: output_range is forbidden for scaled_polynomial; use domain"
++            ));
++        }
++        let [minimum, maximum] = def.domain.ok_or_else(|| {
++            format!("transfer `{name}`: scaled_polynomial requires domain = [min, max]")
++        })?;
++        let (minimum, physical, description) = model::evaluate_scaled_polynomial(
++            name,
++            coefficients,
++            *scale_micro_lux_per_count,
++            [minimum, maximum],
++        )?;
++        (
++            minimum,
++            scale_truth(name, &physical, def.output_scale)?,
++            description,
++        )
+     } else {
+         if def.domain.is_some() {
+             return Err(format!(
+@@ -472,10 +499,57 @@ mod tests {
+         def.domain = Some([0, 100]);
+         def.max_interpolation_error = 0;
+         def.max_knots = 2;
++        assert!(build("bounded", &def)
++            .unwrap_err()
++            .contains("greedy fitter did not meet maximum error"));
++    }
++
++    #[test]
++    fn scaled_polynomial_reproduces_the_vendor_worked_example() {
++        let mut def = base_def();
++        def.input_unit = "als_count".into();
++        def.output_unit = "lux".into();
++        def.output_scale = 1;
++        def.max_interpolation_error = 1;
++        def.max_knots = 64;
++        def.model = Some(ModelDef::ScaledPolynomial {
++            coefficients: vec![0.0, 1.0023, 8.1488e-5, -9.3924e-9, 6.0135e-13],
++            scale_micro_lux_per_count: 268_800,
++        });
++        // 5581 counts at ×1/4 100 ms is the source worked example (1500 → 1658 lx).
++        // Two codes so both are knots; the fitter must not drop 5581.
++        def.domain = Some([5581, 5582]);
++        let data = build("als", &def).unwrap();
++        assert_eq!(data.inputs[0], 5581);
++        assert_eq!(data.outputs[0], 1658);
++    }
++
++    #[test]
++    fn scaled_polynomial_rejects_saturation_code() {
++        let mut def = base_def();
++        def.model = Some(ModelDef::ScaledPolynomial {
++            coefficients: vec![0.0, 1.0],
++            scale_micro_lux_per_count: 1_000_000,
++        });
++        def.domain = Some([0, u16::MAX]);
++        let error = build("sat", &def).unwrap_err();
++        assert!(error.contains("saturation"));
++    }
++
++    #[test]
++    fn scaled_polynomial_full_scale_high_lux_overflows_i32_milli_lux() {
++        let mut def = base_def();
++        def.output_scale = 1000;
++        def.model = Some(ModelDef::ScaledPolynomial {
++            coefficients: vec![0.0, 1.0023, 8.1488e-5, -9.3924e-9, 6.0135e-13],
++            scale_micro_lux_per_count: 2_150_400,
++        });
++        // ×1/8 25 ms uncorrected full-ish domain: the quartic explodes.
++        def.domain = Some([1, 60_000]);
++        let error = build("explode", &def).unwrap_err();
+         assert!(
+-            build("bounded", &def)
+-                .unwrap_err()
+-                .contains("greedy fitter did not meet maximum error")
++            error.contains("does not fit i32") || error.contains("non-finite"),
++            "{error}"
+         );
+     }
+ }
+diff --git a/src/gen/transfer/model.rs b/src/gen/transfer/model.rs
+index 24afa64..e2bba30 100644
+--- a/src/gen/transfer/model.rs
++++ b/src/gen/transfer/model.rs
+@@ -8,8 +8,8 @@ use std::prelude::v1::*;
+ 
+ use serde::Deserialize;
+ 
+-#[derive(Debug, Deserialize)]
+-#[serde(tag = "kind", rename_all = "snake_case")]
++#[derive(Debug, Clone, Deserialize)]
++#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+ pub enum ModelDef {
+     NtcBetaDivider {
+         nominal_resistance_ohms: f64,
+@@ -19,6 +19,15 @@ pub enum ModelDef {
+         adc_max_code: u16,
+         topology: DividerTopology,
+     },
++    /// `y = sum c[k] * u^k` with `u = (scale_micro_lux_per_count / 1e6) * x`.
++    ///
++    /// Family TOML omits `scale_micro_lux_per_count` (defaults to 0); expansion
++    /// fills it from the member before `build`.
++    ScaledPolynomial {
++        coefficients: Vec<f64>,
++        #[serde(default)]
++        scale_micro_lux_per_count: u32,
++    },
+ }
+ 
+ #[derive(Copy, Clone, Debug, Deserialize)]
+@@ -116,7 +125,73 @@ pub fn evaluate(
+             );
+             Ok((minimum, values, description))
+         }
++        ModelDef::ScaledPolynomial { .. } => Err(format!(
++            "transfer `{name}`: scaled_polynomial is not an output_range model; use domain"
++        )),
++    }
++}
++
++/// Evaluate `y = poly(scale · x)` on an inclusive observation domain.
++pub fn evaluate_scaled_polynomial(
++    name: &str,
++    coefficients: &[f64],
++    scale_micro_lux_per_count: u32,
++    domain: [u16; 2],
++) -> Result<(u16, Vec<f64>, String), String> {
++    if coefficients.is_empty() {
++        return Err(format!(
++            "transfer `{name}`: scaled_polynomial coefficients must not be empty"
++        ));
++    }
++    for (index, value) in coefficients.iter().enumerate() {
++        if !value.is_finite() {
++            return Err(format!(
++                "transfer `{name}`: scaled_polynomial coefficient {index} must be finite"
++            ));
++        }
++    }
++    if scale_micro_lux_per_count == 0 {
++        return Err(format!(
++            "transfer `{name}`: scaled_polynomial scale_micro_lux_per_count must be positive"
++        ));
++    }
++    let [minimum, maximum] = domain;
++    if minimum >= maximum {
++        return Err(format!(
++            "transfer `{name}`: domain must be strictly increasing"
++        ));
++    }
++    if maximum == u16::MAX {
++        return Err(format!(
++            "transfer `{name}`: domain must not include saturation code {0} (u16::MAX)",
++            u16::MAX
++        ));
++    }
++
++    let scale_lx = f64::from(scale_micro_lux_per_count) / 1_000_000.0;
++    let mut values = Vec::with_capacity(usize::from(maximum - minimum) + 1);
++    for code in minimum..=maximum {
++        let uncorrected = scale_lx * f64::from(code);
++        let mut acc = 0.0;
++        for &coefficient in coefficients.iter().rev() {
++            acc = acc * uncorrected + coefficient;
++        }
++        if !acc.is_finite() {
++            return Err(format!(
++                "transfer `{name}`: scaled_polynomial produced a non-finite value at code {code}"
++            ));
++        }
++        values.push(acc);
+     }
++
++    Ok((
++        minimum,
++        values,
++        format!(
++            "scaled polynomial ({} coefficients, {scale_micro_lux_per_count} µlx/count)",
++            coefficients.len()
++        ),
++    ))
+ }
+ 
+ fn ntc_temperature(
