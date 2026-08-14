@@ -260,6 +260,30 @@ fn wrong_address_is_a_device_nack_and_does_not_mutate() {
 }
 
 #[test]
+fn addresses_outside_seven_bit_domain_are_model_limitations() {
+    for address in [0x80, 0xFF] {
+        let mut model = Veml7700Model::new();
+        let before = model.inspect();
+        assert_eq!(
+            model.write(address, &[CONFIG, 0x01, 0x00]),
+            Err(TransportError::Unsupported(Unsupported::AddressOutOfRange(
+                address
+            )))
+        );
+
+        let mut bytes = [0xA5_u8; 2];
+        assert_eq!(
+            model.write_read(address, &[ID], &mut bytes),
+            Err(TransportError::Unsupported(Unsupported::AddressOutOfRange(
+                address
+            )))
+        );
+        assert_eq!(bytes, [0xA5; 2]);
+        assert_eq!(model.inspect(), before);
+    }
+}
+
+#[test]
 fn unsupported_pointer_is_not_a_device_nack() {
     let mut model = Veml7700Model::new();
     let mut bytes = [0_u8; 2];

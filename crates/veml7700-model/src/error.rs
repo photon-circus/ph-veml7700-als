@@ -31,6 +31,8 @@ pub enum Unsupported {
     RegisterPointer(u8),
     /// Write or write-read payload length is not a supported register transfer.
     TransactionShape,
+    /// Address value cannot be represented by the declared 7-bit I²C boundary.
+    AddressOutOfRange(u8),
     /// An output register was read before this model had completed a conversion.
     NoCompletedConversion(u8),
     /// Configuration word contains behavior outside the declared slice.
@@ -62,6 +64,10 @@ impl fmt::Display for Unsupported {
                 write!(f, "register pointer 0x{pointer:02X} is outside this slice")
             }
             Self::TransactionShape => f.write_str("transaction shape is outside this slice"),
+            Self::AddressOutOfRange(address) => write!(
+                f,
+                "address 0x{address:02X} is outside the 7-bit model input domain"
+            ),
             Self::NoCompletedConversion(pointer) => write!(
                 f,
                 "output register 0x{pointer:02X} has no completed conversion in this model"

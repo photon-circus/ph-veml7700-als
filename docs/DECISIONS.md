@@ -87,9 +87,22 @@ committing vendor PDFs.
 ## D-017 — Local bounded validation
 
 Private development uses one canonical local gate. Hosted CI and generated pack
-inventories are not required product surfaces.
+inventories are not required product surfaces. The gate also tests the unpacked
+distributable package, so packaging-only failures such as a stripped path
+dependency cannot pass verification. Packaging is pinned to the repository
+target directory because Cargo excludes only that path from workspace member
+discovery; a configured target directory elsewhere in the repository would make
+the extracted package untestable.
 
 ## D-018 — Publication remains locked
 
 `publish = false` remains until independent-model and physical-evidence review
 plus explicit owner approval.
+
+## D-019 — Model input limits are not device behavior
+
+The model accepts `u8` addresses but declares a 7-bit I²C boundary. Values above
+`0x7F` cannot exist on that bus, so they are reported as
+`Unsupported::AddressOutOfRange` model limitations rather than fabricated device
+NACKs. Other valid 7-bit addresses remain source-backed address NACKs. The model
+never invents device behavior for inputs outside its declared domain.
