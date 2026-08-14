@@ -5,6 +5,13 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 cd "$repo_root"
 
+driver_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/veml7700/Cargo.toml | head -n 1)
+expected_driver_version=0.1.0-incubating.1
+if [ "$driver_version" != "$expected_driver_version" ]; then
+    echo "driver version must be $expected_driver_version: $driver_version" >&2
+    exit 1
+fi
+
 cargo fmt --all -- --check
 cargo test -p ph-veml7700-als --no-default-features
 cargo test -p ph-veml7700-als-model --no-default-features

@@ -45,7 +45,8 @@
   slice is declared in `crates/veml7700-model/README.md`.
 - **I-24:** host-model results are not physical or calibrated-optical evidence.
 - **I-25:** vendor PDFs remain untracked.
-- **I-26:** Cargo publication remains disabled.
+- **I-26:** repository visibility and registry publication require separate,
+  explicit maintainer decisions; neither follows from preparation alone.
 
 ## Rejected shortcuts
 

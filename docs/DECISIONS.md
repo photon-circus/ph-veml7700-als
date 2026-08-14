@@ -94,10 +94,14 @@ target directory because Cargo excludes only that path from workspace member
 discovery; a configured target directory elsewhere in the repository would make
 the extracted package untestable.
 
-## D-018 — Publication remains locked
+## D-018 — Release decisions remain explicit and independent
 
-`publish = false` remains until independent-model and physical-evidence review
-plus explicit owner approval.
+The driver uses the lifecycle-matching candidate version
+`0.1.0-incubating.1` while retaining `publish = false`. Repository preparation,
+visibility, and crates.io publication are separate maintainer-controlled
+decisions. Model completeness, physical evidence, hardware qualification, and
+`ph-hil` adoption limit their corresponding claims but do not gate an honestly
+disclosed Incubating publication.
 
 ## D-019 — Model input limits are not device behavior
 

@@ -4,11 +4,16 @@ Async, `no_std`, allocation-free Rust driver for the Vishay VEML7700 ambient-
 light sensor.
 
 > [!WARNING]
-> **Incubating — host-model verification only.** The driver has pure, strict
-> scripted-I²C, and autonomous-state tests. An independent I²C-level model covers
-> `probe` and one successful `measure_once` slice; the coupled fake remains
-> test-only and is not that oracle. No reviewed physical or calibrated-optical
-> evidence exists, and the crate is not published.
+> **Lifecycle:** Incubating.
+> **Distribution:** Unpublished; the candidate version is
+> `0.1.0-incubating.1` and the manifest retains `publish = false`.
+> **Model conformance:** An independent I²C-level model covers `probe` and one
+> successful `measure_once` path only. The coupled fake remains test-only and
+> is not that oracle; all other public operations are outside the current model
+> claim.
+> **Physical evidence:** None. No reviewed physical or calibrated-optical
+> evidence exists. Evidence applies only to the named operations, and eventual
+> publication would not imply hardware qualification.
 
 ## Responsibility
 
@@ -53,10 +58,11 @@ calibrated-optical behavior.
 
 ## Publication status
 
-The package retains `publish = false`. Publication remains blocked until the
-independent I²C-level model and reviewed physical evidence support the claimed
-scope and the owner separately approves a release. The first model slice does
-not by itself lift that block.
+The package retains `publish = false`. Release preparation, repository
+visibility, and crates.io publication are separate maintainer-controlled steps
+described in [RELEASING.md](RELEASING.md). Model completeness, physical
+evidence, hardware qualification, and `ph-hil` adoption are not publication
+prerequisites; they limit only the claims they support.
 
 ## License
 

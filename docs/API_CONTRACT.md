@@ -6,9 +6,10 @@ change first.
 Crate policy: `#![no_std]`, `#![forbid(unsafe_code)]`,
 `#![deny(missing_docs)]`, async-first `embedded-hal-async`.
 
-Distribution policy: the v0.1 package can be built and inspected locally, but
-its Cargo manifest sets `publish = false`. Enabling registry publication is a
-separate owner-reviewed contract change.
+Distribution policy: the Incubating candidate is
+`0.1.0-incubating.1`. It can be built and inspected locally, but its Cargo
+manifest retains `publish = false`. Repository visibility and registry
+publication require separate recorded maintainer decisions.
 
 ## Constants and facade
 
