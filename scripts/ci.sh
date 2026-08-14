@@ -9,14 +9,42 @@ cd "$repo_root"
 # runs: it drops the checks that need an extra binary or substantial runner
 # time, and reports each of them as an explicit skip. A skipped check is not a
 # passed check, so a green bounded run never stands in for a green full run.
+#
+# `release` is `full` plus artifact identity. It refuses a dirty worktree,
+# packages without `--allow-dirty`, and records the exact source-to-archive
+# relationship as evidence. It performs no registry action of any kind: no
+# publish, no tag, no release, no credential use. Ordinary development keeps
+# using `full`, which still packages permissively so a work-in-progress tree
+# stays checkable.
 ci_profile=${CI_PROFILE:-full}
 case "$ci_profile" in
-    full | bounded) ;;
+    full | bounded | release) ;;
     *)
-        echo "CI_PROFILE must be 'full' or 'bounded': $ci_profile" >&2
+        echo "CI_PROFILE must be 'full', 'bounded', or 'release': $ci_profile" >&2
         exit 1
         ;;
 esac
+
+# The one supported `cargo-deny`. An unpinned advisory tool makes the
+# authoritative gate non-reproducible: two contributors run the same command and
+# get different results as the advisory database and the tool's own rules move.
+expected_cargo_deny_version=0.20.2
+
+evidence_dir=$repo_root/target/release-evidence
+evidence_file=$evidence_dir/evidence.md
+if [ "$ci_profile" = release ]; then
+    rm -rf "$evidence_dir"
+    mkdir -p "$evidence_dir"
+    : > "$evidence_file"
+fi
+
+# Append a line to the release evidence record. A no-op outside release mode, so
+# call sites do not need to branch.
+evidence() {
+    if [ "$ci_profile" = release ]; then
+        printf '%s\n' "$1" >> "$evidence_file"
+    fi
+}
 
 step_number=0
 skipped=0
@@ -43,18 +71,65 @@ skip() {
     printf '        SKIP: %s\n' "$1"
 }
 
+# Release evidence is only meaningful if the archive can be traced to a commit.
+# `cargo package` without `--allow-dirty` is the authoritative check on package
+# contents later, but it runs last and reports awkwardly; this fails immediately
+# with the offending paths, and covers documentation and tooling that never
+# enter the archive yet still describe the release.
+#
+# Both halves matter. A modified tracked file means the archive does not match
+# the commit it claims. An untracked, non-ignored file is worse: `cargo package`
+# would sweep it into the archive, so the published crate would contain content
+# that exists in no commit at all.
+if [ "$ci_profile" = release ]; then
+    step "release worktree is clean"
+    if ! command -v git >/dev/null 2>&1 || ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "release mode requires a Git work tree to establish artifact identity" >&2
+        exit 1
+    fi
+    release_dirt=$(git status --porcelain --untracked-files=all)
+    if [ -n "$release_dirt" ]; then
+        printf 'release mode requires a clean worktree; found:\n%s\n' "$release_dirt" >&2
+        printf 'commit, stash, or remove these before producing release evidence.\n' >&2
+        exit 1
+    fi
+    release_commit=$(git rev-parse HEAD)
+    printf '        clean at %s\n' "$release_commit"
+    evidence "# Release evidence"
+    evidence ""
+    evidence "Produced by \`CI_PROFILE=release scripts/ci.sh\`. No registry action was"
+    evidence "performed: no publish, no tag, no release, no credential use."
+    evidence ""
+    evidence "## Source"
+    evidence ""
+    evidence "- Commit: \`$release_commit\`"
+    evidence "- Worktree: clean, including untracked files"
+fi
+
 # Both workspace crates share one version, so drift between them fails here
 # rather than surfacing at release assembly. The exact version is not repeated
-# in this script: it is read from the driver manifest, and only the
-# lifecycle-matching prerelease identifier is asserted. A bump therefore edits
-# the manifests, not the gate.
+# in this script: it is read back through Cargo, and only the lifecycle-matching
+# prerelease identifier is asserted. A bump therefore edits one manifest line,
+# not the gate.
+#
+# Read the resolved version through Cargo rather than parsing manifest text.
+# Both crates inherit `version` from `[workspace.package]`, so no literal
+# `version = "..."` line exists in either crate manifest and a text parser would
+# silently read nothing at all -- which is worse than failing, because an empty
+# version compares equal to an empty version and the drift check would pass.
+# `cargo pkgid` reports the same resolved metadata as `cargo metadata` without
+# requiring a JSON parser, keeping `jq` off the prerequisite list.
 step "verify the Incubating candidate version"
-manifest_version() {
-    sed -n 's/^version = "\([^"]*\)"/\1/p' "$1" | head -n 1
+package_version() {
+    cargo pkgid -p "$1" | sed 's/.*@//'
 }
 expected_lifecycle=incubating
-driver_version=$(manifest_version crates/veml7700/Cargo.toml)
-model_version=$(manifest_version crates/veml7700-model/Cargo.toml)
+driver_version=$(package_version ph-veml7700-als)
+model_version=$(package_version ph-veml7700-als-model)
+if [ -z "$driver_version" ] || [ -z "$model_version" ]; then
+    echo "could not resolve a package version through cargo pkgid" >&2
+    exit 1
+fi
 if [ "$driver_version" != "$model_version" ]; then
     printf 'workspace crates must share one version: driver %s, model %s\n' \
         "$driver_version" "$model_version" >&2
@@ -70,6 +145,7 @@ if ! printf '%s\n' "$driver_version" \
     exit 1
 fi
 printf '        candidate version %s\n' "$driver_version"
+evidence "- Candidate version: \`$driver_version\` (both crates, inherited from \`[workspace.package]\`)"
 
 # `.gitignore` keeps vendor documents out by default, but `git add -f` and any
 # previously tracked file bypass it. This check is what actually enforces the
@@ -123,6 +199,75 @@ if [ "$lib_example" != "$(example crates/veml7700/README.md)" ]; then
     echo "the packaged README usage example differs from the lib.rs doctest" >&2
     exit 1
 fi
+
+# Rustdoc validates intra-doc links but never looks at repository Markdown, so
+# a renamed or deleted document breaks its inbound links silently. That matters
+# most at release: the packaged README and the contract documents it points at
+# are what a consumer follows.
+#
+# This check is deliberately local and offline. It resolves relative paths and
+# `#heading` anchors within the repository and nothing else. External URLs are
+# not fetched: a network check is non-deterministic, and a gate that fails
+# because a vendor site is briefly down teaches contributors to ignore it. Keep
+# any external link checking in a separate, bounded, non-blocking job.
+step "local Markdown links resolve"
+heading_anchors() {
+    # GitHub's slug: drop the leading hashes, remove inline code, emphasis and
+    # link syntax, lowercase, delete anything outside [a-z0-9 -], then map runs
+    # of whitespace to single hyphens.
+    sed -n 's/^#\{1,6\}[[:space:]]\{1,\}//p' "$1" \
+        | sed -e 's/`//g' -e 's/\*\*//g' -e 's/\*//g' \
+              -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed -e 's/[^a-z0-9 -]//g' -e 's/[[:space:]]\{1,\}/-/g'
+}
+markdown_targets() {
+    # Match `](target)`, tolerating the angle-bracket form. Targets containing
+    # whitespace or parentheses are skipped rather than mis-parsed.
+    grep -o '\](<\?[^)>"[:space:]]\{1,\}>\?)' "$1" 2>/dev/null \
+        | sed -e 's/^](//' -e 's/)$//' -e 's/^<//' -e 's/>$//'
+}
+link_report=$(
+    for markdown_file in $(git ls-files '*.md'); do
+        markdown_dir=$(dirname "$markdown_file")
+        markdown_targets "$markdown_file" | while IFS= read -r target; do
+            case "$target" in
+                http://* | https://* | mailto:* | '') continue ;;
+            esac
+            target_path=${target%%#*}
+            target_anchor=${target#*#}
+            [ "$target_anchor" = "$target" ] && target_anchor=
+            if [ -z "$target_path" ]; then
+                resolved=$markdown_file
+            elif [ "$markdown_dir" = "." ]; then
+                resolved=$target_path
+            else
+                resolved=$markdown_dir/$target_path
+            fi
+            # Collapse `foo/../` without realpath, which is not universally present.
+            resolved=$(printf '%s\n' "$resolved" \
+                | sed -e ':a' -e 's|[^/][^/]*/\.\./||; ta' -e 's|^\./||')
+            if [ ! -e "$resolved" ]; then
+                printf 'BROKEN  %s -> %s\n' "$markdown_file" "$target"
+                continue
+            fi
+            if [ -n "$target_anchor" ] && [ "${resolved%.md}" != "$resolved" ]; then
+                if ! heading_anchors "$resolved" | grep -qx "$target_anchor"; then
+                    printf 'ANCHOR  %s -> %s\n' "$markdown_file" "$target"
+                    continue
+                fi
+            fi
+            printf 'ok\n'
+        done
+    done
+)
+link_failures=$(printf '%s\n' "$link_report" | grep -v '^ok$' | grep -v '^$' || true)
+if [ -n "$link_failures" ]; then
+    printf 'local Markdown links that do not resolve:\n%s\n' "$link_failures" >&2
+    exit 1
+fi
+printf '        %s local links resolve\n' \
+    "$(printf '%s\n' "$link_report" | grep -c '^ok$' || true)"
 
 # A variant no code ever names is surface a caller can match and never reach.
 # `Operation::Probe` was exactly that: `probe` reports through `ProbeError`.
@@ -195,7 +340,22 @@ step "dependency advisory and license policy"
 if [ "$ci_profile" = bounded ]; then
     skip "cargo-deny is not provisioned for bounded runs; the full gate runs it"
 else
+    # Assert the tool version before trusting its verdict. `cargo-deny` changes
+    # its own lint set and defaults between releases, so an unpinned binary
+    # makes this step's result depend on whatever the runner happens to have
+    # installed. Refuse rather than warn: a silently different advisory result
+    # is exactly the kind of irreproducibility release evidence must exclude.
+    actual_cargo_deny_version=$(cargo deny --version | awk '{print $2}')
+    if [ "$actual_cargo_deny_version" != "$expected_cargo_deny_version" ]; then
+        printf 'cargo-deny %s is required, found %s\n' \
+            "$expected_cargo_deny_version" "$actual_cargo_deny_version" >&2
+        printf 'install it with: cargo install cargo-deny --version %s --locked\n' \
+            "$expected_cargo_deny_version" >&2
+        exit 1
+    fi
+    printf '        cargo-deny %s\n' "$actual_cargo_deny_version"
     cargo deny check -D warnings
+    evidence "- \`cargo-deny\` $actual_cargo_deny_version: advisory, source, and licence policy pass"
 fi
 
 # Pin packaging to the repository target directory. Cargo excludes only that
@@ -208,9 +368,90 @@ else
     package_target_dir=$repo_root/target
     package_dir=$package_target_dir/package
     rm -rf "$package_dir"
-    cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir" --list
-    cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir"
+    # `full` packages permissively so a work-in-progress tree stays checkable.
+    # `release` drops `--allow-dirty`, which makes Cargo itself refuse to build
+    # an archive from a tree that does not match its commit -- the authoritative
+    # check on package contents, after the earlier fast one.
+    if [ "$ci_profile" = release ]; then
+        package_dirt_flag=
+    else
+        package_dirt_flag=--allow-dirty
+    fi
+    # shellcheck disable=SC2086
+    cargo package -p ph-veml7700-als --locked $package_dirt_flag --target-dir "$package_target_dir" --list
+    # shellcheck disable=SC2086
+    cargo package -p ph-veml7700-als --locked $package_dirt_flag --target-dir "$package_target_dir"
     cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
+
+    if [ "$ci_profile" = release ]; then
+        package_archive=$package_dir/ph-veml7700-als-$driver_version.crate
+        package_unpacked=$package_dir/ph-veml7700-als-$driver_version
+        if [ ! -f "$package_archive" ]; then
+            printf 'expected prepublication archive not found: %s\n' "$package_archive" >&2
+            exit 1
+        fi
+        package_sha=$(sha256sum "$package_archive" | awk '{print $1}')
+        printf '        archive %s\n' "$(basename "$package_archive")"
+        printf '        sha256  %s\n' "$package_sha"
+
+        evidence ""
+        evidence "## Prepublication archive"
+        evidence ""
+        evidence "This is the archive Cargo builds from the tree above. It is **not** the"
+        evidence "byte-identical artifact a later \`cargo publish\` uploads: publishing"
+        evidence "repackages from the source tree. Publish only from this same unchanged"
+        evidence "clean pinned tree, then download the registry archive and verify its"
+        evidence "checksum and contents against this record."
+        evidence ""
+        evidence "- File: \`$(basename "$package_archive")\`"
+        evidence "- SHA-256: \`$package_sha\`"
+        evidence ""
+        evidence "### File inventory"
+        evidence ""
+        evidence '```text'
+        (cd "$package_unpacked" && find . -type f | sed 's|^\./||' | sort) >> "$evidence_file"
+        evidence '```'
+        evidence ""
+        evidence "### Normalized manifest"
+        evidence ""
+        evidence '```toml'
+        cat "$package_unpacked/Cargo.toml" >> "$evidence_file"
+        evidence '```'
+        evidence ""
+        evidence "### VCS metadata"
+        evidence ""
+        evidence '```json'
+        if [ -f "$package_unpacked/.cargo_vcs_info.json" ]; then
+            cat "$package_unpacked/.cargo_vcs_info.json" >> "$evidence_file"
+        else
+            evidence '{ "error": "no .cargo_vcs_info.json in the archive" }'
+        fi
+        evidence '```'
+        evidence ""
+        evidence "## Test boundary"
+        evidence ""
+        evidence "Two different things were tested, and the distinction matters:"
+        evidence ""
+        evidence "- **Standalone package tests** ran against the unpacked archive above."
+        evidence "  They establish that the published crate builds and passes its own tests"
+        evidence "  in isolation."
+        evidence "- **Driver-versus-model conformance** ran only in the repository."
+        evidence "  \`tests/device_model.rs\` and the path-only \`ph-veml7700-als-model\`"
+        evidence "  dev-dependency are excluded from the package on purpose, so the archive"
+        evidence "  cannot rerun them. Model conformance is repository-level evidence and"
+        evidence "  must never be cited as package-level evidence."
+        evidence ""
+        evidence "\`ph-veml7700-als-model\` is repository-only and unpublished."
+    fi
+fi
+
+if [ "$ci_profile" = release ]; then
+    evidence ""
+    evidence "## Not established"
+    evidence ""
+    evidence "This evidence covers artifact identity and the implemented host boundary."
+    evidence "It establishes no physical-device, electrical, optical, or calibrated"
+    evidence "behavior, and it is not a decision to publish."
 fi
 
 trap - EXIT
@@ -218,6 +459,12 @@ printf '\n[ci] PASS (%s): %s steps, %s skipped.\n' "$ci_profile" "$step_number" 
 if [ "$ci_profile" = bounded ]; then
     printf '[ci] This is a partial gate. It covers only part of the release gate;\n'
     printf '[ci] the full local run remains authoritative.\n'
+fi
+if [ "$ci_profile" = release ]; then
+    printf '[ci] Release evidence: %s\n' "${evidence_file#"$repo_root"/}"
+    printf '[ci] Commit %s, archive SHA-256 %s\n' "$release_commit" "$package_sha"
+    printf '[ci] No registry action was performed: no publish, tag, release, or\n'
+    printf '[ci] credential use. Publication remains a separate recorded decision.\n'
 fi
 printf '[ci] This gate establishes the implemented host boundary only. It does\n'
 printf '[ci] not establish physical-device or calibrated-optical behavior.\n'

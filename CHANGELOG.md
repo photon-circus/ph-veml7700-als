@@ -92,6 +92,28 @@ than a change from a prior version.
   and handoff fields, and now distinguishes scripted-I²C from pure unit evidence.
 - Recorded D-025: no `CODEOWNERS` while the project has one maintainer, with the
   paths it should cover when a second joins.
+- `RELEASING.md` now states that `cargo publish` repackages from the source
+  tree, so the reviewed archive is evidence about a tree rather than the exact
+  bytes the registry receives, and requires publication from that same unchanged
+  clean pinned tree followed by download-and-verify of the registry artifact.
+
+### Changed
+
+- Both crates now inherit `version` from `[workspace.package]`, so a bump edits
+  one manifest line and drift between the two crates is unrepresentable rather
+  than merely gate-detected. The gate reads the resolved version back through
+  `cargo pkgid` instead of parsing manifest text, which no longer contains a
+  literal to parse.
+- The canonical gate gained a `release` profile alongside `full` and `bounded`.
+  It refuses a dirty worktree, packages without `--allow-dirty`, and records the
+  commit, archive name and SHA-256, file inventory, normalized manifest, VCS
+  metadata, and the repository-only model-test boundary to
+  `target/release-evidence/evidence.md`. It performs no registry action.
+- The gate asserts the supported `cargo-deny` version rather than accepting
+  whatever is installed, so an advisory result no longer depends on the runner.
+- The gate validates local Markdown links and `#heading` anchors. The check is
+  offline by design: external URLs are not fetched, because a gate that fails
+  when a vendor site is briefly down teaches contributors to ignore it.
 
 ### Known issues
 

@@ -1,6 +1,6 @@
 [package]
 name = "ph-veml7700-als-model"
-version = "0.1.0-incubating.1"
+version.workspace = true
 description = "Independent VEML7700 device behavioral model for declared I2C conformance traces"
 authors.workspace = true
 edition.workspace = true
