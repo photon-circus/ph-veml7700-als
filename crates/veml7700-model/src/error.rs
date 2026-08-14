@@ -23,7 +23,7 @@ pub enum NoAcknowledgeSource {
     Address,
 }
 
-/// Reason an input is outside the declared probe/`measure_once` slice.
+/// Reason an input is outside the declared behavioral slice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Unsupported {
     /// Command pointer is not part of this slice, or is not usable in this
@@ -35,6 +35,8 @@ pub enum Unsupported {
     AddressOutOfRange(u8),
     /// An output register was read before this model had completed a conversion.
     NoCompletedConversion(u8),
+    /// A threshold register was read before this model had observed it written.
+    NoProgrammedThreshold(u8),
     /// Configuration word contains behavior outside the declared slice.
     ConfigurationWord(u16),
     /// Power-saving word contains behavior outside the declared slice.
@@ -44,6 +46,19 @@ pub enum Unsupported {
     MidConversionReconfiguration,
     /// Integration-time field is a reserved encoding, so no bound exists.
     ReservedIntegrationTime(u16),
+    /// Power-saving cadence is not documented for the selected integration.
+    UndocumentedPowerSavingCadence {
+        /// Complete configuration word selecting the integration time.
+        configuration: u16,
+        /// Complete power-saving word selecting and enabling the mode.
+        power_saving: u16,
+    },
+    /// Threshold programming while monitoring is enabled is outside this slice.
+    ThresholdWriteWhileMonitoring(u8),
+    /// Enabling the monitor before both thresholds are programmed is unsupported.
+    IncompleteThresholdDomain,
+    /// Changing power-saving cadence while conversions are active is unsupported.
+    ActivePowerSavingReconfiguration,
 }
 
 impl fmt::Display for TransportError {
@@ -72,6 +87,10 @@ impl fmt::Display for Unsupported {
                 f,
                 "output register 0x{pointer:02X} has no completed conversion in this model"
             ),
+            Self::NoProgrammedThreshold(pointer) => write!(
+                f,
+                "threshold register 0x{pointer:02X} has no programmed value in this model"
+            ),
             Self::ConfigurationWord(observed) => write!(
                 f,
                 "configuration word 0x{observed:04X} is outside this slice"
@@ -88,6 +107,23 @@ impl fmt::Display for Unsupported {
                     f,
                     "reserved integration-time encoding 0b{observed:04b} has no conversion bound"
                 )
+            }
+            Self::UndocumentedPowerSavingCadence {
+                configuration,
+                power_saving,
+            } => write!(
+                f,
+                "power-saving word 0x{power_saving:04X} has no documented cadence for configuration 0x{configuration:04X}"
+            ),
+            Self::ThresholdWriteWhileMonitoring(pointer) => write!(
+                f,
+                "threshold register 0x{pointer:02X} cannot be programmed in this slice while monitoring is enabled"
+            ),
+            Self::IncompleteThresholdDomain => {
+                f.write_str("threshold monitoring requires both thresholds to be programmed")
+            }
+            Self::ActivePowerSavingReconfiguration => {
+                f.write_str("power-saving reconfiguration while active is outside this slice")
             }
         }
     }

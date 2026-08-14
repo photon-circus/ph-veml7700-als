@@ -15,35 +15,30 @@ Cover probe, observation, snapshot ordering, state-preserving updates,
 threshold-monitor conflicts and arming, every fresh-measurement stage, primary
 failure, cleanup failure, and post-capture restoration failure.
 
-## Level 3 — Coupled autonomous-state fake
+## Level 3 — Independent autonomous-state model
 
-`crates/veml7700/src/testing/fake_device.rs` is a standalone state machine
-sketching autonomous device behavior: shutdown retention and explicit wake
-edges, conservative integration deadlines, power-saving refresh cadence,
-independent ALS/white refresh timing, and threshold persistence.
+Model-only tests cover reset, wake and recurring conversion, shutdown retention,
+duration partitions, the documented power-saving cadence table, independently
+scheduled ALS/white refreshes, threshold registers, persistence, and stable
+polled status. White-channel phase skew is an injected test input, not a claim
+about silicon timing.
 
-Its tests drive the fake directly and assert on the fake. They never construct
-`Veml7700`, so they establish nothing about the driver. The fake additionally
-imports driver semantic types and timing constants, so it could not serve as an
-independent oracle even if it were connected to one. Read it as exploratory
-design notes in executable form, superseded by Level 4 as the model's slice
-grows. Retirement or migration is tracked in
-[issue #9](https://github.com/photon-circus/ph-veml7700-als/issues/9).
+## Level 4 — Driver-versus-model I²C conformance
 
-## Level 4 — Independent I²C-level behavioral model
-
-The first slice is implemented in `ph-veml7700-als-model`. Model-only tests cover
-reset, wake/conversion, latching, shutdown retention, stable reads, and duration
-partitions. Two driver-versus-model tests cover `probe` and one successful
-`measure_once` against the model's I²C boundary and relative-duration input.
+Driver-versus-model tests cover `probe`, successful `measure_once`, public
+power/cadence configuration, threshold arming and observation, monitor disable,
+and sequential channel reads across independently scheduled refreshes. Driver
+configuration and observations cross the model's I²C boundary; explicit
+relative duration and raw optical samples remain harness inputs.
 
 The maintained declaration is
 [`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md). Agreement
 establishes compatibility with that slice only.
 
-Still unimplemented: threshold registers and status, power-saving cadence,
-standalone configuration sequences, transport-fault injection, and the rest of
-the driver API. Do not treat a green slice as full-device cross-validation.
+Still unimplemented: transport-fault injection, arbitrary active
+reconfiguration, threshold-flag clearing, source-undeclared reset values, and
+unexercised driver operations. Do not treat a green slice as full-device
+cross-validation.
 
 ## Physical evidence
 

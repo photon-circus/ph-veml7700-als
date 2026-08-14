@@ -10,9 +10,12 @@ pub const I2C_ADDRESS: u8 = 0x10;
 pub const DEVICE_ID: u16 = 0xC481;
 
 pub(crate) const POINTER_CONFIGURATION: u8 = 0x00;
+pub(crate) const POINTER_HIGH_THRESHOLD: u8 = 0x01;
+pub(crate) const POINTER_LOW_THRESHOLD: u8 = 0x02;
 pub(crate) const POINTER_POWER_SAVING: u8 = 0x03;
 pub(crate) const POINTER_ALS: u8 = 0x04;
 pub(crate) const POINTER_WHITE: u8 = 0x05;
+pub(crate) const POINTER_THRESHOLD_STATUS: u8 = 0x06;
 pub(crate) const POINTER_ID: u8 = 0x07;
 
 pub(crate) const RESET_CONFIGURATION: u16 = 0x0001;
@@ -22,8 +25,14 @@ const SHUTDOWN_BIT: u16 = 1 << 0;
 const GAIN_FIELD_MASK: u16 = 0b11 << 11;
 const INTEGRATION_FIELD_SHIFT: u16 = 6;
 const INTEGRATION_FIELD_MASK: u16 = 0b1111;
-const SUPPORTED_CONFIGURATION_MASK: u16 =
-    GAIN_FIELD_MASK | (INTEGRATION_FIELD_MASK << INTEGRATION_FIELD_SHIFT) | SHUTDOWN_BIT;
+const PERSISTENCE_FIELD_SHIFT: u16 = 4;
+const PERSISTENCE_FIELD_MASK: u16 = 0b11;
+const THRESHOLD_MONITOR_BIT: u16 = 1 << 1;
+const SUPPORTED_CONFIGURATION_MASK: u16 = GAIN_FIELD_MASK
+    | (INTEGRATION_FIELD_MASK << INTEGRATION_FIELD_SHIFT)
+    | (PERSISTENCE_FIELD_MASK << PERSISTENCE_FIELD_SHIFT)
+    | THRESHOLD_MONITOR_BIT
+    | SHUTDOWN_BIT;
 const SHUTDOWN_TO_ACTIVE_WAKE_US: u64 = 2_500;
 const CONSERVATIVE_INTEGRATION_PERCENT: u64 = 130;
 
@@ -35,12 +44,28 @@ pub(crate) const fn without_shutdown(configuration: u16) -> u16 {
     configuration & !SHUTDOWN_BIT
 }
 
+pub(crate) const fn without_monitor(configuration: u16) -> u16 {
+    configuration & !THRESHOLD_MONITOR_BIT
+}
+
+pub(crate) const fn threshold_monitor_is_enabled(configuration: u16) -> bool {
+    configuration & THRESHOLD_MONITOR_BIT != 0
+}
+
+pub(crate) const fn persistence_count(configuration: u16) -> u8 {
+    1 << ((configuration >> PERSISTENCE_FIELD_SHIFT) & PERSISTENCE_FIELD_MASK)
+}
+
 pub(crate) const fn configuration_fields_are_supported(configuration: u16) -> bool {
     configuration & !SUPPORTED_CONFIGURATION_MASK == 0
 }
 
 pub(crate) const fn power_saving_is_supported(power_saving: u16) -> bool {
-    power_saving == RESET_POWER_SAVING
+    power_saving & !0b111 == 0
+}
+
+pub(crate) const fn power_saving_is_enabled(power_saving: u16) -> bool {
+    power_saving & 1 != 0
 }
 
 pub(crate) const fn integration_field(configuration: u16) -> u16 {
@@ -75,4 +100,31 @@ pub(crate) const fn conversion_bound_ns(configuration: u16) -> Option<u64> {
             .saturating_add(conservative_us)
             .saturating_mul(1_000),
     )
+}
+
+/// Deterministic interval between recurring refreshes, in nanoseconds.
+pub(crate) const fn refresh_interval_ns(configuration: u16, power_saving: u16) -> Option<u64> {
+    let Some(integration_us) = documented_integration_us(configuration) else {
+        return None;
+    };
+    if !power_saving_is_enabled(power_saving) {
+        return Some(
+            integration_us
+                .saturating_mul(CONSERVATIVE_INTEGRATION_PERCENT)
+                .saturating_mul(1_000)
+                / 100,
+        );
+    }
+
+    let integration_ms = integration_us / 1_000;
+    let sleep_ms = match (power_saving >> 1) & 0b11 {
+        0 => 500,
+        1 => 1_000,
+        2 => 2_000,
+        _ => 4_000,
+    };
+    match integration_ms {
+        100 | 200 | 400 | 800 => Some((integration_ms + sleep_ms) * 1_000_000),
+        _ => None,
+    }
 }

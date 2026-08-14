@@ -54,20 +54,18 @@ calibrated lux at a product aperture. Window transmission, geometry, spectrum,
 cosine response, part tolerance, high-lux correction, and auto-ranging belong
 to a separately reviewed integration layer or application.
 
-## Coupled fake and independent model
-
-`testing/fake_device.rs` sketches autonomous refresh, retention, and threshold
-persistence. It is test-only, directly uses driver semantic types and timing
-constants, and does not implement I²C, so it cannot serve as an independent
-oracle. Its tests also drive it directly rather than through `Veml7700`, so
-they establish nothing about the driver at all.
+## Independent model
 
 The independent device behavioral model is `ph-veml7700-als-model`. It implements
-the I²C register boundary for `probe` and one successful `measure_once` flow and
-is derived from `HARDWARE_CONTRACT.md` without driver codecs or timing helpers.
-Its maintained claim and nonclaims are in
+the I²C register boundary for probe, fresh measurement, autonomous cadence, and
+threshold-monitor traces. It is derived from `HARDWARE_CONTRACT.md` without
+driver codecs or timing helpers. Driver-versus-model tests configure and observe
+the device through public `Veml7700` operations; only raw samples, relative time,
+and explicitly injected white-channel scheduling skew bypass the I²C boundary.
+
+The maintained claim and nonclaims are in
 [`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md). Behavior
-outside that slice remains unimplemented.
+outside that declared slice remains unimplemented.
 
 ## Explicit non-goals
 
