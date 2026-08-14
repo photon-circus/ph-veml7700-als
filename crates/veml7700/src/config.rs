@@ -260,8 +260,11 @@ impl Default for MeasurementConfig {
     /// This crate's software policy, **not** the device's reset state.
     ///
     /// Returns [`maximum_range_start`](Self::maximum_range_start): the widest
-    /// range, chosen so an unconfigured first measurement cannot silently
-    /// saturate in bright light. The device's own reset domain is
+    /// range the part offers, so an unconfigured first measurement has the best
+    /// chance of landing on scale. It does **not** make saturation impossible —
+    /// light beyond ~140 926 lx still clips, still without an error — so
+    /// [`AlsCounts::is_saturated`](crate::AlsCounts::is_saturated) must be
+    /// checked regardless of configuration. The device's own reset domain is
     /// [`silicon_reset_default`](Self::silicon_reset_default) and is different —
     /// a caller who wants what the hardware powers up in must ask for it by
     /// name.

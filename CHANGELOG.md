@@ -286,10 +286,13 @@ than a change from a prior version.
 - Added `NominalScale::full_scale_micro_lux`, so the saturation point of a
   gain/integration pair is a tested value rather than a number a reader derives.
   The spread across configurations is four orders of magnitude.
-- `nominal_illuminance` now states that it is **invalid as a point estimate when
-  the counts are saturated**: at maximum code the true illuminance is at least
-  the reported value and otherwise unknown. Saturation is not an error, so an
-  unchecked read looks like an ordinary value.
+- `nominal_illuminance` now states that it is **invalid as any kind of estimate
+  when the counts are saturated**: at maximum code the conversion clipped, so the
+  value is the domain's ceiling rather than an observation. It bounds nothing
+  about the actual illuminance either — a nominal figure, uncorrected and
+  uncalibrated, cannot bound anything outside its own scale. What a clipped
+  reading establishes is that the configuration was too narrow. Saturation is not
+  an error, so an unchecked read looks like an ordinary value.
 - The usage example now checks `fresh.als.is_saturated()` and shows the manual
   response, including that nothing wider exists at maximum range.
 - Recorded why the 1 ms software margin is 1 ms — a driver policy value, not a

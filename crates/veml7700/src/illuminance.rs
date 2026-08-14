@@ -73,9 +73,17 @@ impl NominalScale {
     /// saturates.
     ///
     /// This is where a reading stops being a measurement. At `u16::MAX` counts
-    /// the sensor reports the largest value it can represent, not the light that
-    /// was present, so the true illuminance is *at least* this and otherwise
-    /// unknown. See [`AlsCounts::is_saturated`](crate::AlsCounts::is_saturated).
+    /// the conversion has clipped: the light exceeded what this domain can
+    /// encode, and the reported number is the domain's ceiling rather than an
+    /// observation.
+    ///
+    /// It is **not** a bound on the scene's actual illuminance. This is a
+    /// nominal figure — the vendor count-to-lux ratio, uncorrected for the
+    /// non-linearity the sources describe above roughly 1 000 lx and never
+    /// calibrated for optics or source spectrum — so it bounds nothing outside
+    /// its own nominal domain. What a clipped reading establishes is that the
+    /// configuration was too narrow, not how much light there was. See
+    /// [`AlsCounts::is_saturated`](crate::AlsCounts::is_saturated).
     ///
     /// The spread is four orders of magnitude, which is why the starting
     /// configuration matters more than any other choice a caller makes:

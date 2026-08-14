@@ -88,11 +88,15 @@ pub struct FreshMeasurement {
     pub configuration: MeasurementConfig,
     /// Nominal illuminance computed from ALS counts.
     ///
-    /// **Invalid as a point estimate when [`als`](Self::als) is saturated.** At
-    /// maximum code this is the largest value the domain can represent, so the
-    /// true illuminance is *at least* this and otherwise unknown. Check
-    /// [`AlsCounts::is_saturated`] before using it as a measurement; saturation
-    /// is not reported as an error, so an unchecked read looks like an ordinary
+    /// **Invalid as any kind of estimate when [`als`](Self::als) is saturated.**
+    /// At maximum code the conversion clipped, so this is the domain's ceiling
+    /// rather than an observation. It does not bound the actual illuminance
+    /// either: the figure is nominal, so it says nothing about the scene outside
+    /// its own scale. A clipped reading establishes only that the configuration
+    /// was too narrow.
+    ///
+    /// Check [`AlsCounts::is_saturated`] before using this at all; saturation is
+    /// not reported as an error, so an unchecked read looks like an ordinary
     /// value.
     ///
     /// Nominal throughout: the vendor scale factor applied to counts, never

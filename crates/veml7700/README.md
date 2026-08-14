@@ -141,12 +141,12 @@ where
         .expect("fresh measurement failed");
 
     // Saturation is not an error, so it must be checked. At maximum code the
-    // sensor reports the largest value it can represent, not the light that was
-    // present: `nominal_illuminance` is then a lower bound, not a measurement.
+    // conversion clipped: `nominal_illuminance` is the domain's ceiling, not an
+    // observation, and it bounds nothing about the actual light.
     if fresh.als.is_saturated() {
         // Nothing wider exists — this is already the maximum range. Attenuate
-        // optically, or record the reading as "at least full scale" rather than
-        // treating it as a value.
+        // optically, or record that the reading clipped rather than treating the
+        // number as a value.
     } else {
         // Once the ambient range is known, a longer integration time or higher
         // gain gives a finer reading over a narrower span.
