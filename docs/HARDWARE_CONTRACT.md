@@ -42,16 +42,16 @@ Consequences:
 
 ## 4. Register map
 
-| Pointer | Semantic name | Access | Driver treatment |
-| --- | --- | --- | --- |
-| `0x00` | configuration | R/W | strict typed codec |
-| `0x01` | high threshold | R/W | raw ALS counts |
-| `0x02` | low threshold | R/W | raw ALS counts |
-| `0x03` | power saving | R/W | strict typed codec |
-| `0x04` | ALS output | R | snapshot/fresh result |
-| `0x05` | white output | R | raw spectral companion channel |
-| `0x06` | threshold status | R | bit 15 low, bit 14 high |
-| `0x07` | ID | R | expected word `0xC481` at the fixed address option |
+| Pointer | Semantic name | Access | Driver treatment | Reset value |
+| --- | --- | --- | --- | --- |
+| `0x00` | configuration | R/W | strict typed codec | `0x0001` |
+| `0x01` | high threshold | R/W | raw ALS counts | not declared by sources |
+| `0x02` | low threshold | R/W | raw ALS counts | not declared by sources |
+| `0x03` | power saving | R/W | strict typed codec | `0x0000` |
+| `0x04` | ALS output | R | snapshot/fresh result | not declared by sources |
+| `0x05` | white output | R | raw spectral companion channel | not declared by sources |
+| `0x06` | threshold status | R | bit 15 low, bit 14 high | not declared by sources |
+| `0x07` | ID | R | expected word `0xC481` at the fixed address option | source-declared identity `0xC481` |
 
 No public raw-register accessor exists in v0.1.
 

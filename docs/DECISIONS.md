@@ -163,3 +163,18 @@ requires the model manifest to match, and asserts only that the version carries
 an `-incubating.N` prerelease identifier. A version bump therefore edits the
 manifests, and the gate keeps verifying the declared distribution state without
 holding another copy of the literal.
+
+## D-022 — Undeclared reset values stay unavailable
+
+The hardware-contract register map records which words have a source-declared
+reset and which do not. Configuration (`0x00`) resets to `0x0001` and
+power-saving (`0x03`) to `0x0000`. Thresholds, ALS, white, and threshold status
+are **not declared by sources**. The ID word is a source-declared identity,
+not a POR field.
+
+Determinism does not authorize a convenient initial value for that undeclared
+observable state. The independent model leaves those registers unavailable
+until an explicit input establishes them: a threshold write, a completed
+conversion, or a completed ALS refresh while the monitor is enabled. Inventing
+`0x0000` for threshold status would make a fresh `read_threshold_status()`
+decode to both flags clear with no source backing.

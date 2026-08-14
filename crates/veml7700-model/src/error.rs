@@ -37,6 +37,8 @@ pub enum Unsupported {
     NoCompletedConversion(u8),
     /// A threshold register was read before this model had observed it written.
     NoProgrammedThreshold(u8),
+    /// Threshold status was read before a monitored ALS refresh established it.
+    NoQualifiedStatus(u8),
     /// Configuration word contains behavior outside the declared slice.
     ConfigurationWord(u16),
     /// Power-saving word contains behavior outside the declared slice.
@@ -90,6 +92,10 @@ impl fmt::Display for Unsupported {
             Self::NoProgrammedThreshold(pointer) => write!(
                 f,
                 "threshold register 0x{pointer:02X} has no programmed value in this model"
+            ),
+            Self::NoQualifiedStatus(pointer) => write!(
+                f,
+                "threshold-status register 0x{pointer:02X} has no qualified status in this model"
             ),
             Self::ConfigurationWord(observed) => write!(
                 f,

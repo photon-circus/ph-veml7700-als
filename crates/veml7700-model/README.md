@@ -86,7 +86,7 @@ stay provisional and are not physical-support claims.
 | Abstracted | Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. |
 | Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
-| Unsupported | Enabled power saving at 25/50 ms; threshold/output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+| Unsupported | Enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ## Source decisions
 
@@ -126,9 +126,10 @@ stay provisional and are not physical-support claims.
 
 - Model limitations (`TransportError::Unsupported`) are distinct from device
   address NACK. Adapters must preserve that distinction.
-- The pinned sources do not declare reset values for threshold, ALS, or white
-  output registers. Reading an output before conversion or a threshold before
-  programming is an explicit model limitation rather than an invented value.
+- The pinned sources do not declare reset values for threshold, threshold-status
+  (`0x06`), ALS, or white output registers. Reading an output before conversion,
+  a threshold before programming, or threshold status before a monitored ALS
+  refresh is an explicit model limitation rather than an invented value.
 - Later silicon evidence may correct this baseline or introduce a selected
   variant; it must not silently replace the datasheet interpretation.
 - Shared duration types, transport-phase granularity, and multi-device
