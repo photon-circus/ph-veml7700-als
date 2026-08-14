@@ -227,7 +227,10 @@ failure.
 `ThresholdMonitorError` is a struct rather than an enum and carries the
 attribute for the same reason: it is produced by the driver and read by the
 caller, so preventing downstream literal construction costs nothing and lets it
-gain a field later.
+gain a field later. The obligation it places on a caller is different from the
+enums, though, and the API contract says so: a struct pattern must contain `..`,
+and a wildcard match arm does not satisfy that. Ordinary field access is
+unaffected, which is how callers actually read this type.
 
 Result and snapshot types with public fields, such as `FreshMeasurement` and
 `ConfigurationSnapshot`, are deliberately left alone here. Whether a caller
