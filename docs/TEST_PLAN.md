@@ -1,5 +1,29 @@
 # Test plan
 
+Each level below establishes something different, and the differences are the
+point. A test at one level must never be cited as evidence for another.
+
+| Level | Establishes | Must not be cited for |
+| --- | --- | --- |
+| 1 — pure/codec | encodings, domains, units, validation | device behavior |
+| 2 — scripted I²C | exact transactions, sequencing, injected failures | autonomous device behavior, or model conformance |
+| 3 — model-only | the model's own declared behavior | agreement with the driver |
+| 4 — driver-versus-model | that the public driver and an independent derivation agree, for named traces | operations, configurations, or initial states it does not exercise |
+
+**The exact level-4 coverage is the packaged matrix in
+[`crates/veml7700/README.md`](../crates/veml7700/README.md), not this file.** It
+names every covered operation with its initial state and configuration, every
+public operation with no conformance trace, and the configuration domain that is
+never exercised. The canonical gate fails if it drifts from the test inventory in
+either direction.
+
+Two further boundaries that are easy to blur:
+
+- `ph-veml7700-als-model` is repository-only and unpublished.
+- Tests run against the unpacked package establish that the published crate
+  builds and passes its own tests standalone. They exclude `tests/device_model.rs`
+  and the path-only model dependency, so they establish **no** model conformance.
+
 ## Level 1 — Pure value and codec tests
 
 Cover every documented gain, integration time, persistence, power-saving mode,
