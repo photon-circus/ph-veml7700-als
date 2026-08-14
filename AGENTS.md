@@ -46,6 +46,8 @@ changelog updates.
 ## Validation and release safety
 
 Run `scripts/ci.sh`; `tools/check.sh` and `tools/check.ps1` are thin launchers.
-The gate is local and bounded. Version 0.1.0 is unpublished and `publish = false`
-is intentional. Do not add registry credentials, publication automation, tags,
-releases, or an inferred release procedure.
+The gate is local and bounded. Version `0.1.0-incubating.1` is unpublished and
+`publish = false` is intentional. Follow `RELEASING.md`; do not change
+repository visibility, enable registry publication, add credentials, create
+tags, or create releases without the corresponding recorded maintainer
+decision.

@@ -18,5 +18,7 @@ A contribution is reviewable only when:
 
 Run `./tools/check.sh`, or `./tools/check.ps1` from PowerShell.
 
-Do not add raw-register APIs, cached state, automatic optical correction,
-speculative physical infrastructure, or remove `publish = false`.
+Do not add raw-register APIs, cached state, automatic optical correction, or
+speculative physical infrastructure. Do not change repository visibility or
+registry publication state without the corresponding recorded maintainer
+decision and release review.

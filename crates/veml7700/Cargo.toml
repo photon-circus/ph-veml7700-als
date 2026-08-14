@@ -1,6 +1,6 @@
 [package]
 name = "ph-veml7700-als"
-version = "0.1.0"
+version = "0.1.0-incubating.1"
 description = "Async no_std driver for the Vishay VEML7700 ambient-light sensor with explicit fresh-measurement and threshold-monitor semantics"
 authors.workspace = true
 edition.workspace = true

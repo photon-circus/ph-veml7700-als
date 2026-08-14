@@ -2,16 +2,24 @@
 
 Incubating async, allocation-free `no_std` VEML7700 ambient-light driver.
 
+> [!WARNING]
+> **Lifecycle:** Incubating.
+> **Distribution:** Unpublished; the candidate version is
+> `0.1.0-incubating.1` and the manifest retains `publish = false`.
+> **Model conformance:** An independent I²C-level model covers `probe` and one
+> successful `measure_once` path only. All other public operations are outside
+> the current model claim.
+> **Physical evidence:** None. Evidence applies only to the named operations,
+> and eventual publication would not imply hardware qualification.
+
 The crate distinguishes register snapshots from deliberately timed fresh
 measurements, protects threshold-monitor domains, preserves restoration
 failures, and converts ALS counts using integer nominal datasheet scales. It
 does not claim calibrated lux or apply application-specific optical correction.
 
 Verification currently consists of pure tests, exact scripted I²C, failure
-injection, a coupled test-only autonomous fake, and an independent I²C-level
-model covering `probe` and one successful `measure_once` slice. The coupled fake
-is not that independent oracle. The repository does not yet contain reviewed
-physical-silicon evidence.
+injection, a coupled test-only autonomous fake, and the bounded independent
+model described above. The coupled fake is not that independent oracle.
 
 The package is not published and retains `publish = false`. See the
 [repository README](https://github.com/photon-circus/ph-veml7700-als#readme) and

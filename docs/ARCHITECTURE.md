@@ -75,4 +75,4 @@ outside that slice remains unimplemented.
 - automatic ranging or correction policy
 - VEML6030 family abstraction
 - raw-register API
-- publication or release automation
+- registry credentials or automatic publication

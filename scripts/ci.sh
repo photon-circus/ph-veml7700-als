@@ -5,6 +5,15 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 cd "$repo_root"
 
+driver_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/veml7700/Cargo.toml | head -n 1)
+case "$driver_version" in
+    [0-9]*.[0-9]*.[0-9]*-incubating.[0-9]*) ;;
+    *)
+        echo "driver version must use an Incubating SemVer prerelease: $driver_version" >&2
+        exit 1
+        ;;
+esac
+
 cargo fmt --all -- --check
 cargo test -p ph-veml7700-als --no-default-features
 cargo test -p ph-veml7700-als-model --no-default-features

@@ -15,11 +15,18 @@
 //!
 //! # Status
 //!
-//! This crate is incubating and unpublished. Pure and scripted-I2C tests cover
-//! codec and protocol behavior. A coupled test-only fake exercises autonomous
-//! state but is not the independent I2C-level model. That independent model
-//! currently covers only `probe` and one successful `measure_once` slice. No
-//! reviewed physical or calibrated-optical evidence exists.
+//! **Lifecycle:** Incubating.
+//!
+//! **Distribution:** Unpublished; the candidate version is
+//! `0.1.0-incubating.1` and the manifest retains `publish = false`.
+//!
+//! **Model conformance:** An independent I2C-level model covers `probe` and one
+//! successful `measure_once` path only. A coupled test-only fake exercises
+//! autonomous state but is not that independent oracle. All other public
+//! operations are outside the current model claim.
+//!
+//! **Physical evidence:** None. Evidence applies only to the named operations,
+//! and eventual publication would not imply hardware qualification.
 
 #![no_std]
 #![forbid(unsafe_code)]
