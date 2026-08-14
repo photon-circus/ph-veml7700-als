@@ -33,8 +33,14 @@ support for the rest of the driver API.
 - Repository interpretation and nonclaims: [`docs/HARDWARE_CONTRACT.md`](../../docs/HARDWARE_CONTRACT.md)
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
-Vendor PDFs remain untracked. Owner-verification boxes in the hardware contract
-stay provisional and are not physical-support claims.
+Vendor PDFs remain untracked. Owner verification of the hardware contract is
+partly complete: the electrical and bus boundary, the power-saving refresh
+table, the resolution and maximum-range tables, the gain and integration
+encodings, the linearity limits, and the reconfiguration sequence are verified
+against the pinned sources. The remaining rows — including both §1
+source-baseline entries — stay provisional. No verified row is a
+physical-support claim: confirming that a recorded interpretation matches a
+recorded document establishes nothing about silicon.
 
 ## Behavioral boundary
 
