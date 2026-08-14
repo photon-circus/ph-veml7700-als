@@ -4,7 +4,7 @@
 # either ignored (today) or rejected (after the suggested patch). The driver
 # feature calls DefinitionsFile::transfer_families / gaps, which 0.2.1 lacks.
 #
-# Dense [curves] LUTs are forbidden in the same file (see the patch).
+# Dense curve LUTs are forbidden in the same file (see the patch).
 # Generation domain is uncorrected lux [100, 22000] (≈100 klx corrected),
 # not the full 16-bit ALS count domain.
 

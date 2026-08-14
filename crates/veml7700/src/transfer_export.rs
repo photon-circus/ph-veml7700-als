@@ -8,6 +8,7 @@
 //! Apply `exploration/ph-curves-transfer/ph-curves-0.2.1.patch` on `ph-curves`
 //! before expecting this module to type-check.
 
+use alloc::string::String;
 use ph_curves::r#gen::{DefinitionsFile, Error, GenerateOptions, generate};
 
 /// Family TOML from [`crate::transfer::PH_CURVES_FAMILY_TOML`].

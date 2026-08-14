@@ -292,8 +292,14 @@ mod tests {
                 .full_scale_micro_lux()
                 .whole_lux_floor();
         assert!(u64::from(DESCRIPTION.generated_uncorrected_lux[1]) < full_scale);
-        assert!(!PH_CURVES_FAMILY_TOML.contains("65535"));
-        assert!(!PH_CURVES_FAMILY_TOML.contains("[curves"));
+        assert!(
+            toml_body_lines(PH_CURVES_FAMILY_TOML).all(|line| !line.contains("65535")),
+            "family TOML must not name the full ADC code as a generation bound"
+        );
+        assert!(
+            toml_body_lines(PH_CURVES_FAMILY_TOML).all(|line| !line.contains("[curves")),
+            "family TOML must not declare a dense curve table"
+        );
     }
 
     #[test]
@@ -302,6 +308,13 @@ mod tests {
         assert!(PH_CURVES_FAMILY_TOML.contains("interpolate_selectors = false"));
         assert!(PH_CURVES_FAMILY_TOML.contains("max_knots = 64"));
         assert!(!PH_CURVES_FAMILY_TOML.contains("formula ="));
+    }
+
+    fn toml_body_lines(toml: &str) -> impl Iterator<Item = &str> {
+        toml.lines().filter(|line| {
+            let trimmed = line.trim_start();
+            !trimmed.is_empty() && !trimmed.starts_with('#')
+        })
     }
 
     fn toml_contains_u32(haystack: &str, value: u32) -> bool {

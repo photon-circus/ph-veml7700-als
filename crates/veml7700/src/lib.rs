@@ -87,6 +87,9 @@ pub use transfer::{
 };
 
 #[cfg(feature = "ph-curves")]
+extern crate alloc;
+
+#[cfg(feature = "ph-curves")]
 mod transfer_export;
 #[cfg(feature = "ph-curves")]
 #[cfg_attr(docsrs, doc(cfg(feature = "ph-curves")))]
