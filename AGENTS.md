@@ -45,12 +45,14 @@ changelog updates.
 
 The compiler cannot catch any of these.
 
-- **The candidate version is duplicated across tracked prose.** Both crate
-  manifests are machine-checked against each other by the gate, which also
-  requires an `-incubating.N` prerelease but no longer stores the literal
-  itself. The README, packaged crate README, `lib.rs`, AGENTS, SECURITY,
-  API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies still rot silently.
-  Grep for the literal before and after any bump.
+- **The candidate version is duplicated across tracked prose.** Both crates
+  inherit `version` from `[workspace.package]`, so a bump edits one manifest
+  line and drift between the crates is unrepresentable. The gate reads the
+  resolved value back through `cargo pkgid` — not by parsing manifest text,
+  which would now find nothing — and requires an `-incubating.N` prerelease
+  without storing the literal itself. The README, packaged crate README,
+  `lib.rs`, AGENTS, API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies
+  still rot silently. Grep for the literal before and after any bump.
 - **The status disclosure lives in three places** that must agree word for word:
   root `README.md`, the packaged `crates/veml7700/README.md`, and the `lib.rs`
   crate documentation. The packaged two are the ones a consumer sees. The gate
@@ -73,8 +75,11 @@ The compiler cannot catch any of these.
 
 Run `scripts/ci.sh`; `tools/check.ps1` is a thin PowerShell launcher for it.
 `CI_PROFILE=bounded` selects the subset hosted CI runs and is never
-authoritative. Add checks to the script, not to the workflow: there must stay
-exactly one implementation of the gate.
+authoritative. `CI_PROFILE=release` is `full` plus artifact identity: it refuses
+a dirty worktree, packages without `--allow-dirty`, and writes
+`target/release-evidence/evidence.md`. It performs no registry action. Add
+checks to the script, not to the workflow: there must stay exactly one
+implementation of the gate.
 The gate is local and bounded. Version `0.1.0-incubating.1` is unpublished and
 `publish = false` is intentional. Follow `RELEASING.md`; do not change
 repository visibility, enable registry publication, add credentials, create

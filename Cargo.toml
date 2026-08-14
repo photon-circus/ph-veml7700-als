@@ -8,3 +8,7 @@ edition = "2024"
 license = "MIT"
 repository = "https://github.com/photon-circus/ph-veml7700-als"
 rust-version = "1.92.0"
+# One version for both crates, per D-022. Inheriting it here makes drift between
+# the two manifests unrepresentable rather than merely gate-detected; the gate
+# reads the resolved value back through Cargo so the check survives inheritance.
+version = "0.1.0-incubating.1"
