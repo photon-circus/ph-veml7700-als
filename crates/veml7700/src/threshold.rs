@@ -82,7 +82,8 @@ pub struct ThresholdMonitorConfig {
     pub measurement: MeasurementConfig,
     /// Raw low/high thresholds in that measurement domain.
     pub thresholds: Thresholds,
-    /// Consecutive qualifying measurement count.
+    /// Persistence protect number. See [`Persistence`] for what selecting a
+    /// value above one does *not* promise about assertion timing.
     pub persistence: Persistence,
     /// Cadence that determines wall-clock qualification behavior.
     pub power_saving: PowerSavingConfig,

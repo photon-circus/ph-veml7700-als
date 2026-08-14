@@ -417,3 +417,83 @@ and belongs with the retrieval record.
 
 `docs/README.md` remains absent, per D-021. An index of seven documents is a
 seventh thing to keep true.
+
+## D-029 — Assumptions about silicon are declared, not left open
+
+**Date:** 2026-08-14 **Status:** Current
+
+A contract row that the sources do not settle is in one of two situations, and
+conflating them wastes effort and hides risk.
+
+Some facts are simply **not on the page consulted**. Another passage may state
+them, so the row stays provisional and the work is more reading.
+
+Others are **not knowable from the documents at all**. The driver still has to
+behave one way or the other, so it rests on an assumption — and no amount of
+reading resolves it. Leaving such a row looking like an unread one implies a
+search that will eventually succeed. It will not.
+
+These rows are therefore marked **Assumption**, and each states three things:
+what the driver assumes, where that assumption is expressed in code, and what
+observation would settle it. That last part matters most: an assumption without
+a stated test is indistinguishable from a guess, and it gives a future
+hardware-in-the-loop effort nothing to start from.
+
+The first is refresh-time independence from ALS gain. The sources publish the
+relation at gain ×2 only. `nominal_refresh_time_ms` takes no gain argument and
+the model's `refresh_interval_ns` inherits the same shape, so both behave as
+though independence holds. Measuring the refresh interval across all four gains
+at one integration time and power-saving mode would settle it in an afternoon
+with hardware, and cannot be settled without.
+
+This does not change the repository's evidence posture. Physical evidence
+remains none, and an assumption declared honestly is not evidence — it is a
+named place where evidence is missing, which is strictly better than the same
+gap left implicit in a function signature.
+
+## D-030 — Undefined device behavior is allocated, not split evenly
+
+**Date:** 2026-08-14 **Status:** Current
+
+D-029 says an unresolvable row is declared rather than left open. It does not
+say *who* declares it. The driver and the model face the same silence for
+different reasons, and giving them the same answer is what produces a false
+oracle.
+
+The allocation turns on one question, asked separately for each component:
+**does it need the fact in order to function at all?**
+
+The **driver** acts defensively wherever the answer is no. A promise it cannot
+back is worse than no promise, because a caller cannot tell the difference until
+it is wrong in the field. Where the answer is yes — a wait must be *some*
+duration, a register must be decoded *some* way — it assumes, and says so at the
+constant, in the contract row, and in the public documentation of anything whose
+behavior depends on it.
+
+The **model** declares undefined by default. Its whole value is being an oracle
+derived independently of the driver; a model that invents plausible behavior
+still produces agreement, and that agreement means nothing while looking exactly
+like evidence. `TransportError::Unsupported` is the correct answer to a question
+the sources never settled. Where the model genuinely cannot run without the fact
+— construction needs some register value to represent a power-on device — it
+assumes, and the assumption is tabulated in the model README with its code site.
+
+The four open rows resolve differently under this rule, which is the point:
+
+| Row | Driver | Model |
+| --- | --- | --- |
+| Register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
+| Refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
+| ±30 % integration tolerance | Assumes — a wait must be some number | Assumes — a completion bound must exist |
+| Persistence qualification rule | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+
+The last row is the one that shows the rule working. The model had implemented
+consecutive counting with reset on any non-qualifying refresh, and driver-model
+conformance then *appeared* to establish persistence semantics. It did not: the
+driver only programs the field, so the trace confirmed a register write while
+reading like a behavioral result. Nothing about the model requires a
+qualification rule, so it declares undefined instead.
+
+A consequence worth stating plainly: this makes the model's covered surface
+smaller. That is the correct direction. A narrower oracle that is sound beats a
+broader one that manufactures agreement.

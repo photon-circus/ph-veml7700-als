@@ -396,6 +396,96 @@ than a change from a prior version.
   remain packaged deliberately: the gate tests the unpacked archive, and
   excluding them would make that step verify less.
 
+- The hardware contract distinguishes a fourth verification state:
+  **Assumption**. A row the sources do not settle is either unread — where more
+  reading may close it — or unresolvable by reading at all, where the driver
+  must still behave one way and rests on an assumption about silicon. Marking
+  both the same way implied a search that would eventually succeed.
+- Recorded refresh-time independence from ALS gain as the first such assumption.
+  The sources publish the relation at gain ×2 only; `nominal_refresh_time_ms`
+  takes no gain argument and the model inherits the same shape, so both behave
+  as though it holds. The row states what would settle it — measuring the
+  refresh interval across all four gains at one integration time and cadence, on
+  silicon — because an assumption without a stated test is indistinguishable
+  from a guess.
+- Recorded D-029: assumptions about silicon are declared with their code site
+  and their settling observation, so a future hardware-in-the-loop effort has
+  somewhere to start.
+
+- Declared two further assumptions under D-029, each naming the code that relies
+  on it and the observation that would settle it: register `0x03` reading
+  `0x0000` before it is written, and integration time falling within ±30 % of
+  nominal.
+- Reclassified the ±30 % row after briefly recording it as waiting on a passage.
+  That was wrong about the kind of fact it is. Integration intervals are counted
+  off the part's internal oscillator, so the spread is that oscillator's
+  tolerance — a process-dependent silicon characteristic, not a timing parameter
+  a further page would list — and Vishay publishes no oscillator accuracy for
+  this part. Waiting for that passage was waiting for a document that was never
+  going to exist. `INTEGRATION_TOLERANCE_PERCENT` and its two "documented ±30 %"
+  doc comments now say *assumed*, which is what they always were.
+- Kept the persistence rule out of that category. A qualification rule is
+  functional behavior a datasheet can state in prose, unlike an oscillator
+  tolerance, so reading could still close it. The four counts are verified; the
+  word *consecutive* is not.
+- Recorded D-030: undefined device behavior is **allocated** between driver and
+  model rather than answered the same way in both. Each is asked whether it needs
+  the fact to function. The driver acts defensively when it does not, because an
+  unbackable promise is worse than none; it assumes and says so when it must act
+  anyway. The model declares undefined by default, because a model that invents
+  plausible behavior still produces agreement — and that agreement means nothing
+  while looking exactly like evidence.
+- Found the case that rule exists to catch. The model implements persistence as
+  consecutive counting with reset, the driver only *programs* `ALS_PERS` and no
+  driver logic reads the count, so
+  `threshold_monitor_public_operations_qualify_after_configured_persistence`
+  confirms a register write while reading like a behavioral result. The model
+  will declare the qualification rule undefined and answer `Unsupported`; the
+  driver will stop describing persistence in terms of *consecutive* measurements
+  it cannot observe. The model half lands as its own issue, because changing what
+  the model does is a behavior change rather than a documentation edit.
+- Corrected the public rustdoc that still promised what these rows withdrew.
+  Declaring an assumption in the contract and leaving the shipped API describing
+  the old certainty is worse than not declaring it, because the surface a
+  consumer actually reads is the one that keeps the promise.
+  - `Persistence` and its four variants described *consecutive qualifying
+    measurements*, and `ThresholdMonitorConfig::persistence` repeated it. They
+    now name the protect number, state that the qualification rule is not
+    source-backed, and direct callers to poll status rather than compute an
+    assertion time. `Persistence::count()` says it feeds no driver calculation.
+  - `measure_once` advertised "conservative vendor-derived timing" for a wait
+    only partly vendor-derived. It now separates the three components — the
+    vendor's 2.5 ms wake delay, the assumed 130 %, and the 1 ms policy margin —
+    and names the failure: if the real spread exceeds ±30 %, a stale value comes
+    back indistinguishable from a new one.
+  - `measure_once_with_timing` and `MeasurementTiming::with_additional_margin_us`
+    called the floor a "documented conservative minimum". Dropped, with the note
+    that adding margin cannot convert an assumption into a guarantee.
+- Moved the settling procedures for the three Assumptions to #58, leaving each
+  row a one-sentence observation. Naming what would settle a row is D-029's
+  requirement; carrying the procedure would make this document a
+  physical-evidence plan, which the product boundary excludes.
+- Resolved the §4 reset-value row. `0x00` and `0x07` are source-declared; every
+  other register, including `0x03`, is **not**. The §4 table previously listed
+  `0x0000` for `0x03` unqualified, in a column whose other entries said *not
+  declared by sources*.
+- The `0x03` assumption turns out to be narrower than it looked: **the driver
+  does not rely on it at all**, because every path reads the register before
+  acting on it. The dependency is confined to the model's construction.
+- `crates/veml7700-model/README.md` gains a **Declared assumptions** table naming
+  all four model behaviors that rest on unstated facts, where each is relied on
+  in code, and what a reader observes as a result. Scattering them through the
+  source-decision prose meant a reader deciding what model agreement is worth had
+  no way to see where the model guesses.
+- Recorded the sharpest limit that follows: driver and model derive
+  refresh-gain independence independently, but from the same silent source, so
+  agreement there is **not corroboration** — it is two derivations sharing an
+  assumption. An independent model cannot catch a defect both inherited from the
+  document; only physical evidence closes that.
+- By contrast the ±30 % assumption is load-bearing. `INTEGRATION_TOLERANCE_PERCENT`
+  is why the conservative wait is 130 % of the selected integration time, so the
+  margin is conservative *given the assumption* rather than in general.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -403,14 +493,12 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification is well advanced but incomplete: the electrical and
-  bus boundary, the power-saving refresh table, the complete resolution and
-  maximum-range tables, the gain encodings, the linearity limits, and the
-  vendor's starting-configuration guidance are owner-verified. Still
-  provisional: both §1 source-baseline rows, the integration/persistence/
-  shutdown encodings, the register map, word transfer order, wake-up timing,
-  the threshold monitor, and the identity word. None of these are
-  physical-support claims. One gap still blocks open work: the configuration
-  active-write rule (#29).
+- Vendor owner-verification has been walked end to end: **37 rows verified,
+  4 open.** The open rows are three D-029 Assumptions that only hardware can
+  close (refresh independence from ALS gain, register `0x03` reset value, the
+  ±30 % integration tolerance) and the persistence qualification rule, which
+  reading could still close and which D-030 resolves without it. No verified row is a
+  physical-support claim — matching a recorded interpretation to a recorded
+  document establishes nothing about silicon. No open row blocks release work.
 - No reviewed physical or calibrated-optical evidence exists, and candidate
   version `0.1.0-incubating.1` remains unpublished with `publish = false`.

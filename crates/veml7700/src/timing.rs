@@ -4,7 +4,27 @@ use crate::config::IntegrationTime;
 
 /// Minimum wake-up delay before measurement timing begins.
 pub const WAKE_UP_DELAY_US: u32 = 2_500;
-/// Maximum documented integration-time tolerance magnitude.
+/// Assumed maximum integration-time tolerance magnitude.
+///
+/// # This is an assumption about silicon, not a documented figure
+///
+/// No vendor document states an integration-time tolerance, and none is
+/// expected to. Integration intervals are counted off the part's internal
+/// oscillator, so their spread is that oscillator's tolerance — a
+/// process-dependent silicon characteristic rather than a specified timing
+/// parameter. Vishay publishes no oscillator accuracy for this part.
+///
+/// 30 % is a conservative stand-in for that unpublished tolerance, third-party
+/// in origin and not adopted as source-backed. It is why a conservative wait is
+/// 130 % of the selected integration time, which makes that margin conservative
+/// *given this assumption* rather than in general.
+///
+/// If the real spread is wider, the driver can read an output register before
+/// the conversion behind it has completed, and the freshness guarantee fails
+/// silently — a stale value is indistinguishable from a new one.
+///
+/// `docs/HARDWARE_CONTRACT.md` §7 records this as an **Assumption** under D-029,
+/// with the measurement that would settle it.
 pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 /// Additional software margin beyond wake-up and maximum integration time.
 ///
@@ -23,7 +43,7 @@ pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 ///
 /// It does **not** cover, and must not be relied on for:
 ///
-/// - integration-time error beyond the documented ±30 %, which is what
+/// - integration-time error beyond the assumed ±30 %, which is what
 ///   [`INTEGRATION_TOLERANCE_PERCENT`] is for;
 /// - I²C transaction time, which is the caller's bus speed and is unbounded from
 ///   this driver's perspective;
@@ -61,8 +81,13 @@ impl MeasurementTiming {
 
     /// Construct conservative timing plus an additional caller-selected margin.
     ///
-    /// The resulting timing can only be equal to or longer than the documented
-    /// conservative minimum; this type cannot represent a shortened fresh wait.
+    /// The resulting timing can only be equal to or longer than the conservative
+    /// minimum; this type cannot represent a shortened fresh wait.
+    ///
+    /// Lengthening does not convert an assumption into a guarantee. The minimum
+    /// is partly built on [`INTEGRATION_TOLERANCE_PERCENT`], so a caller who
+    /// suspects a wider real spread can add margin here — but no margin makes
+    /// the conversion time source-specified.
     pub const fn with_additional_margin_us(
         integration_time: IntegrationTime,
         additional_margin_us: u32,

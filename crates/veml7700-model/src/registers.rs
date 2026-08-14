@@ -18,7 +18,18 @@ pub(crate) const POINTER_WHITE: u8 = 0x05;
 pub(crate) const POINTER_THRESHOLD_STATUS: u8 = 0x06;
 pub(crate) const POINTER_ID: u8 = 0x07;
 
+/// Source-declared: the register-format note states `0x0001` for `0x00`.
 pub(crate) const RESET_CONFIGURATION: u16 = 0x0001;
+/// **Assumed, not declared.** No passage states a power-on value for `0x03`;
+/// Table 4 constrains bits 15:3 to zero, which is a write-validity rule rather
+/// than a reset value. This is the value every defined field takes at zero, and
+/// the model needs *some* word to represent a device that has never had power
+/// saving written.
+///
+/// The naming deliberately matches `RESET_CONFIGURATION` above, which is why
+/// this comment exists: the two constants look like peers and are not. See the
+/// Assumption row in `docs/HARDWARE_CONTRACT.md` §4 and D-030 — the driver
+/// carries no equivalent, because it reads `0x03` before acting on it.
 pub(crate) const RESET_POWER_SAVING: u16 = 0x0000;
 
 const SHUTDOWN_BIT: u16 = 1 << 0;
