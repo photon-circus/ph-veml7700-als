@@ -62,6 +62,14 @@ fn map_error(error: TransportError) -> ModelBusError {
             source: NoAcknowledgeSource::Address,
         } => ModelBusError::NoAcknowledge(HalNack::Address),
         TransportError::Unsupported(reason) => ModelBusError::Unsupported(reason),
+        // The model's result types are `#[non_exhaustive]`, so this arm exists
+        // for variants added later. It must not guess: mapping an unknown model
+        // result onto a device response would be exactly the fabrication this
+        // adapter is required to avoid, and mapping it onto `Unsupported` would
+        // need an `Unsupported` value nobody has. An unrecognised result means
+        // this harness was not updated alongside the model, which is a defect in
+        // the test rather than an expected boundary outcome, so it fails loudly.
+        other => panic!("model transport result not handled by this harness: {other:?}"),
     }
 }
 

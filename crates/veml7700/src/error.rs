@@ -8,6 +8,7 @@ use crate::threshold::ThresholdStatusDecodeError;
 /// High-level operation associated with a bus failure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum Operation {
     /// Read-only inspection.
     Inspect,
@@ -24,6 +25,7 @@ pub enum Operation {
 /// Exact register-level bus context.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum BusContext {
     /// Read configuration register.
     ReadConfiguration,
@@ -54,6 +56,7 @@ pub enum BusContext {
 /// Configuration failure independent of the transport.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ConfigurationError {
     /// Configuration register contained an undocumented encoding.
     ConfigurationDecode(ConfigDecodeError),
@@ -77,6 +80,7 @@ pub enum ConfigurationError {
 /// Ordinary driver failure preserving the concrete I²C error.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum Error<E> {
     /// I²C transaction failed.
     Bus {
@@ -94,6 +98,7 @@ pub enum Error<E> {
 /// Probe-specific failure.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ProbeError<E> {
     /// Fixed address did not acknowledge.
     NotPresent,
@@ -109,6 +114,7 @@ pub enum ProbeError<E> {
 /// Stage of a complete fresh measurement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum MeasureStage {
     /// Validate that explicit timing belongs to the requested integration time.
     ValidateTiming,
@@ -137,6 +143,7 @@ pub enum MeasureStage {
 /// Complete fresh-measurement failure.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum MeasureOnceError<E> {
     /// Failure before a fresh pair was captured.
     Operation {
@@ -170,6 +177,7 @@ pub enum MeasureOnceError<E> {
 /// Stage of threshold-monitor programming.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum ThresholdMonitorStage {
     /// Observe current configuration.
     ObserveConfiguration,
@@ -188,6 +196,7 @@ pub enum ThresholdMonitorStage {
 /// Threshold-monitor programming failure.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub struct ThresholdMonitorError<E> {
     /// Stage that failed.
     pub stage: ThresholdMonitorStage,
