@@ -417,3 +417,36 @@ and belongs with the retrieval record.
 
 `docs/README.md` remains absent, per D-021. An index of seven documents is a
 seventh thing to keep true.
+
+## D-029 — Assumptions about silicon are declared, not left open
+
+**Date:** 2026-08-14 **Status:** Current
+
+A contract row that the sources do not settle is in one of two situations, and
+conflating them wastes effort and hides risk.
+
+Some facts are simply **not on the page consulted**. Another passage may state
+them, so the row stays provisional and the work is more reading.
+
+Others are **not knowable from the documents at all**. The driver still has to
+behave one way or the other, so it rests on an assumption — and no amount of
+reading resolves it. Leaving such a row looking like an unread one implies a
+search that will eventually succeed. It will not.
+
+These rows are therefore marked **Assumption**, and each states three things:
+what the driver assumes, where that assumption is expressed in code, and what
+observation would settle it. That last part matters most: an assumption without
+a stated test is indistinguishable from a guess, and it gives a future
+hardware-in-the-loop effort nothing to start from.
+
+The first is refresh-time independence from ALS gain. The sources publish the
+relation at gain ×2 only. `nominal_refresh_time_ms` takes no gain argument and
+the model's `refresh_interval_ns` inherits the same shape, so both behave as
+though independence holds. Measuring the refresh interval across all four gains
+at one integration time and power-saving mode would settle it in an afternoon
+with hardware, and cannot be settled without.
+
+This does not change the repository's evidence posture. Physical evidence
+remains none, and an assumption declared honestly is not evidence — it is a
+named place where evidence is missing, which is strictly better than the same
+gap left implicit in a function signature.

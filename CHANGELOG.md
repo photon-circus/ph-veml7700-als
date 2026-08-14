@@ -396,6 +396,22 @@ than a change from a prior version.
   remain packaged deliberately: the gate tests the unpacked archive, and
   excluding them would make that step verify less.
 
+- The hardware contract distinguishes a fourth verification state:
+  **Assumption**. A row the sources do not settle is either unread — where more
+  reading may close it — or unresolvable by reading at all, where the driver
+  must still behave one way and rests on an assumption about silicon. Marking
+  both the same way implied a search that would eventually succeed.
+- Recorded refresh-time independence from ALS gain as the first such assumption.
+  The sources publish the relation at gain ×2 only; `nominal_refresh_time_ms`
+  takes no gain argument and the model inherits the same shape, so both behave
+  as though it holds. The row states what would settle it — measuring the
+  refresh interval across all four gains at one integration time and cadence, on
+  silicon — because an assumption without a stated test is indistinguishable
+  from a guess.
+- Recorded D-029: assumptions about silicon are declared with their code site
+  and their settling observation, so a future hardware-in-the-loop effort has
+  somewhere to start.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

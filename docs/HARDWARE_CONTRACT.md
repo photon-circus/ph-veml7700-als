@@ -18,10 +18,18 @@ A row is in one of three states, and they must not be conflated:
 | `[x]` | Reviewed against the pinned sources and confirmed. |
 | `[ ]` | **Provisional — not yet reviewed.** No claim either way. |
 | `[ ]` with an explicit note | Reviewed, and the sources do not state the fact. The absence is the finding. |
+| `[ ]` marked **Assumption** | Reviewed, unstated, **and unresolvable by further reading.** The driver relies on it, so it is declared rather than left implicit. Closing it needs physical evidence. |
 
 Only the third form records a confirmed omission, and it says so in the row. An
 unchecked row with no note means nobody has looked yet; it is not evidence that
 the sources are silent.
+
+The fourth exists because "not in the sources" and "not knowable from the
+sources" are different problems. A missing statement might be found on another
+page. An assumption about how silicon behaves cannot be — no amount of reading
+resolves it, and the honest response is to name it, name what it would take to
+settle, and let the driver's behavior depend on it visibly. These rows are the
+ones a hardware-in-the-loop effort should start from.
 
 Counts of "verified" rows in the changelog and elsewhere refer to the bullet
 rows in §2 onward. The two §1 source-baseline entries are tracked in that
@@ -207,18 +215,25 @@ statement, so the inference is recorded here rather than left implicit in code.
       (0 disable, 1 enable).
 - [x] The sixteen refresh times above match the vendor's refresh time / I_DD /
       resolution relation, at gain ×2.
-- [ ] Refresh time is independent of ALS gain. **Looked for and not found.**
-      The pinned sources publish the refresh relation at gain ×2 only and state
-      no gain dependence either way — neither that it exists nor that it does
-      not. The relation itself has no gain term (`integration + 500, 1000, 2000
-      or 4000 ms`), and independence is the common understanding in third-party
-      libraries and application discussion, but neither is a source statement and
-      this row does not accept one as a substitute.
+- [ ] **Assumption: refresh time is independent of ALS gain.**
+      *Requires physical validation. Further reading cannot close this row.*
 
-      The consequence is bounded and already visible: `nominal_refresh_time_ms`
-      takes an integration time and no gain, so the driver behaves as though the
-      independence holds. If a later revision states otherwise, that signature is
-      what changes.
+      The pinned sources publish the refresh relation at gain ×2 only and state
+      no gain dependence either way. The relation carries no gain term
+      (`integration + 500, 1000, 2000 or 4000 ms`), and independence is the
+      common understanding in third-party libraries, but neither is a source
+      statement and this row does not accept one as a substitute.
+
+      **This driver assumes it.** `nominal_refresh_time_ms` takes an integration
+      time and no gain, so every cadence figure it returns is gain-independent by
+      construction. The independent model inherits the same assumption through
+      `refresh_interval_ns`.
+
+      **What would settle it:** measuring refresh interval at a fixed integration
+      time and power-saving mode across all four gains, on silicon. If the
+      intervals match, the assumption holds; if any differs, both the driver
+      signature and the model change. Nothing in the documents can substitute for
+      that observation, which is why this is declared rather than left open.
 
 ## 7. Wake-up, integration, and freshness
 
