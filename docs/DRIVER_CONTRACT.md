@@ -15,8 +15,9 @@ document records what the surface *means*, which neither of those can express.
 
 Consumer-facing documentation lives in
 [`crates/veml7700/README.md`](../crates/veml7700/README.md), which is also the
-crate documentation. Distribution state is recorded there and in the manifest,
-not repeated here.
+crate documentation. Distribution state — version, publication status — is
+recorded there and in the manifest, and deliberately **not** repeated here, so a
+version bump never has to touch this file.
 
 ## Product boundary
 

@@ -50,8 +50,9 @@ The compiler cannot catch any of these.
   resolved value back through `cargo pkgid` — not by parsing manifest text,
   which would now find nothing — and requires an `-incubating.N` prerelease
   without storing the literal itself. The root README, packaged crate README,
-  AGENTS, DRIVER_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies still rot
-  silently. Grep for the literal before and after any bump.
+  AGENTS, DECISIONS, CHANGELOG, RELEASING and the bug-report form still rot
+  silently. Grep for the literal before and after any bump — and trust the grep
+  over this list, which is itself a copy that can rot.
 
   `lib.rs` is **not** on that list any more: it includes the packaged README
   with `#![doc = include_str!]`, so it holds no literal of its own. Do not add
