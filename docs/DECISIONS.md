@@ -94,12 +94,23 @@ for a green release gate. Only the PowerShell launcher is retained beside the
 script, because locating Git Bash on Windows is real work and a POSIX
 passthrough wrapper is not.
 
-Hosted CI exists before the repository is public, deliberately. Preparing a
-repository to be public is not gated on it already being public, and the
-workflow is cheap to run and easy to correct while nobody is watching. Until the
-visibility change, a hosted failure is noted and investigated but does not
-override the local gate; the local run stays authoritative. Generated pack
-inventories remain rejected.
+The hosted workflow exists before the repository is public, deliberately.
+Preparing a repository to be public is not gated on it already being public, and
+a reviewed workflow is worth having ready even before it can run.
+
+It does not run automatically. Private-repository runs bill against the
+organization's Actions allowance, which is exhausted, so an automatic trigger
+would only mark every pull request red without saying anything about the code.
+The workflow is therefore `workflow_dispatch` only, which is one of the three
+shapes §14.2 permits for a private repository. Actions on standard runners is
+free for public repositories, so this is a cost decision tied to visibility, not
+a judgement about hosted CI's value; the `pull_request` and `push` triggers are
+restored as part of the visibility change. The deviation is recorded in
+`README.md` under §19.
+
+Until then a hosted failure, if one is ever dispatched, is noted and
+investigated but does not override the local gate; the full local run is the
+only authority. Generated pack inventories remain rejected.
 
 The gate also tests the unpacked
 distributable package, so packaging-only failures such as a stripped path

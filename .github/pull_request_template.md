@@ -31,8 +31,8 @@ name the source that establishes the new behavior.
 
 ## Local gate
 
-The hosted workflow runs the `bounded` profile and reports its skipped checks.
-It is not the release gate. Paste the final line of a full local run:
+Hosted CI does not run automatically — see the deviation recorded in the README.
+A full local run is the only evidence a reviewer has, so paste its final line:
 
 ```text
 [ci] PASS (full): N steps, 0 skipped.

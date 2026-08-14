@@ -55,10 +55,47 @@ Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
 script. A green gate establishes agreement with the implemented host contracts
 only; it does not establish physical-device or calibrated-optical behavior.
 
-GitHub Actions runs the same script with `CI_PROFILE=bounded`, which skips the
-dependency policy, four of the five bare-metal targets, and packaging, and
-prints each skip. That workflow is contributor feedback, not the release gate:
-the full local run remains authoritative.
+A GitHub Actions workflow runs the same script with `CI_PROFILE=bounded`, which
+skips the dependency policy, four of the five bare-metal targets, and packaging,
+and prints each skip. It is contributor feedback, not the release gate. It is
+currently dispatch-only; see the deviation below.
+
+## Standards deviations
+
+Recorded under Photon Circus Repository Standards §19.
+
+### Hosted CI does not run automatically
+
+- **What differs:** organization standards §14.3 expects released public
+  software to provide bounded GitHub Actions CI. The workflow exists and is
+  reviewed, but `.github/workflows/ci.yml` is `workflow_dispatch` only; its
+  `pull_request` and `push` triggers are commented out.
+- **Why:** runs in a private repository bill against the organization's Actions
+  allowance, which is exhausted. An automatic trigger produces a run that fails
+  before it starts, marking every pull request red without saying anything about
+  the code. Standards §14.2 names this case directly, allowing a private
+  repository's hosted workflow to be "minimal, manually dispatched, or disabled"
+  when it would consume shared capacity without proportional value.
+- **Risk:** contributors get no automated feedback, and the workflow itself is
+  unverified — GitHub has parsed it and built its job graph, but no job has ever
+  executed. Expect the first real run to need a fixup. Reviewers must rely on a
+  full local gate result pasted into the pull request.
+- **Temporary or intrinsic:** temporary. Actions on standard runners is free for
+  public repositories, so the constraint disappears at the visibility change.
+  Restoring the two triggers is part of that change.
+- **Approved by:** the repository owner, as a deliberate cost decision.
+
+### Default-branch protection is not enabled
+
+- **What differs:** §15.2 expects protection for Incubating repositories once
+  reliable CI exists.
+- **Why:** GitHub rejects branch protection for private repositories on the
+  current plan.
+- **Risk:** `main` accepts force pushes and deletion until the visibility change.
+- **Temporary or intrinsic:** temporary; applied at the visibility change.
+- **Note:** §15.2 requires an aggregate hosted check only "when an affordable
+  hosted workflow exists", so the protection profile applies without it in the
+  meantime.
 
 ## Publication status
 

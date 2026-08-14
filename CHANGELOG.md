@@ -40,7 +40,9 @@ than a change from a prior version.
   script, so there is no second implementation of the gate. It cancels
   superseded pull-request runs, pins its one third-party action to a commit
   SHA, uses read-only permissions, and exposes a stable aggregate `ci` result
-  for branch protection.
+  for branch protection. It is dispatch-only until the repository is public,
+  because private-repository runs bill against an exhausted Actions allowance
+  while public-repository runs are free.
 - Contributor bug-report form and pull-request template, both of which require
   an explicit evidence source so mock, model, and simulated results cannot
   quietly become hardware claims.
@@ -55,10 +57,11 @@ than a change from a prior version.
   exploratory. Its tests drive the fake directly and never construct the driver,
   so they establish nothing about driver behavior. See issue #9.
 - The crate has no doctests and no compiled usage example. See issue #10.
-- Default-branch protection is not enabled. GitHub rejects it for private
-  repositories on the current plan, so it is applied at the visibility change
-  rather than before it. Hosted CI and contributor templates are in place
-  already. See issue #11.
+- The hosted workflow has never executed a job, so it is unverified. GitHub
+  parses it and builds its job graph, but the Actions allowance is exhausted.
+  Both this and the absence of default-branch protection, which GitHub rejects
+  for private repositories on the current plan, are recorded as deviations in
+  the README and resolve at the visibility change. See issue #11.
 - The model crate's version convention is undecided relative to the driver's
   lifecycle-matching prerelease. See issue #12.
 - Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
