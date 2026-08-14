@@ -236,3 +236,29 @@ Result and snapshot types with public fields, such as `FreshMeasurement` and
 `ConfigurationSnapshot`, are deliberately left alone here. Whether a caller
 should be able to build one is a separate question from error growth, and
 answering it under this decision would be scope creep.
+
+## D-025 — No CODEOWNERS while there is one maintainer
+
+**Date:** 2026-08-14 **Status:** Current
+
+The organization standard requires `CODEOWNERS` only where there are multiple
+maintainers or separated sensitive ownership, and asks a solo-maintained
+repository to record whether it adds value. It does not, yet.
+
+`CODEOWNERS` expresses that a particular person must review a particular path.
+With one maintainer every path resolves to the same person, who is also the
+author of nearly every change. The file would not add a second reviewer; it
+would auto-request review from the author, and advertise a separation of
+ownership that does not exist. Both are worse than saying plainly that this is a
+single-maintainer project.
+
+The boundaries a `CODEOWNERS` file would have protected — the source contracts,
+the release manifests and workflow, and the security policy — are protected
+instead by mechanisms that work with one maintainer: the canonical gate, the
+required aggregate `ci` check once `main` is protected, and the rule that a
+contract change is reviewed as a behavior change.
+
+Add `CODEOWNERS` when a second maintainer joins, covering at minimum
+`docs/HARDWARE_CONTRACT.md`, `docs/vendor/`, `scripts/ci.sh`,
+`.github/workflows/`, the crate manifests, and `SECURITY.md`. That is the point
+at which it starts routing review rather than describing a single person.
