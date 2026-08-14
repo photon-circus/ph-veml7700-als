@@ -111,7 +111,7 @@ Consequences:
 | `0x00` | configuration | R/W | strict typed codec | `0x0001` |
 | `0x01` | high threshold | R/W | raw ALS counts | not declared by sources |
 | `0x02` | low threshold | R/W | raw ALS counts | not declared by sources |
-| `0x03` | power saving | R/W | strict typed codec | `0x0000` |
+| `0x03` | power saving | R/W | strict typed codec | not declared by sources; **assumed** `0x0000` (below) |
 | `0x04` | ALS output | R | snapshot/fresh result | not declared by sources |
 | `0x05` | white output | R | raw spectral companion channel | not declared by sources |
 | `0x06` | threshold status | R | bit 15 low, bit 14 high | not declared by sources |
