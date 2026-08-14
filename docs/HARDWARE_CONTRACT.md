@@ -207,7 +207,18 @@ statement, so the inference is recorded here rather than left implicit in code.
       (0 disable, 1 enable).
 - [x] The sixteen refresh times above match the vendor's refresh time / I_DD /
       resolution relation, at gain ×2.
-- [ ] Refresh time is independent of ALS gain.
+- [ ] Refresh time is independent of ALS gain. **Looked for and not found.**
+      The pinned sources publish the refresh relation at gain ×2 only and state
+      no gain dependence either way — neither that it exists nor that it does
+      not. The relation itself has no gain term (`integration + 500, 1000, 2000
+      or 4000 ms`), and independence is the common understanding in third-party
+      libraries and application discussion, but neither is a source statement and
+      this row does not accept one as a substitute.
+
+      The consequence is bounded and already visible: `nominal_refresh_time_ms`
+      takes an integration time and no gain, so the driver behaves as though the
+      independence holds. If a later revision states otherwise, that signature is
+      what changes.
 
 ## 7. Wake-up, integration, and freshness
 
