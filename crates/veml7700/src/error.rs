@@ -122,6 +122,12 @@ pub enum MeasureStage {
     ObserveConfiguration,
     /// Observe original power-saving state.
     ObservePowerSaving,
+    /// Enter shutdown in the original domain before reconfiguring.
+    ///
+    /// Only reached when the operation started from an active device. The
+    /// sources require shutdown before any reconfiguration, so this write
+    /// changes nothing but the shutdown bit.
+    EnterShutdown,
     /// Disable autonomous power-saving cadence.
     DisablePowerSaving,
     /// Install the requested gain/integration fields while shut down.

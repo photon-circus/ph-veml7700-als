@@ -145,6 +145,21 @@ where
     /// Change gain and integration time while preserving unrelated fields.
     ///
     /// An enabled threshold monitor prevents retargeting its measurement domain.
+    ///
+    /// # Sequence
+    ///
+    /// The sources require shutdown before any reconfiguration, so an active
+    /// device is shut down first, reconfigured while shut down, and returned to
+    /// active last — three writes rather than one. A device that is already shut
+    /// down takes the single-write path and stays shut down.
+    ///
+    /// # State after a failure
+    ///
+    /// Because shutdown comes first, a failure part way through can leave an
+    /// originally active device shut down, with the measurement domain either
+    /// old or new. Read the configuration back to establish which. This is the
+    /// cost of following the required sequence: the alternative is a write the
+    /// sources do not sanction.
     pub async fn set_measurement_config(
         &mut self,
         measurement: MeasurementConfig,
@@ -157,8 +172,29 @@ where
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
         }
-        self.write_configuration_for(current.with_measurement(measurement), Operation::Configure)
-            .await
+        if current.power_state == PowerState::Shutdown {
+            return self
+                .write_configuration_for(current.with_measurement(measurement), Operation::Configure)
+                .await;
+        }
+
+        // Shutdown carries the old domain: the shutdown bit must land before the
+        // new gain and integration time, not with them.
+        self.write_configuration_for(
+            current.with_power_state(PowerState::Shutdown),
+            Operation::Configure,
+        )
+        .await?;
+        let reconfigured = current
+            .with_measurement(measurement)
+            .with_power_state(PowerState::Shutdown);
+        self.write_configuration_for(reconfigured, Operation::Configure)
+            .await?;
+        self.write_configuration_for(
+            reconfigured.with_power_state(PowerState::Active),
+            Operation::Configure,
+        )
+        .await
     }
 
     /// Change active/shutdown state while preserving unrelated fields.
@@ -183,6 +219,19 @@ where
     /// Change power-saving cadence while preserving the configuration register.
     ///
     /// An enabled threshold monitor prevents changing its qualification cadence.
+    ///
+    /// # Sequence
+    ///
+    /// Power saving is part of the measurement domain, so the same requirement
+    /// applies: an active device is shut down first, the cadence is written while
+    /// shut down, and the device is returned to active last. A device that is
+    /// already shut down takes the single-write path.
+    ///
+    /// # State after a failure
+    ///
+    /// A failure part way through can leave an originally active device shut
+    /// down, with the cadence either old or new. Read both registers back to
+    /// establish which.
     pub async fn set_power_saving(
         &mut self,
         power_saving: PowerSavingConfig,
@@ -196,7 +245,20 @@ where
                 ConfigurationError::ThresholdMonitorOwnsDomain,
             ));
         }
+        if configuration.power_state == PowerState::Shutdown {
+            return self
+                .write_power_saving_for(power_saving, Operation::Configure)
+                .await;
+        }
+
+        self.write_configuration_for(
+            configuration.with_power_state(PowerState::Shutdown),
+            Operation::Configure,
+        )
+        .await?;
         self.write_power_saving_for(power_saving, Operation::Configure)
+            .await?;
+        self.write_configuration_for(configuration, Operation::Configure)
             .await
     }
 
@@ -265,6 +327,27 @@ where
                 stage: MeasureStage::ObservePowerSaving,
                 source,
             })?;
+
+        // Shutdown before any reconfiguration, carrying the original domain
+        // unchanged. Every later write then happens on a shut-down device, which
+        // also makes the recovery path safe: it can never write while active.
+        if original_configuration.power_state == PowerState::Active
+            && let Err(source) = self
+                .write_configuration_for(
+                    original_configuration.with_power_state(PowerState::Shutdown),
+                    Operation::MeasureOnce,
+                )
+                .await
+        {
+            return Err(self
+                .recover_pre_capture(
+                    MeasureStage::EnterShutdown,
+                    source,
+                    original_configuration,
+                    original_power_saving,
+                )
+                .await);
+        }
 
         if let Err(source) = self
             .write_power_saving_for(
@@ -385,6 +468,24 @@ where
     ///
     /// Configuration is applied disable-first and enable-last. Threshold status
     /// is polled through register `0x06`; there is no GPIO to own.
+    ///
+    /// # Sequence
+    ///
+    /// Accepts an active or shut-down starting state. The first write disables
+    /// the monitor and enters shutdown while carrying the existing measurement
+    /// domain; thresholds, cadence, and the new domain are written to a
+    /// shut-down device; the final write installs the monitored domain and
+    /// returns to active. The sources require shutdown before any
+    /// reconfiguration, so no field other than the shutdown and monitor bits
+    /// changes while the device is active.
+    ///
+    /// # State after a failure
+    ///
+    /// [`ThresholdMonitorError::stage`] names the write that failed. Every stage
+    /// after the first leaves the device shut down with the monitor disabled, so
+    /// it is not measuring against a half-programmed domain. Which thresholds
+    /// and cadence are installed depends on how far the sequence reached; read
+    /// them back rather than assuming, and re-arm to establish a known domain.
     pub async fn arm_threshold_monitor(
         &mut self,
         monitor: ThresholdMonitorConfig,
@@ -397,7 +498,13 @@ where
                 source,
             })?;
 
-        let disabled = current.with_monitor(ThresholdMonitorState::Disabled);
+        // Disable the monitor and enter shutdown in one step, both carrying the
+        // existing measurement domain. Thresholds, cadence and the new domain
+        // are then all written to a shut-down device, and the monitored domain
+        // is enabled last.
+        let disabled = current
+            .with_monitor(ThresholdMonitorState::Disabled)
+            .with_power_state(PowerState::Shutdown);
         self.write_configuration_for(disabled, Operation::ThresholdMonitor)
             .await
             .map_err(|source| ThresholdMonitorError {
