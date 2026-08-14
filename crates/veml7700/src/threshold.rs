@@ -105,6 +105,21 @@ impl ThresholdMonitorConfig {
     }
 }
 
+impl core::fmt::Display for ThresholdStatusDecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ReservedBits { observed } => {
+                write!(
+                    f,
+                    "reserved threshold-status bits were set: {observed:#06x}"
+                )
+            }
+        }
+    }
+}
+
+impl core::error::Error for ThresholdStatusDecodeError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
