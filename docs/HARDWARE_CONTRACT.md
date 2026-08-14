@@ -256,7 +256,16 @@ coherence policy, not a vendor-stated atomic pair primitive.
 
 - [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
       source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
-- [ ] The ±30 % integration-time tolerance.
+- [ ] The ±30 % integration-time tolerance. **Provisional, and closable by
+      reading** — unlike the gain assumption above, a tolerance figure is an
+      ordinary datasheet parameter, so this row is waiting on a passage rather
+      than on hardware. It is not in Absolute Maximum Ratings or Basic
+      Characteristics; the application note's timing section is the likely place.
+
+      Note that §7's prose already says *assumed* ±30 %, which is the hedge this
+      row exists to remove. Two outcomes: a source states it and the word goes,
+      or none does and `INTEGRATION_TOLERANCE_PERCENT` is a driver policy value
+      that must say so — the same treatment `MEASUREMENT_MARGIN_US` received.
 - [x] Data registers retain the last result while shut down. The source calls
       this *Auto-Memorization*: the part memorizes the last ambient data before
       shutdown, the host may read it directly while shut down, and on wake the
