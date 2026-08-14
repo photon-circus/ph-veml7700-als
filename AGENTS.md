@@ -50,14 +50,22 @@ The compiler cannot catch any of these.
   line and drift between the crates is unrepresentable. The gate reads the
   resolved value back through `cargo pkgid` — not by parsing manifest text,
   which would now find nothing — and requires an `-incubating.N` prerelease
-  without storing the literal itself. The README, packaged crate README,
-  `lib.rs`, AGENTS, API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies
-  still rot silently. Grep for the literal before and after any bump.
-- **The status disclosure lives in three places** that must agree word for word:
-  root `README.md`, the packaged `crates/veml7700/README.md`, and the `lib.rs`
-  crate documentation. The packaged two are the ones a consumer sees. The gate
-  compares all three after normalizing `>` and `//!` prefixes and line wrapping,
-  so only the wording is free. Keep the disclosure to the four profile facts.
+  without storing the literal itself. The root README, packaged crate README,
+  AGENTS, API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies still rot
+  silently. Grep for the literal before and after any bump.
+
+  `lib.rs` is **not** on that list any more: it includes the packaged README
+  with `#![doc = include_str!]`, so it holds no literal of its own. Do not add
+  one back.
+- **The status disclosure lives in two places** that must agree word for word:
+  root `README.md` and the packaged `crates/veml7700/README.md`. The packaged one
+  is what a consumer sees, and it is also the crate documentation, so docs.rs
+  shows the same text rather than a third copy. The gate compares the two after
+  normalizing `>` prefixes and line wrapping, so only the wording is free. Keep
+  the disclosure to the four profile facts.
+
+  The crate documentation is not a copy to maintain. `lib.rs` includes the
+  packaged README verbatim; editing the README edits both.
 - **Vendor provenance lives in two places:** `docs/vendor/README.md` holds the
   retrieval record and `crates/veml7700-model/README.md` repeats the digests as
   part of the model's source declaration. They are coupled but not gate-checked;

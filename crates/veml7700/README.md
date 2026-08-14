@@ -187,7 +187,10 @@ resolves today.
 
 ### Supported targets
 
-Compiled by the canonical gate on every change:
+The full local gate compiles all five on every change. Hosted CI runs the
+`bounded` profile, which compiles `thumbv7em-none-eabihf` only and reports the
+other four as explicit skips — so the automated evidence a pull request carries
+is one triple, not five.
 
 ```text
 thumbv6m-none-eabi          thumbv8m.main-none-eabihf   riscv32imac-unknown-none-elf
