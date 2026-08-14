@@ -116,8 +116,12 @@ than a change from a prior version.
   to about 1 klx, and correction is called for with gain ×1/4 and ×1/8 and above
   1 000 lx. The driver still does not apply the polynomial — that remains D-007 —
   but the contract now states the consequence for `nominal_illuminance` instead
-  of leaving it implied, and records the coefficients so a consumer can apply
-  them in the application layer.
+  of leaving it implied, and records the coefficients as a device fact rather
+  than as work owed by this crate. Evaluating the quartic on target would mean
+  floating point, which neither crate uses and several supported triples have no
+  FPU for; the contract names `ph-curves` as the intended home, since it fits
+  curves host-side and emits integer tables, and notes that `ph-temt6000-als`
+  already pairs an illuminance layer with it.
 - Recorded the source's starting-configuration guidance: begin at the lowest
   gain for unknown brightness, and use an integration time below 100 ms to cover
   the brightest conditions. This is the source basis a first-use preset needs.

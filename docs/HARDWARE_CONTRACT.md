@@ -239,8 +239,23 @@ The consequence must be stated plainly rather than left implied. The driver's
 own low-gain presets sit inside the range where the source says correction is
 needed, so `nominal_illuminance` above roughly 1 000 lx is an uncorrected value
 the vendor does not consider a lux estimate. It is honest as *nominal* output and
-is never calibrated system lux; a consumer wanting corrected lux applies the
-polynomial above, with its stated caveats, in the application layer.
+is never calibrated system lux.
+
+The coefficients are recorded here as a device fact, not as work owed by this
+crate. Evaluating a quartic on the target would also mean floating point, which
+this driver does not use anywhere: both crates are integer-only, and several
+supported triples have no FPU.
+
+The intended home is [`ph-curves`](https://github.com/photon-circus/ph-curves),
+whose transfer functions fit a curve **host-side** and emit integer or
+fixed-point tables, so firmware evaluates without floating point. It is
+explicitly not a driver crate and does not touch buses or device lifecycle, so
+the boundary matches D-007 from the other side. `ph-temt6000-als` already pairs
+an illuminance integration layer with it; a corrected-lux layer for this part
+would follow that shape rather than move correction into the driver.
+
+Nothing above commits this repository to building that layer. It records where
+the work belongs if it is done.
 
 - [x] The complete twenty-four-entry resolution table, every gain and every
       integration time.
