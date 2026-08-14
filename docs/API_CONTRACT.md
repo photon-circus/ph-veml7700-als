@@ -135,5 +135,21 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   build one and a reversed pair cannot reach the device. The driver therefore
   never writes threshold state that `read_thresholds` would reject on read-back.
 - monitor configuration is disable-first, enable-last.
+- **every mutating operation shuts the device down before reconfiguring it.**
+  The sources require `ALS_SD = 1` before any reconfiguration, so an operation
+  that starts from an active device writes the shutdown bit first, carrying the
+  existing domain unchanged; changes measurement, persistence, monitor and
+  power-saving fields only while shut down; and returns to active last. This
+  applies to `set_measurement_config`, `set_power_saving`,
+  `measure_once_with_timing` and `arm_threshold_monitor`. `set_power_state`
+  changes only the shutdown bit and is not a reconfiguration.
+- an operation that starts from a shut-down device performs no extra shutdown
+  write and leaves the device shut down. Only the starting state determines this;
+  no operation silently wakes a device the caller left asleep.
+- because shutdown comes first, a failure part way through a mutating operation
+  can leave an originally active device shut down. Which fields were installed
+  depends on how far the sequence reached, so read the relevant registers back
+  rather than assuming. This is the cost of following the required sequence; the
+  alternative is a write the sources do not sanction.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
 - `MicroLux` values are nominal, not calibrated.

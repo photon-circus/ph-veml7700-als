@@ -174,7 +174,10 @@ where
         }
         if current.power_state == PowerState::Shutdown {
             return self
-                .write_configuration_for(current.with_measurement(measurement), Operation::Configure)
+                .write_configuration_for(
+                    current.with_measurement(measurement),
+                    Operation::Configure,
+                )
                 .await;
         }
 
@@ -1070,6 +1073,116 @@ mod tests {
             ))
         );
         cadence.release().done();
+    }
+
+    // The sources require `ALS_SD = 1` before any reconfiguration. Each test
+    // below starts from an active device, which is the case every other test in
+    // this module misses: from shutdown the sequencing writes collapse into
+    // no-ops, so a shutdown-only suite passes whether or not the rule is
+    // followed. The exact word order is the assertion — a shutdown write that
+    // also carried the new domain would satisfy a transaction count but violate
+    // the contract.
+
+    #[test]
+    fn reconfiguration_from_active_shuts_down_before_changing_the_domain() {
+        // 0x0000 active, gain ×1, 100 ms. Target Div8/800 ms is 0x10C0 active.
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0000),
+            // Shutdown carries the *old* domain: bit 0 only.
+            write_word(0x00, 0x0001, Ok(())),
+            // The new domain lands while shut down.
+            write_word(0x00, 0x10C1, Ok(())),
+            // Active last.
+            write_word(0x00, 0x10C0, Ok(())),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.set_measurement_config(MeasurementConfig::new(
+            crate::Gain::Div8,
+            crate::IntegrationTime::Ms800,
+        )))
+        .unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn reconfiguration_from_shutdown_stays_a_single_write() {
+        let bus = ScriptedI2c::new([read_word(0x00, 0x0001), write_word(0x00, 0x10C1, Ok(()))]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.set_measurement_config(MeasurementConfig::new(
+            crate::Gain::Div8,
+            crate::IntegrationTime::Ms800,
+        )))
+        .unwrap();
+        // An already shut-down device needs no shutdown write and must not be
+        // woken as a side effect of reconfiguring it.
+        sensor.release().done();
+    }
+
+    #[test]
+    fn cadence_change_from_active_shuts_down_before_writing_power_saving() {
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0000),
+            read_word(0x03, 0x0000),
+            write_word(0x00, 0x0001, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            write_word(0x00, 0x0000, Ok(())),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.set_power_saving(PowerSavingConfig::new(true, PowerSavingMode::Mode2)))
+            .unwrap();
+        sensor.release().done();
+    }
+
+    #[test]
+    fn fresh_capture_from_active_enters_shutdown_before_touching_the_domain() {
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0000),
+            read_word(0x03, 0x0000),
+            // Shutdown in the original domain, before power saving or gain move.
+            write_word(0x00, 0x0001, Ok(())),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            // Restoration returns the device to the active state it started in.
+            write_word(0x00, 0x0000, Ok(())),
+        ]);
+        let mut delay = RecordingDelay { elapsed_ns: 0 };
+        let mut sensor = Veml7700::new(bus);
+        let sample =
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
+                .unwrap();
+        assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
+        assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
+        sensor.release().done();
+    }
+
+    #[test]
+    fn arming_from_active_disables_the_monitor_and_shuts_down_together() {
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let monitor = ThresholdMonitorConfig::new(
+            MeasurementConfig::safe_bright_start(),
+            thresholds,
+            Persistence::Four,
+            PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+        );
+        let bus = ScriptedI2c::new([
+            read_word(0x00, 0x0000),
+            // Monitor-disable and shutdown in one write, still the old domain.
+            write_word(0x00, 0x0001, Ok(())),
+            write_word(0x02, 100, Ok(())),
+            write_word(0x01, 1_000, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            // The monitored domain is installed and activated last.
+            write_word(0x00, 0x1022, Ok(())),
+        ]);
+        let mut sensor = Veml7700::new(bus);
+        block_on(sensor.arm_threshold_monitor(monitor)).unwrap();
+        sensor.release().done();
     }
 
     #[test]

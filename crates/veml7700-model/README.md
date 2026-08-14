@@ -94,6 +94,25 @@ recorded document establishes nothing about silicon.
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
 | Unsupported | Enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
+### Active reconfiguration is unsupported because the sources say so
+
+The rejection of changed or repeated active configuration, and of active
+power-saving changes, is source-backed rather than a modelling convenience. The
+vendor's software flow sets `ALS_SD = 1` before any reconfiguration, changes
+fields while shut down, and clears `ALS_SD` afterwards; `docs/HARDWARE_CONTRACT.md`
+§5 records this as a verified row.
+
+Only two writes are accepted while active, because both are transitions rather
+than reconfigurations: setting the shutdown bit with every other field
+unchanged, and disabling an enabled monitor with every other field unchanged.
+
+This was the one place the driver and the model disagreed. It was resolved
+against the driver: the driver now shuts down before reconfiguring, so the model
+was not relaxed to admit the sequence it had been rejecting. Two
+driver-versus-model traces in `crates/veml7700/tests/device_model.rs` start from
+an active device and would fail against the previous driver with
+`Unsupported::MidConversionReconfiguration`.
+
 ## Source decisions
 
 - Completion boundary: after the shutdown-to-active wake edge, latch the held

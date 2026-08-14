@@ -163,6 +163,29 @@ than a change from a prior version.
   offline by design: external URLs are not fetched, because a gate that fails
   when a vendor site is briefly down teaches contributors to ignore it.
 
+- **Breaking:** every mutating operation now shuts the device down before
+  reconfiguring it. The sources require `ALS_SD = 1` before any reconfiguration,
+  so `set_measurement_config`, `set_power_saving`, `measure_once_with_timing`
+  and `arm_threshold_monitor` write the shutdown bit first when they start from
+  an active device, change fields only while shut down, and return to active
+  last. Operations starting from a shut-down device are unchanged and still
+  leave the device shut down. `set_power_state` changes only the shutdown bit
+  and is not a reconfiguration.
+
+  Two observable consequences. Transaction counts increase for active starts:
+  `set_measurement_config` and `set_power_saving` take three writes instead of
+  one. And a failure part way through can leave an originally active device shut
+  down, so a caller must read back rather than assume — the cost of following
+  the required sequence.
+
+  This resolves the driver-versus-model disagreement against the driver. The
+  model's rejection of active reconfiguration was correct and was not relaxed.
+- `MeasureStage::EnterShutdown` names the new pre-reconfiguration write, so a
+  failure at that point is attributable rather than folded into a later stage.
+  Entering shutdown first also makes the recovery path safe: every later stage
+  now runs on a shut-down device, so restoration can no longer attempt a write
+  while active — previously both the operation and its recovery failed together.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

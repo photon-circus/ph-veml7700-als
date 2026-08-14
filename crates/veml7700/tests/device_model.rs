@@ -161,6 +161,60 @@ fn measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_st
     assert_eq!(power_saving.mode, PowerSavingMode::Mode1);
 }
 
+// Every other trace in this file starts from model reset, which is shutdown.
+// These two start active. That initial state is newly inside the claim: the
+// driver now enters shutdown before reconfiguring, so the model accepts a
+// sequence it would previously have rejected as mid-conversion reconfiguration.
+// They are the driver-versus-model evidence for the sequence change, and they
+// would fail against the old driver rather than merely cover more ground.
+
+#[test]
+fn measure_once_from_an_active_start_agrees_with_the_model() {
+    let als = 0x0BEE;
+    let white = 0x0C0F;
+    let (mut sensor, mut delay) = connected_model(als, white);
+    block_on(sensor.set_power_state(PowerState::Active)).expect("activate before measuring");
+
+    let sample = block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
+        .expect("measure_once from an active start");
+
+    assert_eq!(sample.als, AlsCounts::from_counts(als));
+    assert_eq!(sample.white, WhiteCounts::from_counts(white));
+
+    // Restoration returns the device to the state it started in, which was
+    // active — not to the reset default.
+    let configuration = block_on(sensor.read_configuration()).expect("restored configuration");
+    assert_eq!(configuration.power_state, PowerState::Active);
+    assert_eq!(
+        configuration.measurement,
+        MeasurementConfig::silicon_reset_default()
+    );
+}
+
+#[test]
+fn arming_the_monitor_from_an_active_start_agrees_with_the_model() {
+    let (mut sensor, _delay) = connected_model(500, 500);
+    block_on(sensor.set_power_state(PowerState::Active)).expect("activate before arming");
+
+    let thresholds =
+        Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+    block_on(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
+        MeasurementConfig::safe_bright_start(),
+        thresholds,
+        Persistence::Four,
+        PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+    )))
+    .expect("arm from an active start");
+
+    let configuration = block_on(sensor.read_configuration()).expect("armed configuration");
+    assert_eq!(
+        configuration.threshold_monitor,
+        ThresholdMonitorState::Enabled
+    );
+    assert_eq!(configuration.power_state, PowerState::Active);
+    assert_eq!(configuration.persistence, Persistence::Four);
+}
+
 #[test]
 fn public_power_operations_observe_the_documented_mode_2_refresh_boundary() {
     let (mut sensor, model) = connected_model(1, 1);
