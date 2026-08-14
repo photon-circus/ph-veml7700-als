@@ -114,10 +114,12 @@ source establishes.
 
 - `ph-veml7700-als-model` is a **repository-only, unpublished** test artifact. It
   is not part of this package and cannot be depended on.
-- Conformance runs in the repository only. `tests/device_model.rs` and the
-  path-only model dependency are excluded from the published package, so tests
-  run against the unpacked archive establish that the crate builds and passes its
-  own tests standalone — never model conformance.
+- Conformance runs in the repository only, from a separate unpublished workspace
+  package (`ph-veml7700-als-conformance`) that depends on this crate exactly as a
+  downstream consumer would. **This crate does not depend on the model at all**,
+  so `cargo test -p ph-veml7700-als` cannot build it. Tests run against the
+  unpacked archive therefore establish that the crate builds and passes its own
+  tests standalone — never model conformance.
 - Model agreement establishes that two independent derivations of the same
   documents agree. It does not establish that either matches silicon.
 

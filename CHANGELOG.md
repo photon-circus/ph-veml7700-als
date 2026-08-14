@@ -147,6 +147,47 @@ than a change from a prior version.
 
 ### Changed
 
+- Driver-versus-model conformance moved out of the driver package into a third
+  workspace package, `tests/conformance` (`ph-veml7700-als-conformance`,
+  unpublished, `0.0.0`). The dependency arrow is now
+  `conformance → driver + model`, with nothing pointing back.
+
+  The point is that the independence claim became **checkable rather than
+  stated**. Previously the driver dev-depended on the model and excluded one test
+  path from the package; a driver unit test could have reached the model
+  directly, and nothing would have failed. Now `cargo test -p ph-veml7700-als`
+  does not build the model at all, so that mistake is unavailable rather than
+  discouraged.
+
+  The canonical gate runs the three layers as three visibly separate steps
+  instead of one, because a combined invocation hides which layer failed. 15
+  steps became 17.
+
+  The adapters moved to the conformance package's library, where the rule that
+  matters is stated at the top: a model limitation and a source-backed device
+  NACK must never become the same error. Burying that in a test file made it
+  advice; as a documented public boundary it is reviewable.
+- `MeasurementConfig` and `PowerSavingConfig` encodings gained **literal
+  contract vectors** alongside the exhaustive round trips. A round trip proves
+  the encoder and decoder agree with each other, which they would keep doing
+  with every field shifted one bit — the new tests are the only ones that would
+  fail. They deliberately cover the two encodings where bit order and magnitude
+  order disagree (gain `10` is ×1/8 while `11` is ×1/4; integration `1100` is the
+  *shortest* time), because a table sorted the intuitive way encodes both
+  backwards.
+- Split `shutdown_before_the_bound_keeps_the_previous_completed_pair`, whose name
+  claimed more than its body: nothing had completed, so there was no previous
+  pair to keep. It is now
+  `shutdown_before_the_first_bound_completes_no_conversion`, and a new test
+  actually establishes a completed pair before shutting down and asserts it
+  survives — the Auto-Memorization behavior §7 records as verified. A test whose
+  name asserts more than its body is worse than a missing test, because the
+  coverage matrix reads names.
+- The conformance package pins `0.0.0` rather than inheriting the workspace
+  version, and the gate asserts both that and its `publish = false`. D-022 now
+  says "product crates" wherever it said "both crates". Letting the harness
+  inherit would be the natural-looking edit and would quietly enrol a package no
+  consumer can observe into the release lifecycle.
 - The independent model no longer counts persistence streaks. It qualifies
   threshold status at protect number one — where a single refresh needs no
   counting rule — and reports the new

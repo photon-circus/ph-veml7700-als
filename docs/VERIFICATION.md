@@ -22,10 +22,17 @@ either direction.
 
 Two further boundaries that are easy to blur:
 
-- `ph-veml7700-als-model` is repository-only and unpublished.
+- `ph-veml7700-als-model` is repository-only and unpublished, as is
+  `ph-veml7700-als-conformance`.
 - Tests run against the unpacked package establish that the published crate
-  builds and passes its own tests standalone. They exclude `tests/device_model.rs`
-  and the path-only model dependency, so they establish **no** model conformance.
+  builds and passes its own tests standalone. Conformance lives in a separate
+  workspace package that is never published and never enters the archive, so
+  those runs establish **no** model conformance.
+- The separation is now structural rather than a manifest exclusion. The driver
+  package does not depend on the model at all, so `cargo test -p ph-veml7700-als`
+  cannot build it. A driver test therefore cannot reach the model even by
+  accident, which is what makes the independence claim checkable instead of
+  merely stated.
 
 ## Level 1 — Pure value and codec tests
 

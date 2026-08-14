@@ -143,6 +143,15 @@ dependencies = [
  "defmt",
  "embedded-hal-async",
  "futures",
+]
+
+[[package]]
+name = "ph-veml7700-als-conformance"
+version = "0.0.0"
+dependencies = [
+ "embedded-hal-async",
+ "futures",
+ "ph-veml7700-als",
  "ph-veml7700-als-model",
 ]
 

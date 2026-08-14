@@ -57,7 +57,7 @@ registry action — no publish, no tag, no release, no credentials.
 
 ## Changing the candidate version
 
-Both crates inherit `version` from `[workspace.package]` in the root
+Both product crates inherit `version` from `[workspace.package]` in the root
 `Cargo.toml`, so a bump edits **one line**. The gate reads the resolved value
 back through Cargo, so the check survives that inheritance.
 
@@ -112,7 +112,7 @@ Each layer may establish only what it is capable of establishing:
 | Pure/unit | `crates/veml7700/src/*.rs` | codecs, finite domains, validation, units, timing construction | autonomous device behavior |
 | Scripted I²C | `crates/veml7700/src/testing/` | exact address, pointer, byte order, payload, transaction count, injected transport failures | an independent device state machine |
 | Model-only | `crates/veml7700-model/` | independent source interpretation, explicit time and stimuli, unsupported boundaries | agreement with the public driver |
-| Driver-versus-model | `crates/veml7700/tests/device_model.rs` | public driver traces compared through the I²C boundary | operations or initial states it does not exercise |
+| Driver-versus-model | `tests/conformance/` | public driver traces compared through the I²C boundary | operations or initial states it does not exercise |
 | Doctests | `crates/veml7700/src/lib.rs`, READMEs | consumer syntax and compilation | runtime sequencing or hardware behavior |
 | Target builds | gate | that the `no_std` surface compiles on five triples | wiring, timing, or silicon |
 

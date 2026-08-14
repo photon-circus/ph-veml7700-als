@@ -156,7 +156,12 @@ fn shutdown_retains_the_last_pair_and_ignores_later_time_and_samples() {
 }
 
 #[test]
-fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
+fn shutdown_before_the_first_bound_completes_no_conversion() {
+    // Renamed from `shutdown_before_the_bound_keeps_the_previous_completed_pair`,
+    // which is what this body never established: nothing had completed, so there
+    // was no previous pair to keep. The retention claim now has its own test
+    // below. A test whose name asserts more than its body is worse than a
+    // missing test, because a coverage matrix reads the name.
     let mut model = Veml7700Model::new();
     model.set_raw_sample(3, 4);
     wake_100ms(&mut model);
@@ -175,6 +180,29 @@ fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
             Unsupported::NoCompletedConversion(WHITE)
         ))
     );
+}
+
+#[test]
+fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
+    // The source calls this Auto-Memorization: the part memorizes the last
+    // ambient data before shutdown and the host may read it while shut down.
+    // `docs/HARDWARE_CONTRACT.md` §7 records it as verified.
+    let mut model = Veml7700Model::new();
+    model.set_raw_sample(3, 4);
+    wake_100ms(&mut model);
+    model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
+    assert_eq!(read_word(&mut model, ALS), 3);
+    assert_eq!(read_word(&mut model, WHITE), 4);
+
+    // A second sample is injected, then the device is shut down one microsecond
+    // before the next refresh boundary. The new pair never latches, so both
+    // outputs must still read the first.
+    model.set_raw_sample(9, 10);
+    model.advance(RelativeDuration::from_micros(130_000 - 1));
+    freeze_100ms(&mut model);
+    model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
+    assert_eq!(read_word(&mut model, ALS), 3);
+    assert_eq!(read_word(&mut model, WHITE), 4);
 }
 
 #[test]

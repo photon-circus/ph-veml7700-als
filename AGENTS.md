@@ -44,7 +44,7 @@ changelog updates.
 
 The compiler cannot catch any of these.
 
-- **The candidate version is duplicated across tracked prose.** Both crates
+- **The candidate version is duplicated across tracked prose.** Both product crates
   inherit `version` from `[workspace.package]`, so a bump edits one manifest
   line and drift between the crates is unrepresentable. The gate reads the
   resolved value back through `cargo pkgid` — not by parsing manifest text,

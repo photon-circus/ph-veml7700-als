@@ -175,10 +175,18 @@ own; it is a bundle whose only invariant now lives inside `Thresholds`.
 `docs/README.md` was deleted because it restated the AGENTS.md document table
 and went stale; the root README links the contracts directly.
 
-## D-022 — One version across the workspace
+## D-022 — One version across the product crates
 
-Both crates carry the same lifecycle-matching prerelease, currently
-`0.1.0-incubating.1`, and the canonical gate fails if they diverge.
+Both **product** crates — the driver and the model — carry the same
+lifecycle-matching prerelease, currently `0.1.0-incubating.1`, and the canonical
+gate fails if they diverge.
+
+`ph-veml7700-als-conformance` is deliberately outside this. It pins the `0.0.0`
+sentinel and does not inherit the workspace version, because it has no release
+boundary: no consumer can observe it, and a release bump should not touch it.
+Letting it inherit would be the natural-looking edit and would quietly enrol a
+test harness in the product lifecycle, so the gate asserts both the sentinel and
+`publish = false` rather than trusting the manifest to stay that way.
 
 The Peripheral Driver Profile attaches its prerelease rule to the driver
 package, so `ph-veml7700-als-model` could have kept an ordinary `0.1.0`. Aligning
