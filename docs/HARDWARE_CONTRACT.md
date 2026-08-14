@@ -47,7 +47,11 @@ silently normalized.
 ## 2. Electrical and bus boundary
 
 - [x] VDD operating range is 2.5 V to 3.6 V.
-- [x] I²C bus high-level supply may be 1.7 V to 3.6 V.
+- [x] I²C bus high-level supply may be 1.7 V to 3.6 V. **Disputed — see #54.**
+      The I²C interface section states `I²C H-level range = 1.3 V to 3.6 V`,
+      which does not match the 1.7 V recorded here. Retained as checked pending
+      that issue rather than edited in place, because a contract correction is
+      a behavior change and is reviewed as one.
 - [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
       10 kHz to 400 kHz in fast mode. The two modes have different maxima; a
       single 10–400 kHz range would wrongly permit standard mode at 400 kHz.
@@ -71,7 +75,11 @@ Consequences:
 - a big-endian register helper is a review-blocking defect;
 - strict transaction tests inspect exact byte order.
 
-- [ ] Low byte then high byte for every 16-bit register, on reads and writes.
+- [x] Low byte then high byte for every 16-bit register, on reads and writes.
+      Fig. 9 shows both frames explicitly: a write sends command code, then
+      `Data byte (LSB)`, then `Data byte (MSB)`; a read returns them in the
+      same order after the repeated start. This is the row a big-endian helper
+      would violate, and it is now source-backed rather than inferred.
 
 ## 4. Register map
 
@@ -88,8 +96,19 @@ Consequences:
 
 No public raw-register accessor exists in v0.1.
 
-- [ ] Pointer values and access direction for all eight registers.
+- [x] Pointer values and access direction for all eight registers, from the
+      COMMAND REGISTER FORMAT table: `00` ALS_CONF_0 R/W, `01` ALS_WH R/W,
+      `02` ALS_WL R/W, `03` Power saving R/W, `04` ALS R, `05` WHITE R,
+      `06` ALS_INT R, `07` ID R. This is the table §1 names as governing, and
+      it resolves the prose that calls `03h` "not defined": the register format
+      defines it as power saving.
 - [ ] Which registers have a source-declared reset value, and which do not.
+      **Partly resolved, and it exposes an overclaim.** Only `0x00` has a
+      declared default (`0x0001`, from the register-format note), and `0x07`
+      carries a source-declared identity. The §4 table also lists `0x0000` for
+      `0x03` without qualification, but neither the register-format table nor
+      Table 4 states a power-saving default — Table 4 constrains bits 15:3 to
+      zero, which is a validity rule, not a reset value. See #55.
 
 ## 5. Configuration register `0x00`
 
@@ -110,7 +129,14 @@ persistence one, and threshold monitoring disabled.
 Reserved integration encodings and non-zero reserved bits are decode errors, not
 values to preserve as ordinary typed state.
 
-- [ ] Reset/default word `0x0001` and the state it denotes.
+- [x] Reset/default word `0x0001`. The COMMAND REGISTER FORMAT note states it
+      directly: *command code 0 default value is 01 = devices is shut down*.
+      With every other field zero that is gain ×1, 100 ms, persistence 1 and the
+      monitor disabled — which is what this contract records. **Table 1 does not
+      establish this.** It gives bit meanings only and states no power-on
+      value. `0x0001` is consistent with every field zero except `ALS_SD`, but
+      consistency is not a source: the claim is about what the device powers up
+      in, and that needs a passage that says so.
 - [x] Reserved bits 15:13, stated by the source as `000b`.
 - [x] Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that the
       encoding order is not the magnitude order — `10` is ×1/8 and `11` is ×1/4,
@@ -118,9 +144,11 @@ values to preserve as ordinary typed state.
 - [x] Integration-time encodings, bits 9:6: `1100` 25 ms, `1000` 50 ms, `0000`
       100 ms, `0001` 200 ms, `0010` 400 ms, `0011` 800 ms. Like gain, the
       encoding order is not the magnitude order.
-- [ ] Persistence encodings, bits 5:4.
-- [ ] Monitor-enable, bit 1, and shutdown, bit 0.
-- [ ] Reserved bits 10 and 3:2.
+- [x] Persistence encodings, bits 5:4: `00` 1, `01` 2, `10` 4, `11` 8
+      (Table 1, `ALS_PERS`).
+- [x] Monitor-enable, bit 1 (`ALS_INT_EN`: 0 disable, 1 enable), and shutdown,
+      bit 0 (`ALS_SD`: 0 power on, 1 shut down), from Table 1.
+- [x] Reserved bits: 15:13 `000b`, bit 10 `0b`, and 3:2 `00b` (Table 1).
 - [x] **Reconfiguration requires shutdown first.** The source's own software
       flow sets `ALS_SD = 1` (standby) before any reconfiguration, changes gain
       or integration time while shut down, and clears `ALS_SD` afterwards.
@@ -171,8 +199,9 @@ time and no gain. The pattern is exact (refresh = integration + 500, 1000, 2000,
 or 4000 ms for Modes 1 to 4), but exactness is not the same as a source
 statement, so the inference is recorded here rather than left implicit in code.
 
-- [ ] Register `0x03` field layout: bits 15:3 reserved, bits 2:1 mode, bit 0
-      enable.
+- [x] Register `0x03` field layout (Table 4): bits 15:3 reserved, bits 2:1
+      `PSM` selecting `00` mode 1 through `11` mode 4, bit 0 `PSM_EN`
+      (0 disable, 1 enable).
 - [x] The sixteen refresh times above match the vendor's refresh time / I_DD /
       resolution relation, at gain ×2.
 - [ ] Refresh time is independent of ALS gain.
@@ -199,7 +228,11 @@ coherence policy, not a vendor-stated atomic pair primitive.
 - [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
       source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
 - [ ] The ±30 % integration-time tolerance.
-- [ ] Data registers retain the last result while shut down.
+- [x] Data registers retain the last result while shut down. The source calls
+      this *Auto-Memorization*: the part memorizes the last ambient data before
+      shutdown, the host may read it directly while shut down, and on wake the
+      data is refreshed by a new detection. That last clause is also why a
+      plain register read cannot prove freshness.
 
 ## 8. ALS and white channels
 
@@ -286,8 +319,10 @@ the work belongs if it is done.
       worked example: 5581 counts at ×1/4 and 100 ms give 1500 lx uncorrected
       and 1658 lx corrected.
 - [x] ALS output is a 16-bit word.
-- [ ] The white channel is an unsigned 16-bit count. Not stated in the passages
-      reviewed so far.
+- [x] The white channel is a 16-bit count: command code `05` is defined as
+      *MSB 8 bits data of whole WHITE 16 bits* and *LSB 8 bits*, read-only, with
+      all sixteen bits carrying data. No sign bit is defined for it or for ALS,
+      and no passage describes either as signed.
 
 ### Starting configuration and ranging
 
@@ -346,12 +381,21 @@ The official sources do not provide a reliable flag-clearing contract. The v0.1
 API exposes observed status only and does not promise read-to-clear,
 write-to-clear, or latched GPIO behavior.
 
-- [ ] Status register `0x06`: bit 15 low qualification, bit 14 high.
+- [x] Status register `0x06`: bit 15 `int_th_low`, bit 14 `int_th_high`, both
+      read-only, bits 13:0 reserved (Table 7). The driver masks `0x3FFF` and
+      rejects any reserved bit set, which this table makes source-backed rather
+      than defensive.
 - [ ] Persistence requires 1, 2, 4, or 8 consecutive qualifying measurements.
-- [ ] The part has no dedicated interrupt pin.
-- [ ] The sources state no flag-clearing behavior. An unchecked box here is the
-      expected result: this records that the absence was confirmed, not that a
-      contract was found.
+- [x] The part has no dedicated interrupt pin. The source says so in as many
+      words — *Interrupt pin not available for VEML7700* — immediately above the
+      register format table, which is why this contract treats `0x06` as a
+      polled status word and the API owns no GPIO.
+- [x] The sources state no flag-clearing behavior. **The absence is the
+      finding.** Table 7 is the register's own definition — the place a
+      read-to-clear or write-to-clear rule would be stated — and it defines the
+      two flag bits, marks them read-only, reserves the rest, and says nothing
+      about how either is cleared. The v0.1 API therefore promises observation
+      only, which is D-010.
 
 ## 10. Identity and support claim
 
