@@ -269,7 +269,53 @@ fn public_power_operations_observe_the_documented_mode_2_refresh_boundary() {
 }
 
 #[test]
-fn threshold_monitor_public_operations_qualify_after_configured_persistence() {
+fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
+    // This trace previously ran at `Persistence::Four` and asserted the flag on
+    // the fourth consecutive qualifying refresh. It established less than it
+    // appeared to: the driver only *programs* `ALS_PERS` and reads `0x06`, so
+    // the sequence was confirming a register write while reading like
+    // confirmation of when the flag asserts. The counting rule came from the
+    // model alone, and the driver had no rule to disagree with.
+    //
+    // Protect number one needs no rule -- one refresh, no sequence -- so this is
+    // the persistence value at which driver-model agreement means something.
+    // See D-030 and `docs/HARDWARE_CONTRACT.md` §8.
+    let (mut sensor, model) = connected_model(250, 0);
+    let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
+        .expect("ordered thresholds");
+    let monitor = ThresholdMonitorConfig::new(
+        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        thresholds,
+        Persistence::One,
+        PowerSavingConfig::disabled(),
+    );
+    block_on(sensor.arm_threshold_monitor(monitor)).expect("arm against the model");
+
+    let observed = block_on(sensor.read_thresholds()).expect("threshold readback");
+    assert_eq!(observed, thresholds);
+    model.advance(RelativeDuration::from_micros(132_500));
+    let status = block_on(sensor.read_threshold_status()).expect("qualified status");
+    assert!(!status.low);
+    assert!(status.high);
+
+    block_on(sensor.disable_threshold_monitor()).expect("disable monitor");
+    assert_eq!(
+        block_on(sensor.read_configuration())
+            .expect("configuration after disable")
+            .threshold_monitor,
+        ThresholdMonitorState::Disabled
+    );
+}
+
+#[test]
+fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_status() {
+    // The driver's side of D-030: it programs the protect number and promises
+    // nothing about assertion timing. The model's side: it declares the
+    // qualification rule undefined instead of inventing one.
+    //
+    // What this trace establishes is exactly the intersection -- the write path
+    // is unaffected -- and it deliberately establishes nothing about when a flag
+    // asserts, because no source says.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");
@@ -281,28 +327,24 @@ fn threshold_monitor_public_operations_qualify_after_configured_persistence() {
     );
     block_on(sensor.arm_threshold_monitor(monitor)).expect("arm against the model");
 
-    let observed = block_on(sensor.read_thresholds()).expect("threshold readback");
-    assert_eq!(observed, thresholds);
-    model.advance(RelativeDuration::from_micros(132_500));
-    for _ in 0..2 {
-        model.advance(RelativeDuration::from_micros(130_000));
-        assert!(
-            !block_on(sensor.read_threshold_status())
-                .expect("pre-qualification status")
-                .high
-        );
-    }
-    model.advance(RelativeDuration::from_micros(130_000));
-    let status = block_on(sensor.read_threshold_status()).expect("qualified status");
-    assert!(!status.low);
-    assert!(status.high);
-
-    block_on(sensor.disable_threshold_monitor()).expect("disable monitor");
+    // Programming is source-backed (Table 1) and must keep working.
     assert_eq!(
         block_on(sensor.read_configuration())
-            .expect("configuration after disable")
-            .threshold_monitor,
-        ThresholdMonitorState::Disabled
+            .expect("armed configuration")
+            .persistence,
+        Persistence::Four
+    );
+    assert_eq!(
+        block_on(sensor.read_thresholds()).expect("threshold readback"),
+        thresholds
+    );
+
+    // Qualification is not. Sixteen refreshes is twice the largest protect
+    // number, so any streak rule would have asserted long before here.
+    model.advance(RelativeDuration::from_micros(132_500 + 16 * 130_000));
+    assert!(
+        block_on(sensor.read_threshold_status()).is_err(),
+        "the model must not answer with a status it derived from an unstated rule"
     );
 }
 

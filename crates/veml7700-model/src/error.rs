@@ -42,6 +42,23 @@ pub enum Unsupported {
     NoProgrammedThreshold(u8),
     /// Threshold status was read before a monitored ALS refresh established it.
     NoQualifiedStatus(u8),
+    /// Threshold status was read while the selected persistence protect number
+    /// is above one, for which no qualification rule is declared by the sources.
+    ///
+    /// This is not "not yet" — waiting longer never resolves it. Table 1
+    /// establishes `ALS_PERS` and its four values, but no reviewed passage
+    /// states whether the count is over consecutive refreshes, nor whether a
+    /// non-qualifying refresh resets it. This model declares the rule undefined
+    /// rather than inventing one, because an invented rule still produces
+    /// driver-model agreement and that agreement would mean nothing while
+    /// looking exactly like evidence.
+    ///
+    /// A protect number of one is unaffected: a single qualifying refresh has no
+    /// sequence to count, so there is no rule to be missing.
+    UndefinedQualificationRule {
+        /// Complete configuration word selecting the protect number.
+        configuration: u16,
+    },
     /// Configuration word contains behavior outside the declared slice.
     ConfigurationWord(u16),
     /// Power-saving word contains behavior outside the declared slice.
@@ -99,6 +116,10 @@ impl fmt::Display for Unsupported {
             Self::NoQualifiedStatus(pointer) => write!(
                 f,
                 "threshold-status register 0x{pointer:02X} has no qualified status in this model"
+            ),
+            Self::UndefinedQualificationRule { configuration } => write!(
+                f,
+                "configuration 0x{configuration:04X} selects a persistence protect number above one, whose qualification rule this model declares undefined"
             ),
             Self::ConfigurationWord(observed) => write!(
                 f,

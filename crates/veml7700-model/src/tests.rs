@@ -471,47 +471,69 @@ fn injected_channel_skew_preserves_independent_refresh_generations() {
 }
 
 #[test]
-fn every_persistence_setting_qualifies_both_threshold_directions() {
-    for (persistence_field, required) in [(0_u16, 1_u8), (1, 2), (2, 4), (3, 8)] {
-        for (sample, expected_status) in [(99_u16, 0x8000_u16), (201, 0x4000)] {
-            let mut model = Veml7700Model::new();
-            write_word(&mut model, LOW_THRESHOLD, 100);
-            write_word(&mut model, HIGH_THRESHOLD, 200);
-            model.set_raw_sample(sample, 0);
-            let active_monitor = (persistence_field << 4) | 0x0002;
-            write_word(&mut model, CONFIG, active_monitor);
+fn protect_number_one_qualifies_both_threshold_directions() {
+    for (sample, expected_status) in [(99_u16, 0x8000_u16), (201, 0x4000)] {
+        let mut model = Veml7700Model::new();
+        write_word(&mut model, LOW_THRESHOLD, 100);
+        write_word(&mut model, HIGH_THRESHOLD, 200);
+        model.set_raw_sample(sample, 0);
+        // Persistence field 0b00 — protect number one, the only value whose
+        // qualification needs no rule: one refresh, no sequence to count.
+        write_word(&mut model, CONFIG, 0x0002);
 
-            for completed in 1..=required {
-                let elapsed = if completed == 1 {
-                    BOUND_100MS_US
-                } else {
-                    130_000
-                };
-                model.advance(RelativeDuration::from_micros(elapsed));
-                let status = read_word(&mut model, THRESHOLD_STATUS);
-                if completed < required {
-                    assert_eq!(status, 0);
-                } else {
-                    assert_eq!(status, expected_status);
-                    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), status);
-                }
-            }
-        }
+        model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
+        assert_eq!(read_word(&mut model, THRESHOLD_STATUS), expected_status);
+        assert_eq!(read_word(&mut model, THRESHOLD_STATUS), expected_status);
     }
 }
 
 #[test]
-fn disabling_the_monitor_resets_incomplete_qualification_without_clearing_status() {
+fn protect_numbers_above_one_declare_the_qualification_rule_undefined() {
+    // Table 1 establishes these encodings, so the model accepts the *write*.
+    // What no reviewed passage states is the qualification rule, so the model
+    // refuses to produce a status rather than inventing a counting rule that
+    // would agree with a driver that has no rule of its own. See D-030.
+    for persistence_field in [1_u16, 2, 3] {
+        let mut model = Veml7700Model::new();
+        write_word(&mut model, LOW_THRESHOLD, 100);
+        write_word(&mut model, HIGH_THRESHOLD, 200);
+        model.set_raw_sample(250, 0);
+        let active_monitor = (persistence_field << 4) | 0x0002;
+        write_word(&mut model, CONFIG, active_monitor);
+
+        let expected = Err(TransportError::Unsupported(
+            Unsupported::UndefinedQualificationRule {
+                configuration: active_monitor,
+            },
+        ));
+        assert_eq!(read_word_result(&mut model, THRESHOLD_STATUS), expected);
+
+        // Waiting never resolves it. Sixteen qualifying refreshes is twice the
+        // largest protect number, so any streak rule would have asserted by now.
+        model.advance(RelativeDuration::from_micros(BOUND_100MS_US + 16 * 130_000));
+        assert_eq!(read_word_result(&mut model, THRESHOLD_STATUS), expected);
+
+        // The register the driver actually programs is unaffected: this is a
+        // refusal to model qualification, not a rejection of the field.
+        assert_eq!(read_word(&mut model, CONFIG), active_monitor);
+    }
+}
+
+#[test]
+fn disabling_the_monitor_does_not_clear_established_status() {
     let mut model = Veml7700Model::new();
     write_word(&mut model, LOW_THRESHOLD, 100);
     write_word(&mut model, HIGH_THRESHOLD, 200);
     model.set_raw_sample(250, 0);
-    write_word(&mut model, CONFIG, 0x0012);
+    write_word(&mut model, CONFIG, 0x0002);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
-    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), 0);
-    write_word(&mut model, CONFIG, 0x0010);
+    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), 0x4000);
+
+    // Disabling the monitor is a transition the model accepts while active. The
+    // sources declare no clearing contract, so an asserted flag stays asserted.
+    write_word(&mut model, CONFIG, 0x0000);
     model.advance(RelativeDuration::from_micros(1_300_000));
-    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), 0);
+    assert_eq!(read_word(&mut model, THRESHOLD_STATUS), 0x4000);
 }
 
 #[test]

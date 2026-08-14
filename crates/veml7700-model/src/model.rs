@@ -32,8 +32,6 @@ pub struct Veml7700Model {
     als_remaining_ns: Option<u64>,
     white_remaining_ns: Option<u64>,
     white_phase_offset_ns: u64,
-    low_streak: u8,
-    high_streak: u8,
 }
 
 /// Frozen observation of model state. Calling this method does not mutate.
@@ -80,8 +78,6 @@ impl Veml7700Model {
             als_remaining_ns: None,
             white_remaining_ns: None,
             white_phase_offset_ns: 0,
-            low_streak: 0,
-            high_streak: 0,
         }
     }
 
@@ -256,6 +252,17 @@ impl Veml7700Model {
     }
 
     const fn read_status(&self, value: Option<u16>, pointer: u8) -> Result<u16, TransportError> {
+        // Checked before the `None` arm on purpose. Both would report "no status
+        // available", but they mean opposite things to a caller: NoQualifiedStatus
+        // says *not yet*, and waiting resolves it. This says the rule that would
+        // decide it was never written down, so waiting never does.
+        if persistence_count(self.configuration) > 1 {
+            return Err(TransportError::Unsupported(
+                Unsupported::UndefinedQualificationRule {
+                    configuration: self.configuration,
+                },
+            ));
+        }
         match value {
             Some(value) => Ok(value),
             None => Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
@@ -340,8 +347,6 @@ impl Veml7700Model {
             && without_monitor(word) == without_monitor(self.configuration);
         if disabling_monitor {
             self.configuration = word;
-            self.low_streak = 0;
-            self.high_streak = 0;
             return Ok(());
         }
 
@@ -376,10 +381,18 @@ impl Veml7700Model {
         self.white_remaining_ns = refresh_interval_ns(self.configuration, self.power_saving);
     }
 
+    /// Qualify threshold status for a protect number of one only.
+    ///
+    /// Above one, the sources declare no qualification rule — whether the count
+    /// runs over consecutive refreshes, and whether a non-qualifying refresh
+    /// resets it, is unstated. This model therefore establishes nothing, and
+    /// `read_status` reports `UndefinedQualificationRule` rather than a value
+    /// derived from a rule nobody wrote down. See D-030.
     const fn update_threshold_status(&mut self) {
         if !threshold_monitor_is_enabled(self.configuration) {
-            self.low_streak = 0;
-            self.high_streak = 0;
+            return;
+        }
+        if persistence_count(self.configuration) > 1 {
             return;
         }
         let (Some(low), Some(high)) = (self.low_threshold, self.high_threshold) else {
@@ -388,25 +401,14 @@ impl Veml7700Model {
         let Some(als) = self.completed_als else {
             return;
         };
-        self.low_streak = if als < low {
-            self.low_streak.saturating_add(1)
-        } else {
-            0
-        };
-        self.high_streak = if als > high {
-            self.high_streak.saturating_add(1)
-        } else {
-            0
-        };
-        let required = persistence_count(self.configuration);
         let mut status = match self.threshold_status {
             Some(value) => value,
             None => 0,
         };
-        if self.low_streak >= required {
+        if als < low {
             status |= STATUS_LOW_BIT;
         }
-        if self.high_streak >= required {
+        if als > high {
             status |= STATUS_HIGH_BIT;
         }
         self.threshold_status = Some(status);
