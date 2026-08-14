@@ -144,12 +144,13 @@ fn measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_st
     let als = 0x1234;
     let white = 0x5678;
     let (mut sensor, mut delay) = connected_model(als, white);
-    let sample = block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
-        .expect("measure_once against the model");
+    let sample =
+        block_on(sensor.measure_once(&mut delay, MeasurementConfig::maximum_range_start()))
+            .expect("measure_once against the model");
 
     assert_eq!(sample.als, AlsCounts::from_counts(als));
     assert_eq!(sample.white, WhiteCounts::from_counts(white));
-    assert_eq!(sample.waited_us, 133_500);
+    assert_eq!(sample.requested_wait_us, 36_000);
 
     let configuration = block_on(sensor.read_configuration()).expect("restored configuration");
     let power_saving = block_on(sensor.read_power_saving()).expect("restored power saving");
@@ -175,8 +176,9 @@ fn measure_once_from_an_active_start_agrees_with_the_model() {
     let (mut sensor, mut delay) = connected_model(als, white);
     block_on(sensor.set_power_state(PowerState::Active)).expect("activate before measuring");
 
-    let sample = block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
-        .expect("measure_once from an active start");
+    let sample =
+        block_on(sensor.measure_once(&mut delay, MeasurementConfig::maximum_range_start()))
+            .expect("measure_once from an active start");
 
     assert_eq!(sample.als, AlsCounts::from_counts(als));
     assert_eq!(sample.white, WhiteCounts::from_counts(white));
@@ -199,7 +201,7 @@ fn arming_the_monitor_from_an_active_start_agrees_with_the_model() {
     let thresholds =
         Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
     block_on(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
-        MeasurementConfig::safe_bright_start(),
+        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
         thresholds,
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -221,7 +223,7 @@ fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
     let thresholds =
         Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
     let monitor = ThresholdMonitorConfig::new(
-        MeasurementConfig::safe_bright_start(),
+        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
         thresholds,
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -233,7 +235,7 @@ fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
     // accepts either alone as a transition, and both together as
     // MidConversionReconfiguration.
     let retarget = ThresholdMonitorConfig::new(
-        MeasurementConfig::safe_bright_start(),
+        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
         Thresholds::new(AlsCounts::from_counts(200), AlsCounts::from_counts(2_000)).unwrap(),
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),

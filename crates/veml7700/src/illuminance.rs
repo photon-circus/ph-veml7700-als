@@ -68,6 +68,37 @@ impl NominalScale {
     pub const fn scale_counts(self, counts: u16) -> MicroLux {
         MicroLux::from_micro_lux(counts as u64 * self.micro_lux_per_count as u64)
     }
+
+    /// Nominal illuminance at maximum ADC code — the point this domain
+    /// saturates.
+    ///
+    /// This is where a reading stops being a measurement. At `u16::MAX` counts
+    /// the conversion has clipped: the light exceeded what this domain can
+    /// encode, and the reported number is the domain's ceiling rather than an
+    /// observation.
+    ///
+    /// It is **not** a bound on the scene's actual illuminance. This is a
+    /// nominal figure — the vendor count-to-lux ratio, uncorrected for the
+    /// non-linearity the sources describe above roughly 1 000 lx and never
+    /// calibrated for optics or source spectrum — so it bounds nothing outside
+    /// its own nominal domain. What a clipped reading establishes is that the
+    /// configuration was too narrow, not how much light there was. See
+    /// [`AlsCounts::is_saturated`](crate::AlsCounts::is_saturated).
+    ///
+    /// The spread is four orders of magnitude, which is why the starting
+    /// configuration matters more than any other choice a caller makes:
+    ///
+    /// | Configuration | Full scale |
+    /// | --- | --- |
+    /// | ×2, 800 ms | ~275 lx |
+    /// | ×1, 100 ms — silicon reset | ~4 404 lx |
+    /// | ×1/8, 100 ms | ~35 232 lx |
+    /// | ×1/8, 25 ms — [`maximum_range_start`](crate::MeasurementConfig::maximum_range_start) | ~140 926 lx |
+    ///
+    /// Direct sunlight exceeds every row but the last.
+    pub const fn full_scale_micro_lux(self) -> MicroLux {
+        self.scale_counts(u16::MAX)
+    }
 }
 
 #[cfg(test)]

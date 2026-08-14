@@ -87,9 +87,30 @@ pub struct FreshMeasurement {
     /// Measurement configuration used for the conversion.
     pub configuration: MeasurementConfig,
     /// Nominal illuminance computed from ALS counts.
+    ///
+    /// **Invalid as any kind of estimate when [`als`](Self::als) is saturated.**
+    /// At maximum code the conversion clipped, so this is the domain's ceiling
+    /// rather than an observation. It does not bound the actual illuminance
+    /// either: the figure is nominal, so it says nothing about the scene outside
+    /// its own scale. A clipped reading establishes only that the configuration
+    /// was too narrow.
+    ///
+    /// Check [`AlsCounts::is_saturated`] before using this at all; saturation is
+    /// not reported as an error, so an unchecked read looks like an ordinary
+    /// value.
+    ///
+    /// Nominal throughout: the vendor scale factor applied to counts, never
+    /// calibrated system lux, and uncorrected for the non-linearity the sources
+    /// describe above roughly 1 000 lx.
     pub nominal_illuminance: MicroLux,
-    /// Total delay applied before freezing the result.
-    pub waited_us: u32,
+    /// Delay this driver **requested** before freezing the result.
+    ///
+    /// Not measured elapsed time. `embedded_hal_async::delay::DelayNs`
+    /// guarantees *at least* the requested duration and may take longer —
+    /// arbitrarily so under a loaded executor — and this driver reads no clock,
+    /// so it cannot know what actually passed. Treat this as the conservative
+    /// lower bound the conversion was given, not as evidence of how long it ran.
+    pub requested_wait_us: u32,
     /// Pair-coherence qualification.
     pub coherence: MeasurementPairCoherence,
 }

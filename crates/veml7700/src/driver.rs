@@ -592,7 +592,7 @@ where
             white,
             configuration: measurement,
             nominal_illuminance: als.nominal_micro_lux(measurement),
-            waited_us: timing.total_us(),
+            requested_wait_us: timing.total_us(),
             coherence: MeasurementPairCoherence::FrozenAfterFreshWait,
         };
 
@@ -1047,12 +1047,14 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let sample =
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
-                .unwrap();
+        let sample = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ))
+        .unwrap();
         assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
         assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
-        assert_eq!(sample.waited_us, 133_500);
+        assert_eq!(sample.requested_wait_us, 133_500);
         assert_eq!(delay.elapsed_ns, 133_500_000);
         sensor.release().done();
     }
@@ -1093,8 +1095,10 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let result =
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()));
+        let result = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ));
         assert_eq!(
             result,
             Err(MeasureOnceError::Operation {
@@ -1115,7 +1119,7 @@ mod tests {
         let thresholds =
             Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
         let monitor = ThresholdMonitorConfig::new(
-            MeasurementConfig::safe_bright_start(),
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
             thresholds,
             Persistence::Four,
             PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -1146,7 +1150,11 @@ mod tests {
     fn configuration_write_is_low_byte_first() {
         let bus = ScriptedI2c::new([read_word(0x00, 0x0001), write_word(0x00, 0x1001, Ok(()))]);
         let mut sensor = Veml7700::new(bus);
-        block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start())).unwrap();
+        block_on(
+            sensor
+                .set_measurement_config(MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100)),
+        )
+        .unwrap();
         sensor.release().done();
     }
 
@@ -1154,8 +1162,10 @@ mod tests {
     fn threshold_monitor_blocks_domain_retarget_before_write() {
         let bus = ScriptedI2c::new([read_word(0x00, 0x0002)]);
         let mut sensor = Veml7700::new(bus);
-        let result =
-            block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start()));
+        let result = block_on(
+            sensor
+                .set_measurement_config(MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100)),
+        );
         assert_eq!(
             result,
             Err(Error::Configuration(
@@ -1377,9 +1387,11 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let sample =
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
-                .unwrap();
+        let sample = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ))
+        .unwrap();
         assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
         assert_eq!(sample.white, WhiteCounts::from_counts(0x5678));
         sensor.release().done();
@@ -1390,7 +1402,7 @@ mod tests {
         let thresholds =
             Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
         let monitor = ThresholdMonitorConfig::new(
-            MeasurementConfig::safe_bright_start(),
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
             thresholds,
             Persistence::Four,
             PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -1415,7 +1427,7 @@ mod tests {
         let thresholds =
             Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
         let monitor = ThresholdMonitorConfig::new(
-            MeasurementConfig::safe_bright_start(),
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
             thresholds,
             Persistence::Four,
             PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -1469,8 +1481,10 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        let result =
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()));
+        let result = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ));
         assert!(matches!(
             result,
             Err(MeasureOnceError::Operation {
@@ -1512,9 +1526,10 @@ mod tests {
             let bus = PendingAt::new(ScriptedI2c::new(fresh_capture_script()), boundary);
             let mut delay = CancellableDelay::ready();
             let mut sensor = Veml7700::new(bus);
-            let polled = poll_once_then_drop(
-                sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
-            );
+            let polled = poll_once_then_drop(sensor.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            ));
             assert!(
                 polled.is_pending(),
                 "boundary {boundary} should have parked the operation"
@@ -1537,9 +1552,10 @@ mod tests {
         let bus = ScriptedI2c::new(fresh_capture_script());
         let mut delay = CancellableDelay::parking();
         let mut sensor = Veml7700::new(bus);
-        let polled = poll_once_then_drop(
-            sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
-        );
+        let polled = poll_once_then_drop(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ));
         assert!(polled.is_pending());
         let remaining = sensor.release().remaining();
         assert_eq!(
@@ -1569,7 +1585,7 @@ mod tests {
             let mut sensor = Veml7700::new(bus);
             let polled =
                 poll_once_then_drop(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
-                    MeasurementConfig::safe_bright_start(),
+                    MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
                     thresholds,
                     Persistence::Four,
                     PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -1610,9 +1626,10 @@ mod tests {
             let bus = PendingAt::new(ScriptedI2c::new(fresh_from_active.clone()), boundary);
             let mut delay = CancellableDelay::ready();
             let mut sensor = Veml7700::new(bus);
-            let polled = poll_once_then_drop(
-                sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
-            );
+            let polled = poll_once_then_drop(sensor.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            ));
             assert!(polled.is_pending(), "active-start boundary {boundary}");
             let remaining = sensor.release().into_inner().remaining();
             assert_eq!(
@@ -1641,7 +1658,7 @@ mod tests {
             let mut sensor = Veml7700::new(bus);
             let polled =
                 poll_once_then_drop(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
-                    MeasurementConfig::safe_bright_start(),
+                    MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
                     thresholds,
                     Persistence::Four,
                     PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -1660,9 +1677,11 @@ mod tests {
         let bus = PendingAt::new(ScriptedI2c::new(fresh_capture_script()), usize::MAX);
         let mut delay = CancellableDelay::ready();
         let mut sensor = Veml7700::new(bus);
-        let sample =
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
-                .unwrap();
+        let sample = block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        ))
+        .unwrap();
         assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
         sensor.release().into_inner().done();
     }
@@ -1708,7 +1727,10 @@ mod tests {
             let mut delay = RecordingDelay { elapsed_ns: 0 };
             let mut sensor = Veml7700::new(ScriptedI2c::new(expectations));
             assert_eq!(
-                block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+                block_on(sensor.measure_once(
+                    &mut delay,
+                    MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+                )),
                 Err(MeasureOnceError::Operation {
                     stage,
                     source: Error::Bus {
@@ -1729,9 +1751,10 @@ mod tests {
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut configuration = Veml7700::new(ScriptedI2c::new([read_failure(0x00, failure)]));
         assert_eq!(
-            block_on(
-                configuration.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)
-            ),
+            block_on(configuration.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            )),
             Err(MeasureOnceError::Operation {
                 stage: MeasureStage::ObserveConfiguration,
                 source: Error::Bus {
@@ -1748,7 +1771,10 @@ mod tests {
             read_failure(0x03, failure),
         ]));
         assert_eq!(
-            block_on(power.measure_once(&mut delay, MeasurementConfig::safe_bright_start())),
+            block_on(power.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100)
+            )),
             Err(MeasureOnceError::Operation {
                 stage: MeasureStage::ObservePowerSaving,
                 source: Error::Bus {
@@ -1774,7 +1800,10 @@ mod tests {
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
         assert_eq!(
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+            block_on(sensor.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            )),
             Err(MeasureOnceError::RecoveryFailed {
                 failed_stage: MeasureStage::DisablePowerSaving,
                 source: Error::Bus {
@@ -1809,7 +1838,10 @@ mod tests {
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
-        match block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start())) {
+        match block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        )) {
             Err(MeasureOnceError::RestoreFailed {
                 sample,
                 stage,
@@ -1846,7 +1878,10 @@ mod tests {
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(pre_capture);
         assert_eq!(
-            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start(),)),
+            block_on(sensor.measure_once(
+                &mut delay,
+                MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+            )),
             Err(MeasureOnceError::RecoveryFailed {
                 failed_stage: MeasureStage::DisablePowerSaving,
                 source: Error::Bus {
@@ -1877,7 +1912,10 @@ mod tests {
             write_word(0x00, 0x0001, Err(recovery)),
         ]);
         let mut sensor = Veml7700::new(post_capture);
-        match block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start())) {
+        match block_on(sensor.measure_once(
+            &mut delay,
+            MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        )) {
             Err(MeasureOnceError::RestoreFailed {
                 sample,
                 stage,
