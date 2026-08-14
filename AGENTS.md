@@ -45,11 +45,12 @@ changelog updates.
 
 The compiler cannot catch any of these.
 
-- **The candidate version is duplicated in 11 tracked files.** Only the pair
-  `crates/veml7700/Cargo.toml` and the exact-match check in `scripts/ci.sh` is
-  machine-verified; the README, packaged crate README, `lib.rs`, AGENTS,
-  SECURITY, API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies rot
-  silently. Grep for the literal before and after any bump.
+- **The candidate version is duplicated across tracked prose.** Both crate
+  manifests are machine-checked against each other by the gate, which also
+  requires an `-incubating.N` prerelease but no longer stores the literal
+  itself. The README, packaged crate README, `lib.rs`, AGENTS, SECURITY,
+  API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies still rot silently.
+  Grep for the literal before and after any bump.
 - **The status disclosure lives in three places** that must agree word for word:
   root `README.md`, the packaged `crates/veml7700/README.md`, and the `lib.rs`
   crate documentation. The packaged two are the ones a consumer sees. The gate

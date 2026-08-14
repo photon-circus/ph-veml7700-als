@@ -145,3 +145,21 @@ own; it is a bundle whose only invariant now lives inside `Thresholds`.
 
 `docs/README.md` was deleted because it restated the AGENTS.md document table
 and went stale; the root README links the contracts directly.
+
+## D-022 — One version across the workspace
+
+Both crates carry the same lifecycle-matching prerelease, currently
+`0.1.0-incubating.1`, and the canonical gate fails if they diverge.
+
+The Peripheral Driver Profile attaches its prerelease rule to the driver
+package, so `ph-veml7700-als-model` could have kept an ordinary `0.1.0`. Aligning
+was chosen instead because the two crates share one repository, one release
+boundary, and one review cycle: a reader comparing them should not have to work
+out which convention applies to which, and a second convention is a place for
+drift to hide.
+
+The gate no longer repeats the exact version. It reads the driver manifest,
+requires the model manifest to match, and asserts only that the version carries
+an `-incubating.N` prerelease identifier. A version bump therefore edits the
+manifests, and the gate keeps verifying the declared distribution state without
+holding another copy of the literal.
