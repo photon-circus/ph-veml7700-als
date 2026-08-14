@@ -103,10 +103,33 @@ recorded document establishes nothing about silicon.
 | Classification | Included behavior |
 | --- | --- |
 | Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming, persistence and polled status; configuration and power-saving restoration. |
-| Abstracted | Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
+| Abstracted | **Four declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
 | Unsupported | Enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+
+### Declared assumptions
+
+Four model behaviors rest on facts the pinned sources do not state. They are
+collected here rather than left in the code, because a reader deciding what
+model agreement is worth needs to know where the model is guessing.
+
+Each is recorded in `docs/HARDWARE_CONTRACT.md` as an **Assumption** under D-029,
+with the observation that would settle it. None can be resolved by further
+reading.
+
+| Assumption | Where the model relies on it | Observable consequence |
+| --- | --- | --- |
+| Register `0x03` reads `0x0000` before it is written | `Veml7700Model::new` via `RESET_POWER_SAVING` | A harness that never writes `0x03` sees continuous-conversion cadence. The **driver** has no such assumption — it reads the register before acting on it. |
+| Refresh time does not depend on ALS gain | `refresh_interval_ns`, which takes no gain argument | Every cadence the model predicts is gain-independent. If silicon disagreed, model and driver would agree with each other and both diverge from the part. |
+| Integration time is within ±30 % of nominal | `conversion_bound_ns`, via the 130 % conservative bound | Conversion completion is predicted at 130 % of nominal. A wider real spread would make the model complete a conversion the device has not. |
+| Persistence counts consecutive refreshes, resetting on any non-qualifying one | `update_threshold_status` streak handling | A crossing broken by one non-qualifying refresh restarts the count rather than resuming. |
+
+The second is the one that most limits what conformance establishes. Driver and
+model derive it independently but from the same silent source, so agreement
+there is not corroboration — it is two derivations sharing an assumption. That
+is a known limit of an independent model against a document, and only physical
+evidence closes it.
 
 ### Active reconfiguration is unsupported because the sources say so
 
@@ -155,20 +178,6 @@ an active device and would fail against the previous driver with
   chosen to keep the polled-status path testable, not a source-backed reset
   value, and it is the only bit of `0x06` behavior not derived from a
   qualification transition.
-- Power-saving construction: the sources declare no reset value for `0x03`, so
-  the model *declares* that construction represents a device that has not been
-  written since power-on, reading `0x0000` — power saving disabled, mode 1,
-  reserved bits clear. Observable consequence: a harness that never writes
-  `0x03` sees continuous-conversion cadence. The driver has no equivalent
-  assumption; it reads the register before acting on it. Recorded as an
-  assumption in `docs/HARDWARE_CONTRACT.md` §4, and settled by reading `0x03`
-  on an unwritten device.
-- Threshold qualification rule: the sources establish the persistence *counts*
-  (1, 2, 4, 8) but not the rule they apply to. The model declares that the count
-  is over consecutive monitored refreshes and that any non-qualifying refresh
-  resets it to zero. Observable consequence: a crossing broken by one
-  non-qualifying refresh restarts the count rather than resuming. Recorded as an
-  assumption in `docs/HARDWARE_CONTRACT.md` §9.
 - Shutdown: entering shutdown prevents further conversion progress and preserves
   the last completed pair.
 - Unsupported interactions: reject or leave unavailable. Do not fabricate a

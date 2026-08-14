@@ -423,8 +423,17 @@ than a change from a prior version.
   declared by sources*.
 - The `0x03` assumption turns out to be narrower than it looked: **the driver
   does not rely on it at all**, because every path reads the register before
-  acting on it. The dependency is confined to the model's construction, and is
-  now declared there alongside its existing threshold-status abstraction.
+  acting on it. The dependency is confined to the model's construction.
+- `crates/veml7700-model/README.md` gains a **Declared assumptions** table naming
+  all four model behaviors that rest on unstated facts, where each is relied on
+  in code, and what a reader observes as a result. Scattering them through the
+  source-decision prose meant a reader deciding what model agreement is worth had
+  no way to see where the model guesses.
+- Recorded the sharpest limit that follows: driver and model derive
+  refresh-gain independence independently, but from the same silent source, so
+  agreement there is **not corroboration** — it is two derivations sharing an
+  assumption. An independent model cannot catch a defect both inherited from the
+  document; only physical evidence closes that.
 - By contrast the ±30 % assumption is load-bearing. `INTEGRATION_TOLERANCE_PERCENT`
   is why the conservative wait is 130 % of the selected integration time, so the
   margin is conservative *given the assumption* rather than in general.
