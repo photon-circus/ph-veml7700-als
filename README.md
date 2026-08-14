@@ -57,10 +57,9 @@ only; it does not establish physical-device or calibrated-optical behavior.
 
 Hosted CI is dispatch-only while the repository is private; its automatic
 triggers and default-branch protection are both part of the visibility change.
-No job has ever executed, so the workflow is unverified. When it runs it uses
-`CI_PROFILE=bounded`, which skips the dependency policy, four of the five
-bare-metal targets, and packaging, printing each skip. It is contributor
-feedback, never the release gate.
+It runs the same script with `CI_PROFILE=bounded`, which skips the dependency
+policy, four of the five bare-metal targets, and packaging, printing each skip.
+It is contributor feedback, never the release gate.
 
 ## Publication status
 
