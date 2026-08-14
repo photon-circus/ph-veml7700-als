@@ -170,6 +170,23 @@ The maintained claim is
   A flag set under a previous domain can read as asserted after re-arming; the
   sources establish no clearing contract, so none is promised.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
+- **every public error type implements [`core::fmt::Display`] unbounded on the
+  bus error, and [`core::error::Error`] when the bus error does too.** The
+  `Display` bound is deliberate: `embedded_hal_async::i2c::Error` requires only
+  `Debug`, so bounding on `Display` would deny these impls to the HAL error types
+  this driver exists to carry. The message therefore states the semantic context
+  this crate owns — operation, register, stage — and `source()` supplies the
+  concrete bus error.
+- `source()` is returned only where a cause genuinely exists. `ProbeError::NotPresent`
+  and `ProbeError::WrongDevice` have none: they are conclusions this driver
+  reached, not failures it forwarded, and inventing a source would misdescribe
+  them.
+- `MeasureOnceError::RecoveryFailed` carries two independent failures and a chain
+  can express one. `source()` is the **primary** failure — why the operation
+  stopped. The recovery failure remains an ordinary field, because a second
+  independent failure is not a cause of the first.
+- no error message repeats the message of its own source. Each level states what
+  that level knows, so a chained report does not print the same sentence twice.
 - `MicroLux` values are nominal, not calibrated, and are **invalid as a point
   estimate when the source counts are saturated**: at maximum code the true
   illuminance is at least the reported value and otherwise unknown. Saturation is

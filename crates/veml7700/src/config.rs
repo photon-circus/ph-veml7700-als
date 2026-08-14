@@ -378,6 +378,21 @@ impl ConfigWord {
     }
 }
 
+impl core::fmt::Display for ConfigDecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ReservedBits { observed } => {
+                write!(f, "reserved configuration bits were set: {observed:#06x}")
+            }
+            Self::ReservedIntegrationTime { observed } => {
+                write!(f, "undocumented integration-time encoding {observed:#06b}")
+            }
+        }
+    }
+}
+
+impl core::error::Error for ConfigDecodeError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

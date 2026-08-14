@@ -130,6 +130,18 @@ pub(crate) const fn decode_power_saving(
     })
 }
 
+impl core::fmt::Display for PowerSavingDecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ReservedBits { observed } => {
+                write!(f, "reserved power-saving bits were set: {observed:#06x}")
+            }
+        }
+    }
+}
+
+impl core::error::Error for PowerSavingDecodeError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

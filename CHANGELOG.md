@@ -352,6 +352,29 @@ than a change from a prior version.
   source identity under a document whose subject is the model.
 - Recorded D-028 with the reasoning for each consolidation.
 
+- Public error types now implement `core::fmt::Display`, and `core::error::Error`
+  where the bus error does too, so a driver failure can join a standard error
+  chain. Both remain `no_std`, allocation-free and unsafe-free, and the rustdoc
+  carries a reporting helper that walks a chain into a caller-owned buffer with
+  no allocator.
+- **`Display` is deliberately unbounded on the bus error.**
+  `embedded_hal_async::i2c::Error` requires only `Debug`, so bounding on
+  `Display` would have denied these impls to the very HAL error types this driver
+  exists to carry. The message states the semantic context this crate owns and
+  leaves the concrete error to `source()`. The `core::error::Error` bound sits on
+  the impl rather than the type, so a bus error that does not implement it is
+  still perfectly usable — only the chain is unavailable.
+- `source()` is returned only where a cause exists. `ProbeError::NotPresent` and
+  `WrongDevice` have none: they are conclusions the driver reached, not failures
+  it forwarded.
+- `MeasureOnceError::RecoveryFailed` reports the **primary** failure as its
+  source. It carries two independent failures and a chain can express one;
+  reporting the recovery failure as the cause would invert what happened. The
+  recovery error stays an ordinary field.
+- Model `TransportError` and `Unsupported` gained `core::error::Error`. Neither
+  reports a source: an unsupported interaction is a limit the model declares, not
+  a failure forwarded from elsewhere.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

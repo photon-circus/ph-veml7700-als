@@ -137,3 +137,13 @@ impl fmt::Display for Unsupported {
         }
     }
 }
+
+// `Display` already existed on both types; these add the standard trait so a
+// model failure can join an error chain like any other. Neither carries an
+// underlying cause: an unsupported interaction is a limit this model declares,
+// not a failure it forwarded from somewhere else, and inventing a source would
+// misrepresent where the boundary is.
+
+impl core::error::Error for TransportError {}
+
+impl core::error::Error for Unsupported {}
