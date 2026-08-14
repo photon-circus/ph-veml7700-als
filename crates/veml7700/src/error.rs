@@ -206,12 +206,50 @@ pub enum ThresholdMonitorStage {
 }
 
 /// Threshold-monitor programming failure.
+///
+/// Programming is a sequence of writes, so a failure part way through leaves a
+/// device that is neither in its old domain nor the requested one. The two
+/// stage fields separate what a caller may rely on from what nobody can know.
+///
+/// # What each field establishes
+///
+/// - [`confirmed`](Self::confirmed) is the last stage that returned success.
+///   Everything up to and including it **did** reach the device. `None` means no
+///   write was confirmed.
+/// - [`stage`](Self::stage) is the write that failed. **Its commit status is
+///   unknown.** An I²C error can mean the byte never arrived, or that it arrived
+///   and the acknowledgement was lost. The transport cannot tell them apart, and
+///   this type does not pretend otherwise.
+/// - Every stage after [`stage`](Self::stage) was not attempted.
+///
+/// So the device is in one of exactly two states: the one implied by
+/// `confirmed`, or that state plus the effect of `stage`. There is no third
+/// possibility, and no rollback was attempted — the driver does not claim a
+/// physical commit state it cannot establish.
+///
+/// # Recovering
+///
+/// Read the registers back rather than inferring. [`read_configuration`],
+/// [`read_thresholds`] and [`read_power_saving`] together establish the actual
+/// state, and re-arming from there installs a known domain.
+///
+/// A failure at or after [`ThresholdMonitorStage::DisableMonitor`] leaves the
+/// monitor disabled and the device shut down, so it is not qualifying against a
+/// half-programmed domain while a caller decides what to do.
+///
+/// [`read_configuration`]: crate::Veml7700::read_configuration
+/// [`read_thresholds`]: crate::Veml7700::read_thresholds
+/// [`read_power_saving`]: crate::Veml7700::read_power_saving
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub struct ThresholdMonitorError<E> {
-    /// Stage that failed.
+    /// Stage that failed. Its commit status is unknown.
     pub stage: ThresholdMonitorStage,
+    /// Last stage that completed successfully, or `None` if none did.
+    ///
+    /// Everything up to and including this stage reached the device.
+    pub confirmed: Option<ThresholdMonitorStage>,
     /// Underlying driver failure.
     pub source: Error<E>,
 }

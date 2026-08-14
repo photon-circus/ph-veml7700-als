@@ -161,5 +161,25 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   depends on how far the sequence reached, so read the relevant registers back
   rather than assuming. This is the cost of following the required sequence; the
   alternative is a write the sources do not sanction.
+- **no async operation is cancellation-safe, and none claims to be.** Dropping a
+  future does not undo what it has already done: the driver is not an executor
+  and cannot run cleanup during a drop, so restoration happens only on paths that
+  return. Every restoration guarantee in this contract holds *when polled to
+  completion*. Each operation's rustdoc tabulates the state left at every await
+  boundary and gives a deterministic read-back procedure using public operations
+  only.
+- **a failed write is not a rejected write.** An `Err` establishes that the
+  operation did not complete, not that the device is unchanged: an I²C error can
+  mean the byte never arrived, or that it arrived, took effect, and the
+  acknowledgement was lost. Nothing at the transport distinguishes those, so no
+  error type here reports a write as rolled back or not applied. Dropping a
+  future mid-write leaves the same uncertainty without an error to inspect.
+- `ThresholdMonitorError` separates the two: `confirmed` is the last stage that
+  definitely reached the device, `stage` is the write whose commit status is
+  unknown, and every later stage was not attempted. The device is therefore in
+  one of exactly two states, and no rollback is attempted.
+- threshold status is never cleared by this driver, and arming does not clear it.
+  A flag set under a previous domain can read as asserted after re-arming; the
+  sources establish no clearing contract, so none is promised.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
 - `MicroLux` values are nominal, not calibrated.
