@@ -36,6 +36,15 @@ than a change from a prior version.
   loudly rather than drift: vendor documents must not be tracked, and the
   required status disclosure must be identical in the root README, the packaged
   crate README, and the crate documentation.
+- Bounded GitHub Actions workflow running the `bounded` profile of that same
+  script, so there is no second implementation of the gate. It cancels
+  superseded pull-request runs, pins its one third-party action to a commit
+  SHA, uses read-only permissions, and exposes a stable aggregate `ci` result
+  for branch protection. It is dispatch-only while the repository is private and
+  gains its automatic triggers at the visibility change.
+- Contributor bug-report form and pull-request template, both of which require
+  an explicit evidence source so mock, model, and simulated results cannot
+  quietly become hardware claims.
 - Documented release procedure separating candidate preparation, repository
   visibility, and registry publication into explicit maintainer decisions.
 
@@ -47,9 +56,8 @@ than a change from a prior version.
   exploratory. Its tests drive the fake directly and never construct the driver,
   so they establish nothing about driver behavior. See issue #9.
 - The crate has no doctests and no compiled usage example. See issue #10.
-- Hosted CI, contributor issue and pull-request templates, and default-branch
-  protection are absent. They become required expectations when the repository
-  becomes public. See issue #11.
+- The hosted workflow has never executed a job, so it is unverified. It and
+  default-branch protection both resolve at the visibility change. See issue #11.
 - The model crate's version convention is undecided relative to the driver's
   lifecycle-matching prerelease. See issue #12.
 - Vendor owner-verification is incomplete: `docs/vendor/README.md` records the

@@ -1,0 +1,94 @@
+name: Bug report
+description: Report driver behavior that contradicts the documented contract.
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This driver makes deliberately narrow claims. Before filing, check
+        whether the behavior you saw is already excluded by
+        [`docs/HARDWARE_CONTRACT.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/HARDWARE_CONTRACT.md)
+        §11 or the status disclosure in the README. Nominal lux is not
+        calibrated lux, snapshots make no freshness claim, and there is no
+        interrupt pin.
+
+        For a suspected vulnerability, follow
+        [`SECURITY.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/SECURITY.md)
+        instead of opening an issue.
+
+  - type: dropdown
+    id: evidence-source
+    attributes:
+      label: Evidence source
+      description: >
+        Where did the observed behavior come from? This is the most important
+        field in the form. Mock, model, or simulated behavior must never
+        silently become a hardware claim, so reports are read differently
+        depending on this answer.
+      options:
+        - Physical hardware
+        - Behavioral model or simulation
+        - Mock or scripted transport
+        - Code reading only; not executed
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-observed
+    attributes:
+      label: Expected and observed behavior
+      description: State both, and cite the contract line the expectation comes from.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest sequence of driver calls that shows the problem.
+      render: rust
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version and toolchain
+      description: Crate version or commit, plus `rustc --version`.
+      placeholder: "0.1.0-incubating.1, rustc 1.92.0"
+    validations:
+      required: true
+
+  - type: input
+    id: target
+    attributes:
+      label: MCU and target triple
+      placeholder: "STM32L476, thumbv7em-none-eabihf"
+
+  - type: input
+    id: board
+    attributes:
+      label: Device and board revision
+      description: Sensor module or breakout, and board revision if applicable.
+
+  - type: input
+    id: bus
+    attributes:
+      label: Bus mode
+      description: Clock speed, standard or fast mode, and pull-up values if known.
+      placeholder: "400 kHz fast mode, 4.7 kΩ pull-ups"
+
+  - type: input
+    id: features
+    attributes:
+      label: Enabled features
+      placeholder: "default (none), or defmt"
+
+  - type: textarea
+    id: observations
+    attributes:
+      label: Logs, traces, or register observations
+      description: >
+        Raw register words and I²C transaction traces are far more useful than
+        decoded values. Include byte order as observed on the wire.
+      render: text

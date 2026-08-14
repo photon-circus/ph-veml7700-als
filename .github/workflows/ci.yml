@@ -1,0 +1,69 @@
+# Bounded contributor feedback. This workflow runs the `bounded` profile of
+# `scripts/ci.sh`, the same script maintainers run locally, so there is no
+# second implementation of the gate to drift.
+#
+# The bounded profile reports the checks it drops as explicit skips. A green run
+# here is not a green release gate: the full local run remains authoritative,
+# and that stays true after the repository becomes public.
+name: ci
+
+# Dispatch-only while the repository is private. Uncomment the triggers below
+# as part of the visibility change; see issue #11.
+on:
+  workflow_dispatch:
+  # pull_request:
+  # push:
+  #   branches: [main]
+
+# Cancel superseded pull-request runs. Runs on `main` are left alone so the
+# recorded history of the default branch stays complete. This takes effect when
+# the automatic triggers above are restored.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-gate:
+    name: bounded gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # `rust-toolchain.toml` pins the channel, components, and targets, so no
+      # third-party toolchain action is needed and the pinned action surface
+      # stays at exactly one.
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          rustup show
+          cargo --version
+          rustc --version
+
+      - name: Run the bounded profile of the canonical gate
+        env:
+          CI_PROFILE: bounded
+        run: sh scripts/ci.sh
+
+  # One stable aggregate result for branch protection to require. It reports
+  # even when the gate fails or is cancelled, so the required check never hangs
+  # in a pending state.
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    needs: [bounded-gate]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Aggregate result
+        env:
+          BOUNDED_GATE_RESULT: ${{ needs.bounded-gate.result }}
+        run: |
+          echo "bounded gate: $BOUNDED_GATE_RESULT"
+          if [ "$BOUNDED_GATE_RESULT" != "success" ]; then
+            exit 1
+          fi

@@ -55,6 +55,12 @@ Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
 script. A green gate establishes agreement with the implemented host contracts
 only; it does not establish physical-device or calibrated-optical behavior.
 
+Hosted CI is dispatch-only while the repository is private; its automatic
+triggers and default-branch protection are both part of the visibility change.
+It runs the same script with `CI_PROFILE=bounded`, which skips the dependency
+policy, four of the five bare-metal targets, and packaging, printing each skip.
+It is contributor feedback, never the release gate.
+
 ## Publication status
 
 The package retains `publish = false`. Release preparation, repository

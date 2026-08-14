@@ -76,6 +76,9 @@ The compiler cannot catch any of these.
 ## Validation and release safety
 
 Run `scripts/ci.sh`; `tools/check.ps1` is a thin PowerShell launcher for it.
+`CI_PROFILE=bounded` selects the subset hosted CI runs and is never
+authoritative. Add checks to the script, not to the workflow: there must stay
+exactly one implementation of the gate.
 The gate is local and bounded. Version `0.1.0-incubating.1` is unpublished and
 `publish = false` is intentional. Follow `RELEASING.md`; do not change
 repository visibility, enable registry publication, add credentials, create
