@@ -60,14 +60,15 @@ if [ "$driver_version" != "$model_version" ]; then
         "$driver_version" "$model_version" >&2
     exit 1
 fi
-case $driver_version in
-    *"-$expected_lifecycle."[0-9]*) ;;
-    *)
-        printf 'version must carry a -%s.N prerelease: %s\n' \
-            "$expected_lifecycle" "$driver_version" >&2
-        exit 1
-        ;;
-esac
+# Match the complete version, not a substring. A shell glob would accept
+# `0.1.0-incubating.1foo` and `0.1.0-foo-incubating.2`, both of which are valid
+# Cargo versions that are not the documented form.
+if ! printf '%s\n' "$driver_version" \
+    | grep -Eq "^[0-9]+\.[0-9]+\.[0-9]+-$expected_lifecycle\.[0-9]+$"; then
+    printf 'version must be exactly X.Y.Z-%s.N: %s\n' \
+        "$expected_lifecycle" "$driver_version" >&2
+    exit 1
+fi
 printf '        candidate version %s\n' "$driver_version"
 
 # `.gitignore` keeps vendor documents out by default, but `git add -f` and any
