@@ -428,6 +428,21 @@ write-to-clear, or latched GPIO behavior.
       rejects any reserved bit set, which this table makes source-backed rather
       than defensive.
 - [ ] Persistence requires 1, 2, 4, or 8 consecutive qualifying measurements.
+      **The counts are verified; the word *consecutive* is not.** Table 1
+      establishes `ALS_PERS` and its four values as a *persistence protect
+      number*, which is what the driver encodes. What no reviewed passage yet
+      states is the qualification rule itself — whether the count is over
+      consecutive refreshes and whether a non-qualifying refresh resets it.
+
+      The model implements consecutive counting with reset on any non-qualifying
+      refresh. If the sources turn out not to state that rule, it becomes a
+      declared model abstraction rather than derived behavior, alongside the
+      construction abstraction already declared in the model README.
+
+      Third-party libraries describe this register in terms of an INT pin that
+      latches and clears on read. This part has neither — §9 records that the
+      interrupt pin is explicitly unavailable, and Table 7 states no clearing
+      behavior. Library documentation for family parts is not evidence here.
 - [x] The part has no dedicated interrupt pin. The source says so in as many
       words — *Interrupt pin not available for VEML7700* — immediately above the
       register format table, which is why this contract treats `0x06` as a
