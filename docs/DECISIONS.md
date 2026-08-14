@@ -84,7 +84,8 @@ are declared in
 ## D-016 — Vendor documents are not redistributed
 
 Track official URLs, revisions, retrieval facts, and available hashes without
-committing vendor PDFs.
+committing vendor PDFs. The untracked claim is enforced by the canonical gate
+rather than by `.gitignore` alone.
 
 ## D-017 — Local bounded validation
 
@@ -139,3 +140,8 @@ are now private with `low()` and `high()` accessors.
 
 `ThresholdMonitorConfig` keeps public fields because it enforces no rule of its
 own; it is a bundle whose only invariant now lives inside `Thresholds`.
+
+## D-021 — No documentation index
+
+`docs/README.md` was deleted because it restated the AGENTS.md document table
+and went stale; the root README links the contracts directly.

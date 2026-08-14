@@ -26,7 +26,8 @@ name the source that establishes the new behavior.
 - [ ] Every touched invariant has a protecting test.
 - [ ] Exact I²C address, pointer, byte order, payload, and transaction count are
       asserted where transport behavior matters.
-- [ ] The coupled fake was not turned into an oracle for the driver.
+- [ ] Autonomous behavior is tested in the independent model. Conformance
+      tests use the model crate and public driver APIs, not driver codecs.
 - [ ] `CHANGELOG.md` is updated beneath `Unreleased`.
 
 ## Local gate

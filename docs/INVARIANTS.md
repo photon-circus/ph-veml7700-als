@@ -36,9 +36,7 @@
 - **I-19:** ordinary methods cannot silently retarget an enabled monitor.
 - **I-20:** arming is disable-first and enable-last.
 - **I-21:** a public type whose constructor enforces an ordering or range rule
-  keeps its fields private, so the rule cannot be bypassed by a struct literal.
-  `Thresholds` is the current instance: the driver cannot program a reversed
-  pair that `read_thresholds` would reject on read-back.
+  keeps its fields private.
 - **I-22:** status reads promise observation only.
 
 ## Model and distribution
@@ -49,9 +47,9 @@
   from the hardware contract without driver codecs as its oracle. Its bounded
   slice is declared in `crates/veml7700-model/README.md`.
 - **I-25:** host-model results are not physical or calibrated-optical evidence.
-- **I-26:** vendor PDFs remain untracked, enforced by the canonical gate rather
-  than by `.gitignore` alone; the retrieval record in `docs/vendor/README.md`
-  and the model's source declaration state the same digests.
+- **I-26:** vendor PDFs remain untracked; the retrieval record in
+  `docs/vendor/README.md` and the model's source declaration state the same
+  digests.
 - **I-27:** repository visibility and registry publication require separate,
   explicit maintainer decisions; neither follows from preparation alone.
 

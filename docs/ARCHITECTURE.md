@@ -56,16 +56,15 @@ to a separately reviewed integration layer or application.
 
 ## Independent model
 
-The independent device behavioral model is `ph-veml7700-als-model`. It implements
-the I²C register boundary for probe, fresh measurement, autonomous cadence, and
-threshold-monitor traces. It is derived from `HARDWARE_CONTRACT.md` without
-driver codecs or timing helpers. Driver-versus-model tests configure and observe
-the device through public `Veml7700` operations; only raw samples, relative time,
-and explicitly injected white-channel scheduling skew bypass the I²C boundary.
+The independent device behavioral model is `ph-veml7700-als-model`. It is derived
+from `HARDWARE_CONTRACT.md` without driver codecs or timing helpers and is
+observed through the I²C boundary. Driver-versus-model tests configure and
+observe the device through public `Veml7700` operations; only raw samples,
+relative time, and explicitly injected white-channel scheduling skew bypass that
+boundary.
 
-The maintained claim and nonclaims are in
-[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md). Behavior
-outside that declared slice remains unimplemented.
+The maintained claim is
+[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
 
 ## Explicit non-goals
 
