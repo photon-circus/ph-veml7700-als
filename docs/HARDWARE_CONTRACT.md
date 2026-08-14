@@ -47,11 +47,14 @@ silently normalized.
 ## 2. Electrical and bus boundary
 
 - [x] VDD operating range is 2.5 V to 3.6 V.
-- [x] I²C bus high-level supply may be 1.7 V to 3.6 V. **Disputed — see #54.**
-      The I²C interface section states `I²C H-level range = 1.3 V to 3.6 V`,
-      which does not match the 1.7 V recorded here. Retained as checked pending
-      that issue rather than edited in place, because a contract correction is
-      a behavior change and is reviewed as one.
+- [x] I²C bus **input** H-level range `V_ih` is 1.3 V to 3.6 V, and input L-level
+      range `V_il` is −0.3 V to 0.4 V, both specified at `V_DD` = 3.3 V (Basic
+      Characteristics). These are signal thresholds on `SCL`/`SDA`, **not** a
+      supply: the supply is `V_DD`, recorded above as 2.5 V to 3.6 V.
+
+      Corrected from a previously recorded "high-level supply … 1.7 V to 3.6 V".
+      1.7 V appears nowhere in the source, and calling a threshold a supply
+      invited exactly that confusion. See #54.
 - [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
       10 kHz to 400 kHz in fast mode. The two modes have different maxima; a
       single 10–400 kHz range would wrongly permit standard mode at 400 kHz.
@@ -103,9 +106,9 @@ No public raw-register accessor exists in v0.1.
       it resolves the prose that calls `03h` "not defined": the register format
       defines it as power saving.
 - [ ] Which registers have a source-declared reset value, and which do not.
-      **Partly resolved, and it exposes an overclaim.** Only `0x00` has a
-      declared default (`0x0001`, from the register-format note), and `0x07`
-      carries a source-declared identity. The §4 table also lists `0x0000` for
+      **Partly resolved, and it exposes an overclaim.** `0x00` has a declared
+      default (`0x0001`, from the register-format note) and `0x07` a
+      source-declared fixed identity (Table 8); both are now verified. The §4 table also lists `0x0000` for
       `0x03` without qualification, but neither the register-format table nor
       Table 4 states a power-saving default — Table 4 constrains bits 15:3 to
       zero, which is a validity rule, not a reset value. See #55.
@@ -312,7 +315,11 @@ the work belongs if it is done.
       integration time.
 - [x] The twenty-four-entry maximum-detection-range table.
 - [x] Gain ×1/8 at 25 ms is 2.1504 lx/count, reaching 140 926 lx — the widest
-      range the part offers.
+      range the part offers. The Basic Characteristics table names that exact
+      pair as the *detectable maximum illuminance* condition, `E_V max` =
+      140 000 lx, so the widest-range preset is the configuration the source
+      itself uses to state the part's maximum. It also gives 0.0042 lx/step at
+      ×2 and 800 ms, matching the opposite corner of the resolution table.
 - [x] Above 100 lx, gain ×1 and ×2 are outside the linear region.
 - [x] Correction is called for with gain ×1/4 and ×1/8, and above 1 000 lx.
 - [x] The correction polynomial coefficients, checked against the source's own
@@ -410,8 +417,16 @@ At fixed 7-bit address `0x10`, the ID register is expected to transfer bytes
 This is compatibility evidence, not package-orientation, lot, authenticity, or
 calibration proof.
 
-- [ ] The ID register transfers bytes `0x81, 0xC4`, decoding to `0xC481`, at the
-      fixed address option.
+- [x] The ID register transfers bytes `0x81, 0xC4`, decoding to `0xC481`, at the
+      fixed address option (Table 8). The low byte is the fixed device ID
+      `0x81`; the high byte is an **address-option code**, `0xC4` for slave
+      address `0x20` and `0xD4` for `0x90`. `0x20` is the 8-bit write form of the
+      7-bit `0x10` this driver fixes, so `0xC481` is the word for the supported
+      option — and `0xD481` is a real VEML7700 at an address this driver does not
+      support, which is why identity is a compatibility claim rather than a
+      presence claim.
+
+      Byte order follows §3: low first, so `0x81` then `0xC4` on the wire.
 
 ## 11. Explicit non-claims
 
