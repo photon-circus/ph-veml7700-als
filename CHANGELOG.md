@@ -24,10 +24,11 @@ than a change from a prior version.
   word order, payload, and transaction count; per-stage failure injection for
   both fresh capture and threshold-monitor programming.
 - Independent `ph-veml7700-als-model` crate: a quiescent, datasheet-derived
-  device behavioral model covering `probe` and one successful `measure_once`
-  flow at the I²C boundary, driven by explicit relative duration. Ships with
-  model-only tests and two driver-versus-model tests. Its README is the
-  maintained declaration of claim, fidelity, sources, and nonclaims.
+  device behavioral model covering `probe`, successful `measure_once`,
+  autonomous power-saving cadence, threshold persistence/status, and injected
+  ALS/white scheduling skew at the I²C boundary. Model-only and
+  driver-versus-model tests exercise the declared slice; its README maintains
+  the claim, fidelity, sources, and nonclaims.
 - One canonical local verification gate, `scripts/ci.sh`, covering formatting,
   host tests, lints with warnings denied, rustdoc, five bare-metal targets,
   dependency and license policy, package construction and inspection, and tests
@@ -41,11 +42,9 @@ than a change from a prior version.
 
 ### Known issues
 
-- The independent model covers only `probe` and one successful `measure_once`
-  flow. Every other public operation is outside the model claim.
-- The coupled fake in `crates/veml7700/src/testing/fake_device.rs` is
-  exploratory. Its tests drive the fake directly and never construct the driver,
-  so they establish nothing about driver behavior. See issue #9.
+- The independent model remains a bounded slice: transport faults, arbitrary
+  active reconfiguration, threshold-flag clearing, unspecified register reset
+  values, and unexercised public operations remain outside its claim.
 - The crate has no doctests and no compiled usage example. See issue #10.
 - Hosted CI, contributor issue and pull-request templates, and default-branch
   protection are absent. They become required expectations when the repository

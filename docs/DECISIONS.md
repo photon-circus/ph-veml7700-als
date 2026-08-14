@@ -73,10 +73,12 @@ to active and starting its wait.
 
 ## D-015 — Model independence is required
 
-The existing coupled fake remains exploratory test code. The independent
-cross-validation model implements I²C from the hardware contract and must not
-reuse driver codecs/timing helpers as its oracle. The first bounded slice and
-its nonclaims are declared in
+The independent cross-validation model implements I²C from the hardware contract
+and must not reuse driver codecs, timing helpers, semantic types, or state
+machines as its oracle. Autonomous cadence and threshold behavior belong there,
+not in a driver-coupled fake. Injected ALS/white phase skew is test scheduling
+topology rather than a silicon timing claim. The bounded slice and its nonclaims
+are declared in
 [`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
 
 ## D-016 — Vendor documents are not redistributed

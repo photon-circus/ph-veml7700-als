@@ -9,12 +9,14 @@ support for the rest of the driver API.
 
 - Device identity and behavioral selection: Vishay VEML7700 at fixed 7-bit I²C
   address `0x10`, datasheet baseline (no silicon variant).
-- Purpose and current consumer: host tests of `ph-veml7700-als` `probe` and one
-  successful `measure_once` flow.
+- Purpose and current consumer: host tests of `ph-veml7700-als` probe, fresh
+  measurement, power-saving cadence, threshold monitoring, and sequential
+  ALS/white observation traces.
 - What agreement with this model establishes: the public driver and this
   independently derived interpretation agree for those exercised traces
-  (address, ID, byte order, injected ALS/white pair, delay-driven conversion,
-  and configuration/power-saving restoration).
+  (address, ID, byte order, injected ALS/white samples and scheduling skew,
+  delay-driven refresh, configuration/power-saving restoration, documented
+  cadence, and threshold qualification).
 - What agreement with this model does not establish: support for other driver
   features, undocumented silicon behavior, analog/electrical timing, optical
   physics, or physical-hardware qualification.
@@ -40,16 +42,20 @@ stay provisional and are not physical-support claims.
 
 - Transport operations: complete I²C `write` of `[pointer, low, high]` and
   `write_read` of a one-byte pointer returning two data bytes, at address `0x10`,
-  limited to configuration (`0x00`), power saving (`0x03`), ALS (`0x04`), white
-  (`0x05`), and ID (`0x07`).
+  limited to configuration (`0x00`), high threshold (`0x01`), low threshold
+  (`0x02`), power saving (`0x03`), ALS (`0x04`), white (`0x05`), threshold
+  status (`0x06`), and ID (`0x07`).
 - Address values outside `0x00..=0x7F` are model-input limitations, not device
   NACKs. Other valid 7-bit addresses receive the modeled address NACK.
 - Applied stimuli: a persistent raw pair `{ als_counts, white_counts }`. This is
   the result available to a completed conversion, not ambient lux.
 - Relative-duration input: non-negative nanosecond-resolution elapsed duration.
   Driver `DelayNs` requests must reach this same input in conformance tests.
-- Injected events: none. Construction starts from the documented reset/default
-  state. A separately injectable POR event is not part of this slice.
+- Injected white-channel phase offset: non-negative relative duration applied to
+  future wake edges. It creates test scheduling topology and is not a silicon
+  timing claim.
+- Injected events: no POR, transport fault, or flag-clear event. Construction
+  starts from the documented reset/default configuration state.
 
 ### Outputs and observations
 
@@ -61,11 +67,12 @@ stay provisional and are not physical-support claims.
 
 ### State and mutation
 
-- State retained: configuration and power-saving words; active/shutdown;
-  the held raw sample; the last completed ALS/white pair; remaining progress
-  toward the current conversion.
+- State retained: configuration, power-saving and programmed threshold words;
+  threshold qualification/status; active/shutdown; the held raw sample; the
+  independently completed ALS/white values; and each channel's remaining
+  refresh progress.
 - Inputs that permit mutation: ordered `write` / `write_read`, `set_raw_sample`,
-  and `advance`.
+  `set_white_phase_offset`, and `advance`.
 - Documented transport side effects: none in this slice. Register reads do not
   clear flags or consume time.
 - Stable behavior at an unchanged temporal frontier: repeated supported reads
@@ -75,11 +82,11 @@ stay provisional and are not physical-support claims.
 
 | Classification | Included behavior |
 | --- | --- |
-| Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to configuration, power-saving, ALS, and white; supported measurement configuration; shutdown-to-active wake; conservative conversion completion; shutdown retention; configuration and power-saving restoration. |
-| Abstracted | Analog conversion latches the currently held raw ALS/white pair at the conservative completion boundary. The timing bound is deterministic rather than an oscillator or tolerance simulation. |
-| Injected | Raw ALS/white pair and relative elapsed duration. |
-| Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, scheduler/topology, HIL evidence, and silicon calibration. |
-| Unsupported | Threshold registers, persistence and status; power-saving-enabled cadence; standalone sequences beyond this slice; source-undeclared or reserved interactions; repeated active configuration writes; mid-conversion reconfiguration beyond the supported freeze; all other registers or sequences not needed by `probe` and successful `measure_once`. |
+| Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming, persistence and polled status; configuration and power-saving restoration. |
+| Abstracted | Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. |
+| Injected | Raw ALS/white pair, relative elapsed duration, and white-channel phase offset. |
+| Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
+| Unsupported | Enabled power saving at 25/50 ms; threshold/output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ## Source decisions
 
@@ -89,8 +96,16 @@ stay provisional and are not physical-support claims.
   at that instant. The driver may wait longer (it adds software margin).
 - Elapsed duration: retain remaining conversion progress so valid partitions of
   the same duration are observationally equivalent. No absolute time is stored.
-- Result pair: latch ALS and white together. This does not claim a vendor
-  atomic-pair primitive; it tests the driver's shutdown-before-read policy.
+- Recurring refresh: with power saving disabled, use 130% of the selected
+  integration time; with power saving enabled, use the exact vendor table for
+  100, 200, 400, and 800 ms. Reject 25/50 ms rather than extrapolating.
+- Channel scheduling: ALS and white have independent countdowns. An injected
+  white offset permits cross-generation tests without inventing a fixed silicon
+  phase relationship.
+- Threshold qualification: evaluate strict below-low and above-high conditions
+  on ALS refresh and assert status after 1, 2, 4, or 8 consecutive qualifying
+  results. Reads do not clear status; later clearing semantics remain outside
+  the slice.
 - Shutdown: entering shutdown prevents further conversion progress and preserves
   the last completed pair.
 - Unsupported interactions: reject or leave unavailable. Do not fabricate a
@@ -111,9 +126,9 @@ stay provisional and are not physical-support claims.
 
 - Model limitations (`TransportError::Unsupported`) are distinct from device
   address NACK. Adapters must preserve that distinction.
-- The pinned sources do not declare reset values for ALS or white output.
-  Reading either output before this model completes its first conversion is an
-  explicit model limitation rather than an invented zero-valued device result.
+- The pinned sources do not declare reset values for threshold, ALS, or white
+  output registers. Reading an output before conversion or a threshold before
+  programming is an explicit model limitation rather than an invented value.
 - Later silicon evidence may correct this baseline or introduce a selected
   variant; it must not silently replace the datasheet interpretation.
 - Shared duration types, transport-phase granularity, and multi-device

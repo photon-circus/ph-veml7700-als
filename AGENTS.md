@@ -3,12 +3,10 @@
 ## Product boundary
 
 This repository owns an async, allocation-free `no_std` VEML7700 driver plus
-pure, scripted-I²C, and autonomous-state tests. The coupled fake is test-only,
-shares driver semantic types, does not implement an I²C device endpoint, and is
-never driven through `Veml7700`; do not present it as driver evidence or as
-independent cross-validation. The independent device
-behavioral model lives in `crates/veml7700-model` and currently covers only
-`probe` and one successful `measure_once` slice.
+pure, scripted-I²C, and independent-model tests. The independent device
+behavioral model lives in `crates/veml7700-model` and covers the declared probe,
+fresh-measurement, autonomous refresh, and threshold-monitor traces. Agreement
+with that bounded slice is not full-device or physical evidence.
 
 Do not add MCU examples, board support, fixture definitions, physical-evidence
 plans, hardware runners, or orchestration dependencies.
@@ -58,8 +56,7 @@ The compiler cannot catch any of these.
   root `README.md`, the packaged `crates/veml7700/README.md`, and the `lib.rs`
   crate documentation. The packaged two are the ones a consumer sees. The gate
   compares all three after normalizing `>` and `//!` prefixes and line wrapping,
-  so only the wording is free. Keep the disclosure to the four profile facts;
-  the coupled fake is not one of them and belongs in prose instead.
+  so only the wording is free. Keep the disclosure to the four profile facts.
 - **Vendor provenance lives in two places:** `docs/vendor/README.md` holds the
   retrieval record and `crates/veml7700-model/README.md` repeats the digests as
   part of the model's source declaration. They are coupled but not gate-checked;
