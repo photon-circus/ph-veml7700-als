@@ -8,7 +8,7 @@
 name: ci
 
 # Dispatch-only while the repository is private. Uncomment the triggers below
-# as part of the visibility change; see issue #11.
+# as part of the visibility change; see issue #6.
 on:
   workflow_dispatch:
   # pull_request:
