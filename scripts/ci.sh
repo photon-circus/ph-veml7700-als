@@ -29,6 +29,13 @@ do
 done
 
 cargo deny check -D warnings
-cargo package -p ph-veml7700-als --locked --allow-dirty --list
-cargo package -p ph-veml7700-als --locked --allow-dirty
-cargo test --manifest-path target/package/ph-veml7700-als-0.1.0/Cargo.toml
+
+# Pin packaging to the repository target directory. Cargo excludes only that
+# path from workspace member discovery, so an extracted package anywhere else
+# inside the repository cannot be tested.
+package_target_dir=$repo_root/target
+package_dir=$package_target_dir/package
+rm -rf "$package_dir"
+cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir" --list
+cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir"
+cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml

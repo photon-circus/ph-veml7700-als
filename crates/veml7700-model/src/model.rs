@@ -134,7 +134,7 @@ impl Veml7700Model {
     }
 
     const fn require_address(address: u8) -> Result<(), TransportError> {
-        if address > 0x7f {
+        if address > 0x7F {
             Err(TransportError::Unsupported(Unsupported::AddressOutOfRange(
                 address,
             )))

@@ -261,7 +261,7 @@ fn wrong_address_is_a_device_nack_and_does_not_mutate() {
 
 #[test]
 fn addresses_outside_seven_bit_domain_are_model_limitations() {
-    for address in [0x80, 0xff] {
+    for address in [0x80, 0xFF] {
         let mut model = Veml7700Model::new();
         let before = model.inspect();
         assert_eq!(
