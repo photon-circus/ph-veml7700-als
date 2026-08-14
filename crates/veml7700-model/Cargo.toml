@@ -1,0 +1,18 @@
+[package]
+name = "ph-veml7700-als-model"
+version = "0.1.0"
+description = "Independent VEML7700 device behavioral model for probe and one successful measure_once flow"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+keywords = ["veml7700", "embedded", "no-std", "i2c"]
+categories = ["embedded", "no-std"]
+publish = false
+
+[dependencies]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]

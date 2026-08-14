@@ -5,10 +5,10 @@ light sensor.
 
 > [!WARNING]
 > **Incubating — host-model verification only.** The driver has pure, strict
-> scripted-I²C, and autonomous-state tests. Its current behavioral fake is
-> test-only and shares driver value types, so it is not yet the independent
-> I²C-level mock required for driver cross-validation. No reviewed physical or
-> calibrated-optical evidence exists, and the crate is not published.
+> scripted-I²C, and autonomous-state tests. An independent I²C-level model covers
+> `probe` and one successful `measure_once` slice; the coupled fake remains
+> test-only and is not that oracle. No reviewed physical or calibrated-optical
+> evidence exists, and the crate is not published.
 
 ## Responsibility
 
@@ -35,10 +35,11 @@ finished product's aperture.
 ## Repository layout
 
 ```text
-crates/veml7700/   driver and host-side tests
-docs/              device, API, architecture, invariant, and test contracts
-scripts/ci.sh      canonical bounded local verification
-tools/check.*      platform launchers for the same local gate
+crates/veml7700/         driver and host-side tests
+crates/veml7700-model/   independent device behavioral model (bounded slice)
+docs/                    device, API, architecture, invariant, and test contracts
+scripts/ci.sh            canonical bounded local verification
+tools/check.*            platform launchers for the same local gate
 ```
 
 Start with [the documentation index](docs/README.md).
@@ -52,9 +53,10 @@ calibrated-optical behavior.
 
 ## Publication status
 
-The package retains `publish = false`. Publication remains blocked until an
+The package retains `publish = false`. Publication remains blocked until the
 independent I²C-level model and reviewed physical evidence support the claimed
-scope and the owner separately approves a release.
+scope and the owner separately approves a release. The first model slice does
+not by itself lift that block.
 
 ## License
 

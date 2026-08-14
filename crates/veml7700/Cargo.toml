@@ -24,6 +24,7 @@ defmt = ["dep:defmt"]
 
 [dev-dependencies]
 futures = { version = "0.3", default-features = false, features = ["std", "executor"] }
+ph-veml7700-als-model = { path = "../veml7700-model" }
 
 [package.metadata.docs.rs]
 all-features = true

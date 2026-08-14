@@ -4,7 +4,7 @@ All notable changes to this repository are documented here.
 
 ## [Unreleased]
 
-Last updated: 2026-08-12 UTC
+Last updated: 2026-08-13 UTC
 
 ### Added
 
@@ -13,6 +13,10 @@ Last updated: 2026-08-12 UTC
   monitoring, and integer nominal illuminance scaling.
 - Pure codec tests, exact scripted-I²C tests, failure injection, and a test-only
   autonomous-state fake covering refresh cadence, retention, and persistence.
+- Independent `ph-veml7700-als-model` crate for the datasheet-derived `probe`
+  and successful `measure_once` slice, with model-only tests and two
+  driver-versus-model tests. The maintained declaration is the model crate
+  README.
 
 ### Changed
 
@@ -32,7 +36,7 @@ Last updated: 2026-08-12 UTC
 
 ### Known issues
 
-- The autonomous fake is not an independent I²C-level mock and does not yet
-  cross-validate public driver operations.
+- The independent model covers only `probe` and one successful `measure_once`
+  flow. The coupled fake remains exploratory and is not an independent oracle.
 - Vendor source verification remains owner-pending, no reviewed physical or
   calibrated-optical evidence exists, and the crate remains unpublished.

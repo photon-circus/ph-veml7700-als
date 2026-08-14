@@ -3,9 +3,11 @@
 ## Product boundary
 
 This repository owns an async, allocation-free `no_std` VEML7700 driver plus
-pure, scripted-I²C, and autonomous-state tests. The current fake is test-only,
+pure, scripted-I²C, and autonomous-state tests. The coupled fake is test-only,
 shares driver semantic types, and does not implement an I²C device endpoint; do
-not present it as independent cross-validation.
+not present it as independent cross-validation. The independent device
+behavioral model lives in `crates/veml7700-model` and currently covers only
+`probe` and one successful `measure_once` slice.
 
 Do not add MCU examples, board support, fixture definitions, physical-evidence
 plans, hardware runners, or orchestration dependencies.
@@ -20,6 +22,7 @@ plans, hardware runners, or orchestration dependencies.
 | Review-blocking truths | `docs/INVARIANTS.md` |
 | Verification responsibilities | `docs/TEST_PLAN.md` |
 | Durable rationale | `docs/DECISIONS.md` |
+| Independent model claim | `crates/veml7700-model/README.md` |
 
 Put bounded distributable work in GitHub issues. Do not retain bootstrap roles,
 task packets, generated inventories, or tool-specific agent hierarchies.
@@ -34,7 +37,7 @@ task packets, generated inventories, or tool-specific agent hierarchies.
 - Keep white-channel counts distinct from ALS nominal scaling.
 - Preserve concrete bus errors and multi-stage restoration context.
 - Keep optical correction and calibration outside this driver.
-- Build the future independent mock from the hardware contract, not driver
+- Keep the independent model derived from the hardware contract, not driver
   codecs, timing helpers, or private constants.
 
 Public behavior changes require coupled tests, contracts, rationale, and

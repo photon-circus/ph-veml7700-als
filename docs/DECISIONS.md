@@ -73,9 +73,11 @@ to active and starting its wait.
 
 ## D-015 — Model independence is required
 
-The existing coupled fake remains exploratory test code. The future cross-
-validation mock must implement I²C independently from the hardware contract and
-must not reuse driver codecs/timing helpers as its oracle.
+The existing coupled fake remains exploratory test code. The independent
+cross-validation model implements I²C from the hardware contract and must not
+reuse driver codecs/timing helpers as its oracle. The first bounded slice and
+its nonclaims are declared in
+[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
 
 ## D-016 — Vendor documents are not redistributed
 

@@ -7,10 +7,15 @@ cd "$repo_root"
 
 cargo fmt --all -- --check
 cargo test -p ph-veml7700-als --no-default-features
+cargo test -p ph-veml7700-als-model --no-default-features
 cargo check -p ph-veml7700-als --all-features
+cargo check -p ph-veml7700-als-model
 cargo clippy -p ph-veml7700-als --all-targets --all-features -- -D warnings
+cargo clippy -p ph-veml7700-als-model --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc -p ph-veml7700-als --all-features --no-deps
+RUSTDOCFLAGS="-D warnings" cargo doc -p ph-veml7700-als-model --no-deps
 cargo test -p ph-veml7700-als --doc
+cargo test -p ph-veml7700-als-model --doc
 
 for target in \
     thumbv6m-none-eabi \
@@ -20,6 +25,7 @@ for target in \
     riscv32imac-unknown-none-elf
 do
     cargo check -p ph-veml7700-als --target "$target" --no-default-features
+    cargo check -p ph-veml7700-als-model --target "$target"
 done
 
 cargo deny check -D warnings
