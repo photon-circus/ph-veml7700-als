@@ -21,7 +21,9 @@ than a change from a prior version.
   kept identical to it by the canonical gate.
 - Concrete preserved bus errors carrying semantic operation, register, and stage
   context, including distinct primary and recovery failures when restoration
-  also fails and a captured sample survives a failed restore.
+  also fails and a captured sample survives a failed restore. `probe` reports
+  through its own `ProbeError`, because address NACK means absence only there.
+  Every variant of every public error enum is reachable, enforced by the gate.
 - Pure codec tests across every documented field combination and reserved
   encoding; exact scripted-I²C tests asserting address, pointer, little-endian
   word order, payload, and transaction count; per-stage failure injection for

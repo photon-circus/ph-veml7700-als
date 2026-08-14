@@ -124,6 +124,33 @@ if [ "$lib_example" != "$(example crates/veml7700/README.md)" ]; then
     exit 1
 fi
 
+# A variant no code ever names is surface a caller can match and never reach.
+# `Operation::Probe` was exactly that: `probe` reports through `ProbeError`.
+# The enum declarations use bare variant names, so only real `Enum::Variant`
+# paths match here.
+step "every public error variant is named by some code path"
+error_variants=$(awk '
+    /^pub enum [A-Za-z]+/ { name = $3; sub(/<.*/, "", name); in_enum = 1; next }
+    in_enum && /^\}/ { in_enum = 0; next }
+    in_enum && /^    [A-Z]/ { v = $1; sub(/[^A-Za-z0-9_].*/, "", v); print name "::" v }
+' crates/veml7700/src/error.rs)
+if [ -z "$error_variants" ]; then
+    echo "no public error variants found in crates/veml7700/src/error.rs" >&2
+    exit 1
+fi
+unreachable_variants=
+for error_variant in $error_variants; do
+    if ! grep -rqF "$error_variant" crates --include=*.rs; then
+        unreachable_variants="$unreachable_variants $error_variant"
+    fi
+done
+if [ -n "$unreachable_variants" ]; then
+    printf 'public error variants that no code names:%s\n' "$unreachable_variants" >&2
+    exit 1
+fi
+printf '        %s public error variants, all reachable\n' \
+    "$(printf '%s\n' "$error_variants" | wc -l | tr -d ' ')"
+
 step "formatting"
 cargo fmt --all -- --check
 
