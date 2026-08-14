@@ -147,6 +147,19 @@ than a change from a prior version.
 
 ### Changed
 
+- Every host `cargo test` in the canonical gate now passes an explicit
+  `--target`, resolved from `rustc -vV` rather than assumed. Without it Cargo
+  writes test executables straight into `target/debug`, where a Windows
+  Application Control policy intermittently refuses to launch them:
+  `Couldn't run the test: An Application Control policy has blocked this file.
+  (os error 4551)`.
+
+  The tests passed; the harness could not start the binary it had just built.
+  It surfaced as the gate failing at a *different* doctest step on each run,
+  which is the worst shape a gate failure can take — it reads as flakiness in
+  the code under test, and the natural response is to re-run until green. An
+  authoritative gate that is sometimes wrong about its own subject is worse than
+  a slow one.
 - The model no longer invents its own stimuli. `Veml7700Model::new` takes a
   required `RetainedInputs` carrying the raw ALS/white pair and the white-channel
   phase offset, and `Default` is gone rather than reimplemented.
