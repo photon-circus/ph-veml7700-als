@@ -169,9 +169,14 @@ to be quietly widened.
 The intended direction is progressive: as hardware evidence arrives, each
 assumption above is either confirmed and promoted to a verified row, or refuted
 and corrected in both the model and the driver — and the crate's level of
-confirmation rises with it. The four rows are ordered work, not caveats. Each
-already names the observation that would settle it, so the first
-hardware-in-the-loop session has a list rather than a research problem.
+confirmation rises with it. The three rows are ordered work, not caveats. Each
+already names the observation that would settle it — collected in #58 — so the
+first hardware-in-the-loop session has a list rather than a research problem.
+
+There is a fourth way an open question closes, and this crate has now used it:
+the persistence rule was removed rather than settled. Where nothing forces the
+model to have an opinion, withdrawing one is progress too, and it needs no
+hardware.
 
 Two constraints on that growth, so it stays honest as it happens. Physical
 evidence must correct this baseline rather than silently replace it — a
