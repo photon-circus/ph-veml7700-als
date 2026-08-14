@@ -9,8 +9,6 @@ use crate::threshold::ThresholdStatusDecodeError;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Operation {
-    /// Presence/identity probe.
-    Probe,
     /// Read-only inspection.
     Inspect,
     /// Snapshot measurement.

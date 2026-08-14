@@ -10,6 +10,11 @@ address and no transport variation requiring an internal abstraction.
 Errors retain the HAL error plus semantic operation/register/stage context.
 Only address NACK is classified as absence during probe.
 
+`probe` reports through `ProbeError` instead, because address NACK means absence
+only there. It therefore carries no `Operation`, so `Operation` has no `Probe`
+variant: a variant no driver path can construct is surface a caller could match
+on and never reach.
+
 ## D-003 — Strict low-byte-first codec
 
 All 16-bit register transfers use little-endian wire order, protected by exact
