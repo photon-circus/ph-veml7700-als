@@ -109,6 +109,9 @@ stay provisional and are not physical-support claims.
 
 - Model limitations (`TransportError::Unsupported`) are distinct from device
   address NACK. Adapters must preserve that distinction.
+- The pinned sources do not declare reset values for ALS or white output.
+  Reading either output before this model completes its first conversion is an
+  explicit model limitation rather than an invented zero-valued device result.
 - Later silicon evidence may correct this baseline or introduce a selected
   variant; it must not silently replace the datasheet interpretation.
 - Shared duration types, transport-phase granularity, and multi-device

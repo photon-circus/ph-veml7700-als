@@ -19,9 +19,11 @@ pub(crate) const RESET_CONFIGURATION: u16 = 0x0001;
 pub(crate) const RESET_POWER_SAVING: u16 = 0x0000;
 
 const SHUTDOWN_BIT: u16 = 1 << 0;
-const POWER_SAVING_ENABLE_BIT: u16 = 1 << 0;
+const GAIN_FIELD_MASK: u16 = 0b11 << 11;
 const INTEGRATION_FIELD_SHIFT: u16 = 6;
 const INTEGRATION_FIELD_MASK: u16 = 0b1111;
+const SUPPORTED_CONFIGURATION_MASK: u16 =
+    GAIN_FIELD_MASK | (INTEGRATION_FIELD_MASK << INTEGRATION_FIELD_SHIFT) | SHUTDOWN_BIT;
 const SHUTDOWN_TO_ACTIVE_WAKE_US: u64 = 2_500;
 const CONSERVATIVE_INTEGRATION_PERCENT: u64 = 130;
 
@@ -33,8 +35,12 @@ pub(crate) const fn without_shutdown(configuration: u16) -> u16 {
     configuration & !SHUTDOWN_BIT
 }
 
-pub(crate) const fn power_saving_enabled(power_saving: u16) -> bool {
-    power_saving & POWER_SAVING_ENABLE_BIT != 0
+pub(crate) const fn configuration_fields_are_supported(configuration: u16) -> bool {
+    configuration & !SUPPORTED_CONFIGURATION_MASK == 0
+}
+
+pub(crate) const fn power_saving_is_supported(power_saving: u16) -> bool {
+    power_saving == RESET_POWER_SAVING
 }
 
 pub(crate) const fn integration_field(configuration: u16) -> u16 {

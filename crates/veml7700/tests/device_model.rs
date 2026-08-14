@@ -59,7 +59,7 @@ impl I2c<SevenBitAddress> for ModelI2c {
         _address: SevenBitAddress,
         _read: &mut [u8],
     ) -> Result<(), Self::Error> {
-        panic!("standalone read is outside the declared model slice")
+        Err(ModelBusError::Unsupported(Unsupported::TransactionShape))
     }
 
     async fn write(&mut self, address: SevenBitAddress, write: &[u8]) -> Result<(), Self::Error> {
@@ -88,7 +88,7 @@ impl I2c<SevenBitAddress> for ModelI2c {
         _address: SevenBitAddress,
         _operations: &mut [Operation<'_>],
     ) -> Result<(), Self::Error> {
-        panic!("generic transaction is outside the declared model slice")
+        Err(ModelBusError::Unsupported(Unsupported::TransactionShape))
     }
 }
 

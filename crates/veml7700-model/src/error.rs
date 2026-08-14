@@ -31,8 +31,12 @@ pub enum Unsupported {
     RegisterPointer(u8),
     /// Write or write-read payload length is not a supported register transfer.
     TransactionShape,
-    /// Conversion while power-saving cadence is enabled.
-    PowerSavingEnabledConversion,
+    /// An output register was read before this model had completed a conversion.
+    NoCompletedConversion(u8),
+    /// Configuration word contains behavior outside the declared slice.
+    ConfigurationWord(u16),
+    /// Power-saving word contains behavior outside the declared slice.
+    PowerSavingWord(u16),
     /// Configuration fields other than the shutdown bit changed while active.
     MidConversionReconfiguration,
     /// Integration-time field is a reserved encoding, so no bound exists.
@@ -57,9 +61,18 @@ impl fmt::Display for Unsupported {
                 write!(f, "register pointer 0x{pointer:02X} is outside this slice")
             }
             Self::TransactionShape => f.write_str("transaction shape is outside this slice"),
-            Self::PowerSavingEnabledConversion => {
-                f.write_str("power-saving-enabled conversion is outside this slice")
-            }
+            Self::NoCompletedConversion(pointer) => write!(
+                f,
+                "output register 0x{pointer:02X} has no completed conversion in this model"
+            ),
+            Self::ConfigurationWord(observed) => write!(
+                f,
+                "configuration word 0x{observed:04X} is outside this slice"
+            ),
+            Self::PowerSavingWord(observed) => write!(
+                f,
+                "power-saving word 0x{observed:04X} is outside this slice"
+            ),
             Self::MidConversionReconfiguration => {
                 f.write_str("mid-conversion reconfiguration is outside this slice")
             }

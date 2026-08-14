@@ -4,8 +4,9 @@ use crate::duration::RelativeDuration;
 use crate::error::{NoAcknowledgeSource, TransportError, Unsupported};
 use crate::registers::{
     DEVICE_ID, I2C_ADDRESS, POINTER_ALS, POINTER_CONFIGURATION, POINTER_ID, POINTER_POWER_SAVING,
-    POINTER_WHITE, RESET_CONFIGURATION, RESET_POWER_SAVING, conversion_bound_ns, integration_field,
-    is_shutdown, power_saving_enabled, without_shutdown,
+    POINTER_WHITE, RESET_CONFIGURATION, RESET_POWER_SAVING, configuration_fields_are_supported,
+    conversion_bound_ns, integration_field, is_shutdown, power_saving_is_supported,
+    without_shutdown,
 };
 
 /// Independent VEML7700 predictor for probe and one successful `measure_once`.
@@ -18,8 +19,8 @@ pub struct Veml7700Model {
     power_saving: u16,
     held_als: u16,
     held_white: u16,
-    completed_als: u16,
-    completed_white: u16,
+    completed_als: Option<u16>,
+    completed_white: Option<u16>,
     remaining_ns: Option<u64>,
 }
 
@@ -30,10 +31,10 @@ pub struct Inspection {
     pub configuration: u16,
     /// Power-saving register word.
     pub power_saving: u16,
-    /// Last completed ALS output word.
-    pub als: u16,
-    /// Last completed white output word.
-    pub white: u16,
+    /// Last completed ALS output word, if this model has completed a conversion.
+    pub als: Option<u16>,
+    /// Last completed white output word, if this model has completed a conversion.
+    pub white: Option<u16>,
     /// Currently held injected ALS sample.
     pub held_als: u16,
     /// Currently held injected white sample.
@@ -51,8 +52,8 @@ impl Veml7700Model {
             power_saving: RESET_POWER_SAVING,
             held_als: 0,
             held_white: 0,
-            completed_als: 0,
-            completed_white: 0,
+            completed_als: None,
+            completed_white: None,
             remaining_ns: None,
         }
     }
@@ -146,8 +147,18 @@ impl Veml7700Model {
         match pointer {
             POINTER_CONFIGURATION => Ok(self.configuration),
             POINTER_POWER_SAVING => Ok(self.power_saving),
-            POINTER_ALS => Ok(self.completed_als),
-            POINTER_WHITE => Ok(self.completed_white),
+            POINTER_ALS => match self.completed_als {
+                Some(value) => Ok(value),
+                None => Err(TransportError::Unsupported(
+                    Unsupported::NoCompletedConversion(POINTER_ALS),
+                )),
+            },
+            POINTER_WHITE => match self.completed_white {
+                Some(value) => Ok(value),
+                None => Err(TransportError::Unsupported(
+                    Unsupported::NoCompletedConversion(POINTER_WHITE),
+                )),
+            },
             POINTER_ID => Ok(DEVICE_ID),
             other => Err(TransportError::Unsupported(Unsupported::RegisterPointer(
                 other,
@@ -156,6 +167,16 @@ impl Veml7700Model {
     }
 
     const fn write_configuration(&mut self, word: u16) -> Result<(), TransportError> {
+        if !configuration_fields_are_supported(word) {
+            return Err(TransportError::Unsupported(Unsupported::ConfigurationWord(
+                word,
+            )));
+        }
+        if conversion_bound_ns(word).is_none() {
+            return Err(TransportError::Unsupported(
+                Unsupported::ReservedIntegrationTime(integration_field(word)),
+            ));
+        }
         if is_shutdown(self.configuration) {
             self.write_configuration_from_shutdown(word)
         } else {
@@ -188,21 +209,16 @@ impl Veml7700Model {
     }
 
     const fn write_power_saving(&mut self, word: u16) -> Result<(), TransportError> {
-        if power_saving_enabled(word) && !is_shutdown(self.configuration) {
-            return Err(TransportError::Unsupported(
-                Unsupported::PowerSavingEnabledConversion,
-            ));
+        if !power_saving_is_supported(word) {
+            return Err(TransportError::Unsupported(Unsupported::PowerSavingWord(
+                word,
+            )));
         }
         self.power_saving = word;
         Ok(())
     }
 
     const fn ensure_conversion_start(&self, configuration: u16) -> Result<(), TransportError> {
-        if power_saving_enabled(self.power_saving) {
-            return Err(TransportError::Unsupported(
-                Unsupported::PowerSavingEnabledConversion,
-            ));
-        }
         if conversion_bound_ns(configuration).is_some() {
             Ok(())
         } else {
@@ -213,8 +229,8 @@ impl Veml7700Model {
     }
 
     const fn latch_held_pair(&mut self) {
-        self.completed_als = self.held_als;
-        self.completed_white = self.held_white;
+        self.completed_als = Some(self.held_als);
+        self.completed_white = Some(self.held_white);
     }
 }
 

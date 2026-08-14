@@ -18,11 +18,14 @@ const ACTIVE_100MS: u16 = 0x1000;
 const BOUND_100MS_US: u64 = 2_500 + 130_000;
 
 fn read_word(model: &mut Veml7700Model, pointer: u8) -> u16 {
+    read_word_result(model, pointer).expect("supported register read")
+}
+
+fn read_word_result(model: &mut Veml7700Model, pointer: u8) -> Result<u16, TransportError> {
     let mut bytes = [0_u8; 2];
     model
         .write_read(I2C_ADDRESS, &[pointer], &mut bytes)
-        .expect("supported register read");
-    u16::from_le_bytes(bytes)
+        .map(|()| u16::from_le_bytes(bytes))
 }
 
 fn write_word(model: &mut Veml7700Model, pointer: u8, word: u16) {
@@ -46,11 +49,23 @@ fn reset_state_matches_documented_defaults() {
     let mut model = Veml7700Model::new();
     assert_eq!(read_word(&mut model, CONFIG), 0x0001);
     assert_eq!(read_word(&mut model, POWER_SAVING), 0x0000);
-    assert_eq!(read_word(&mut model, ALS), 0);
-    assert_eq!(read_word(&mut model, WHITE), 0);
+    assert_eq!(
+        read_word_result(&mut model, ALS),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(ALS)
+        ))
+    );
+    assert_eq!(
+        read_word_result(&mut model, WHITE),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(WHITE)
+        ))
+    );
     assert_eq!(read_word(&mut model, ID), DEVICE_ID);
     let snapshot = model.inspect();
     assert_eq!(snapshot.configuration, 0x0001);
+    assert_eq!(snapshot.als, None);
+    assert_eq!(snapshot.white, None);
     assert_eq!(snapshot.remaining, None);
 }
 
@@ -71,8 +86,18 @@ fn conversion_does_not_complete_before_the_conservative_bound() {
     model.set_raw_sample(0x1234, 0x5678);
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US - 1));
-    assert_eq!(read_word(&mut model, ALS), 0);
-    assert_eq!(read_word(&mut model, WHITE), 0);
+    assert_eq!(
+        read_word_result(&mut model, ALS),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(ALS)
+        ))
+    );
+    assert_eq!(
+        read_word_result(&mut model, WHITE),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(WHITE)
+        ))
+    );
     assert!(model.inspect().remaining.is_some());
 }
 
@@ -120,8 +145,18 @@ fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US - 1));
     freeze_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
-    assert_eq!(read_word(&mut model, ALS), 0);
-    assert_eq!(read_word(&mut model, WHITE), 0);
+    assert_eq!(
+        read_word_result(&mut model, ALS),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(ALS)
+        ))
+    );
+    assert_eq!(
+        read_word_result(&mut model, WHITE),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(WHITE)
+        ))
+    );
 }
 
 #[test]
@@ -165,11 +200,20 @@ fn reads_do_not_consume_conversion_time() {
     model.set_raw_sample(1, 2);
     wake_100ms(&mut model);
     for _ in 0..8 {
-        let _ = read_word(&mut model, ALS);
-        let _ = read_word(&mut model, WHITE);
+        assert!(matches!(
+            read_word_result(&mut model, ALS),
+            Err(TransportError::Unsupported(
+                Unsupported::NoCompletedConversion(ALS)
+            ))
+        ));
+        assert!(matches!(
+            read_word_result(&mut model, WHITE),
+            Err(TransportError::Unsupported(
+                Unsupported::NoCompletedConversion(WHITE)
+            ))
+        ));
         let _ = read_word(&mut model, CONFIG);
     }
-    assert_eq!(read_word(&mut model, ALS), 0);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
     assert_eq!(read_word(&mut model, ALS), 1);
 }
@@ -241,16 +285,25 @@ fn unsupported_transaction_shape_is_rejected_without_mutation() {
 }
 
 #[test]
-fn power_saving_restore_is_stored_while_shutdown() {
+fn words_outside_the_declared_slice_are_rejected_without_mutation() {
     let mut model = Veml7700Model::new();
-    write_word(&mut model, POWER_SAVING, 0x0000);
-    model.set_raw_sample(9, 10);
-    wake_100ms(&mut model);
-    model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
-    freeze_100ms(&mut model);
-    write_word(&mut model, POWER_SAVING, 0x0001);
-    write_word(&mut model, CONFIG, 0x0001);
-    assert_eq!(read_word(&mut model, POWER_SAVING), 0x0001);
-    assert_eq!(read_word(&mut model, CONFIG), 0x0001);
-    assert_eq!(read_word(&mut model, ALS), 9);
+    let before = model.inspect();
+
+    let [low, high] = 0x0001_u16.to_le_bytes();
+    assert_eq!(
+        model.write(I2C_ADDRESS, &[POWER_SAVING, low, high]),
+        Err(TransportError::Unsupported(Unsupported::PowerSavingWord(
+            0x0001
+        )))
+    );
+
+    let unsupported_configuration = 0x1003_u16;
+    let [low, high] = unsupported_configuration.to_le_bytes();
+    assert_eq!(
+        model.write(I2C_ADDRESS, &[CONFIG, low, high]),
+        Err(TransportError::Unsupported(Unsupported::ConfigurationWord(
+            unsupported_configuration
+        )))
+    );
+    assert_eq!(model.inspect(), before);
 }
