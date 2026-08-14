@@ -96,3 +96,24 @@ The gate is local and bounded. Version `0.1.0-incubating.1` is unpublished and
 repository visibility, enable registry publication, add credentials, create
 tags, or create releases without the corresponding recorded maintainer
 decision.
+
+## Cursor Cloud specific instructions
+
+This is a pure `no_std` async library workspace: there is no server, daemon, or
+long-running service to start, and no GUI. "Running the application" means
+running the verification gate, which exercises the public driver against scripted
+I²C transport and the independent model.
+
+- The pinned toolchain (Rust 1.92.0, its five bare-metal targets, `clippy`, and
+  `rustfmt`) installs automatically from `rust-toolchain.toml`; the startup
+  update script also runs `cargo fetch --locked` and installs the gate-required
+  `cargo-deny` (the exact version asserted by `scripts/ci.sh`). No manual
+  toolchain setup is needed inside a session.
+- Run the authoritative gate with `CI_PROFILE=full sh scripts/ci.sh` — this is
+  the end-to-end check (format, driver/model/conformance tests, all-features
+  compile, `clippy -D warnings`, docs, five target builds, `cargo-deny`, and
+  packaging). `CI_PROFILE=bounded` skips `cargo-deny`, four of five targets, and
+  packaging, so it is faster but never authoritative. See `CONTRIBUTING.md` for
+  the profile table.
+- Do not run `CI_PROFILE=release`: it refuses a dirty worktree and is a
+  maintainer-only release step.
