@@ -31,8 +31,8 @@ name the source that establishes the new behavior.
 
 ## Local gate
 
-Hosted CI does not run automatically — see the deviation recorded in the README.
-A full local run is the only evidence a reviewer has, so paste its final line:
+Hosted CI does not run automatically, so a full local run is the only evidence a
+reviewer has. Paste its final line:
 
 ```text
 [ci] PASS (full): N steps, 0 skipped.

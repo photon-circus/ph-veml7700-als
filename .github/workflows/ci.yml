@@ -7,18 +7,8 @@
 # and that stays true after the repository becomes public.
 name: ci
 
-# Manual dispatch only, deliberately. Runs in a private repository bill against
-# the organization's Actions allowance, which is exhausted, so an automatic
-# trigger produces a run that fails before it starts and marks every pull
-# request red without saying anything about the code. Organization standards
-# §14.2 names exactly this: a private repository's hosted workflow should stay
-# "minimal, manually dispatched, or disabled" when it would consume shared
-# capacity without proportional value.
-#
-# Actions on standard runners is free for public repositories, so restore the
-# `pull_request` and `push` triggers below as part of the visibility change,
-# not before. Until then the full local gate is the only authority.
-# See D-017, the deviation recorded in README.md, and issue #11.
+# Dispatch-only while the repository is private. Uncomment the triggers below
+# as part of the visibility change; see issue #11.
 on:
   workflow_dispatch:
   # pull_request:
