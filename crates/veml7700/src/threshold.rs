@@ -5,23 +5,37 @@ use crate::measurement::AlsCounts;
 use crate::power::PowerSavingConfig;
 
 /// Raw ALS low/high thresholds.
+///
+/// Fields are private so that `low <= high` cannot be bypassed by a struct
+/// literal. [`Thresholds::new`] is the only way to build this type, and the
+/// driver therefore cannot program a reversed pair that
+/// [`Veml7700::read_thresholds`](crate::Veml7700::read_thresholds) would reject
+/// when read back.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Thresholds {
-    /// Low threshold.
-    pub low: AlsCounts,
-    /// High threshold.
-    pub high: AlsCounts,
+    low: AlsCounts,
+    high: AlsCounts,
 }
 
 impl Thresholds {
-    /// Construct ordered thresholds.
+    /// Construct ordered thresholds, rejecting `low > high`.
     pub const fn new(low: AlsCounts, high: AlsCounts) -> Option<Self> {
         if low.counts() <= high.counts() {
             Some(Self { low, high })
         } else {
             None
         }
+    }
+
+    /// Return the low threshold in raw ALS counts.
+    pub const fn low(self) -> AlsCounts {
+        self.low
+    }
+
+    /// Return the high threshold in raw ALS counts.
+    pub const fn high(self) -> AlsCounts {
+        self.high
     }
 }
 
@@ -95,21 +109,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reserved_status_bits_are_rejected() {
-        assert_eq!(
-            ThresholdStatus::decode(0x0001),
-            Err(ThresholdStatusDecodeError::ReservedBits { observed: 1 })
-        );
-        assert_eq!(
-            ThresholdStatus::decode(0xC000),
-            Ok(ThresholdStatus {
-                low: true,
-                high: true
-            })
-        );
-    }
-
-    #[test]
     fn every_reserved_status_bit_is_rejected() {
         for bit in 0_u32..14 {
             let observed = 1_u16 << bit;
@@ -138,13 +137,15 @@ mod tests {
     #[test]
     fn thresholds_accept_equal_endpoints_and_reject_reversal() {
         let equal = AlsCounts::from_counts(42);
-        assert_eq!(
-            Thresholds::new(equal, equal),
-            Some(Thresholds {
-                low: equal,
-                high: equal
-            })
-        );
+        let ordered = Thresholds::new(equal, equal).expect("equal endpoints are ordered");
+        assert_eq!(ordered.low(), equal);
+        assert_eq!(ordered.high(), equal);
+
+        let ascending =
+            Thresholds::new(AlsCounts::from_counts(42), AlsCounts::from_counts(43)).unwrap();
+        assert_eq!(ascending.low().counts(), 42);
+        assert_eq!(ascending.high().counts(), 43);
+
         assert_eq!(
             Thresholds::new(AlsCounts::from_counts(43), AlsCounts::from_counts(42)),
             None

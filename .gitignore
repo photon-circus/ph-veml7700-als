@@ -1,6 +1,5 @@
 /target/
 **/target/
-**/__pycache__/
 /docs/vendor/*
 !/docs/vendor/README.md
 .DS_Store

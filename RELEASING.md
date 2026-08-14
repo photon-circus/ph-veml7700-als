@@ -26,7 +26,7 @@ unpublished.
 2. Retain `publish = false` until publication is separately approved.
 3. Keep the README, crate documentation, changelog, security policy, and model
    declaration consistent with the actual distribution and evidence state.
-4. Run `./tools/check.sh` or `./tools/check.ps1` and inspect the generated
+4. Run `./scripts/ci.sh` or `./tools/check.ps1` and inspect the generated
    package contents.
 5. Review the exact candidate through a pull request.
 
@@ -46,7 +46,12 @@ If publication is approved, open a focused release pull request that:
 1. changes `publish = false` to `publish = ["crates-io"]`;
 2. changes the distribution disclosure to the exact crates.io prerelease;
 3. moves accumulated changes into a dated `0.1.0-incubating.1` changelog
-   section while preserving an `Unreleased` section;
+   section while preserving an `Unreleased` section, and writes a value
+   statement immediately below the release heading stating why the capability
+   was added, which limitation it addresses, what value it provides, and which
+   cost or constraint it introduces. A list of APIs is not a value statement;
+   the organization changelog standard requires one for a release introducing
+   substantial capability, which the first release does;
 4. runs the complete canonical gate and inspects the exact package;
 5. runs `cargo publish --dry-run`; and
 6. records the verified commit and artifact for maintainer review.

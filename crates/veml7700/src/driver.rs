@@ -406,7 +406,7 @@ where
             })?;
         self.write_word(
             Register::LowThreshold,
-            monitor.thresholds.low.counts(),
+            monitor.thresholds.low().counts(),
             Operation::ThresholdMonitor,
             BusContext::WriteLowThreshold,
         )
@@ -417,7 +417,7 @@ where
         })?;
         self.write_word(
             Register::HighThreshold,
-            monitor.thresholds.high.counts(),
+            monitor.thresholds.high().counts(),
             Operation::ThresholdMonitor,
             BusContext::WriteHighThreshold,
         )
@@ -699,60 +699,16 @@ mod tests {
     #[test]
     fn fresh_measurement_uses_known_wake_edge_and_restores_state() {
         let bus = ScriptedI2c::new([
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x00],
-                returns: vec![0x01, 0x00],
-                result: Ok(()),
-            },
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x03],
-                returns: vec![0x00, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x03, 0x00, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x10],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x00, 0x10],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x10],
-                result: Ok(()),
-            },
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x04],
-                returns: vec![0x34, 0x12],
-                result: Ok(()),
-            },
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x05],
-                returns: vec![0x78, 0x56],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x03, 0x00, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x00],
-                result: Ok(()),
-            },
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0001, Ok(())),
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
@@ -794,33 +750,11 @@ mod tests {
     fn disable_power_saving_failure_is_followed_by_state_restoration() {
         let failure = ScriptError::new(ErrorKind::Bus);
         let bus = ScriptedI2c::new([
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x00],
-                returns: vec![0x01, 0x00],
-                result: Ok(()),
-            },
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x03],
-                returns: vec![0x00, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x03, 0x00, 0x00],
-                result: Err(failure),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x03, 0x00, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x00],
-                result: Ok(()),
-            },
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Err(failure)),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0001, Ok(())),
         ]);
         let mut delay = RecordingDelay { elapsed_ns: 0 };
         let mut sensor = Veml7700::new(bus);
@@ -852,37 +786,12 @@ mod tests {
             PowerSavingConfig::new(true, PowerSavingMode::Mode2),
         );
         let bus = ScriptedI2c::new([
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x00],
-                returns: vec![0x01, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x02, 0x64, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x01, 0xE8, 0x03],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x03, 0x03, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x22, 0x10],
-                result: Ok(()),
-            },
+            read_word(0x00, 0x0001),
+            write_word(0x00, 0x0001, Ok(())),
+            write_word(0x02, 100, Ok(())),
+            write_word(0x01, 1_000, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            write_word(0x00, 0x1022, Ok(())),
         ]);
         let mut sensor = Veml7700::new(bus);
         block_on(sensor.arm_threshold_monitor(monitor)).unwrap();
@@ -891,12 +800,7 @@ mod tests {
 
     #[test]
     fn probe_reads_little_endian_id() {
-        let bus = ScriptedI2c::new([Expectation::WriteRead {
-            address: I2C_ADDRESS,
-            write: vec![0x07],
-            returns: vec![0x81, 0xC4],
-            result: Ok(()),
-        }]);
+        let bus = ScriptedI2c::new([read_word(0x07, 0xC481)]);
         let mut sensor = Veml7700::new(bus);
         let id = block_on(sensor.probe()).unwrap();
         assert_eq!(id.raw(), 0xC481);
@@ -905,19 +809,7 @@ mod tests {
 
     #[test]
     fn configuration_write_is_low_byte_first() {
-        let bus = ScriptedI2c::new([
-            Expectation::WriteRead {
-                address: I2C_ADDRESS,
-                write: vec![0x00],
-                returns: vec![0x01, 0x00],
-                result: Ok(()),
-            },
-            Expectation::Write {
-                address: I2C_ADDRESS,
-                data: vec![0x00, 0x01, 0x10],
-                result: Ok(()),
-            },
-        ]);
+        let bus = ScriptedI2c::new([read_word(0x00, 0x0001), write_word(0x00, 0x1001, Ok(()))]);
         let mut sensor = Veml7700::new(bus);
         block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start())).unwrap();
         sensor.release().done();
@@ -925,12 +817,7 @@ mod tests {
 
     #[test]
     fn threshold_monitor_blocks_domain_retarget_before_write() {
-        let bus = ScriptedI2c::new([Expectation::WriteRead {
-            address: I2C_ADDRESS,
-            write: vec![0x00],
-            returns: vec![0x02, 0x00],
-            result: Ok(()),
-        }]);
+        let bus = ScriptedI2c::new([read_word(0x00, 0x0002)]);
         let mut sensor = Veml7700::new(bus);
         let result =
             block_on(sensor.set_measurement_config(MeasurementConfig::safe_bright_start()));
@@ -946,12 +833,7 @@ mod tests {
     #[test]
     fn probe_preserves_non_address_bus_error() {
         let failure = ScriptError::new(ErrorKind::Bus);
-        let bus = ScriptedI2c::new([Expectation::WriteRead {
-            address: I2C_ADDRESS,
-            write: vec![0x07],
-            returns: vec![0, 0],
-            result: Err(failure),
-        }]);
+        let bus = ScriptedI2c::new([read_failure(0x07, failure)]);
         let mut sensor = Veml7700::new(bus);
         assert_eq!(block_on(sensor.probe()), Err(ProbeError::Bus(failure)));
         sensor.release().done();
@@ -1008,8 +890,8 @@ mod tests {
         let mut sensor = Veml7700::new(bus);
         let snapshot = block_on(sensor.inspect()).unwrap();
         assert_eq!(snapshot.id.raw(), 0xC481);
-        assert_eq!(snapshot.thresholds.low.counts(), 100);
-        assert_eq!(snapshot.thresholds.high.counts(), 1_000);
+        assert_eq!(snapshot.thresholds.low().counts(), 100);
+        assert_eq!(snapshot.thresholds.high().counts(), 1_000);
         assert!(!snapshot.threshold_status.low);
         assert!(snapshot.threshold_status.high);
         sensor.release().done();

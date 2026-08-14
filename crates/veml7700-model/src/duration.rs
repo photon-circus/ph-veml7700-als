@@ -14,9 +14,6 @@ pub struct RelativeDuration {
 }
 
 impl RelativeDuration {
-    /// A zero-length step. The model remains unchanged.
-    pub const ZERO: Self = Self { nanos: 0 };
-
     /// Construct from whole nanoseconds.
     #[must_use]
     pub const fn from_nanos(nanos: u64) -> Self {

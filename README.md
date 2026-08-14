@@ -44,17 +44,17 @@ crates/veml7700/         driver and host-side tests
 crates/veml7700-model/   independent device behavioral model (bounded slice)
 docs/                    device, API, architecture, invariant, and test contracts
 scripts/ci.sh            canonical bounded local verification
-tools/check.*            platform launchers for the same local gate
+tools/check.ps1          PowerShell launcher for the same gate under Git Bash
 ```
 
 Start with [the documentation index](docs/README.md).
 
 ## Local verification
 
-Run `./tools/check.sh` under Git Bash or another POSIX-compatible shell, or
-`./tools/check.ps1` from PowerShell. A green gate establishes agreement with
-the implemented host contracts only; it does not establish physical-device or
-calibrated-optical behavior.
+Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
+`./tools/check.ps1` from PowerShell, which locates Git Bash and runs the same
+script. A green gate establishes agreement with the implemented host contracts
+only; it does not establish physical-device or calibrated-optical behavior.
 
 ## Publication status
 

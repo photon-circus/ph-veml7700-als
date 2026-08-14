@@ -20,7 +20,7 @@
 //! **Distribution:** Unpublished; the candidate version is
 //! `0.1.0-incubating.1` and the manifest retains `publish = false`.
 //!
-//! **Model conformance:** An independent I2C-level model covers `probe` and one
+//! **Model conformance:** An independent I²C-level model covers `probe` and one
 //! successful `measure_once` path only. A coupled test-only fake exercises
 //! autonomous state but is not that independent oracle. All other public
 //! operations are outside the current model claim.

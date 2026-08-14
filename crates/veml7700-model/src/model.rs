@@ -189,10 +189,9 @@ impl Veml7700Model {
     }
 
     const fn write_configuration_from_shutdown(&mut self, word: u16) -> Result<(), TransportError> {
+        // `write_configuration` already rejected reserved integration encodings,
+        // so `conversion_bound_ns` is `Some` for every word reaching this point.
         if !is_shutdown(word) {
-            if let Err(error) = self.ensure_conversion_start(word) {
-                return Err(error);
-            }
             self.remaining_ns = conversion_bound_ns(word);
         }
         self.configuration = word;
@@ -218,16 +217,6 @@ impl Veml7700Model {
         }
         self.power_saving = word;
         Ok(())
-    }
-
-    const fn ensure_conversion_start(&self, configuration: u16) -> Result<(), TransportError> {
-        if conversion_bound_ns(configuration).is_some() {
-            Ok(())
-        } else {
-            Err(TransportError::Unsupported(
-                Unsupported::ReservedIntegrationTime(integration_field(configuration)),
-            ))
-        }
     }
 
     const fn latch_held_pair(&mut self) {
