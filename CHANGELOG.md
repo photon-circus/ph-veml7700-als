@@ -199,6 +199,42 @@ than a change from a prior version.
   now runs on a shut-down device, so restoration can no longer attempt a write
   while active — previously both the operation and its recovery failed together.
 
+- **Breaking:** `ThresholdMonitorError` gained a `confirmed` field naming the
+  last stage that definitely reached the device, separate from `stage`, whose
+  commit status is unknown. A caller can now distinguish a known committed
+  prefix from the uncertain write without being told something the bus never
+  established. The type is `#[non_exhaustive]`, so this is additive for matching,
+  but any code constructing it literally must add the field.
+- Every async operation now documents that it is **not cancellation-safe**, with
+  a table of the device state left at each await boundary and a deterministic
+  read-back recovery procedure using public operations only. Restoration
+  guarantees are qualified with "when polled to completion" — dropping a future
+  does not undo what it has already done, because a driver cannot run async
+  cleanup during a synchronous `Drop`.
+- The measurement delay is called out as the boundary that matters: it is the
+  longest suspension, so a timeout or `select!` lands there most often, and it
+  leaves the sensor awake and converting in a domain the caller did not ask to
+  persist. The guidance is to bound the operation with a shorter integration time
+  rather than by racing the future.
+- Recorded the general rule that **a failed write is not a rejected write.** An
+  I²C error can mean the byte never arrived, or that it arrived, took effect, and
+  the acknowledgement was lost; no error type in this crate reports a write as
+  rolled back or not applied.
+- `read_threshold_status` and `arm_threshold_monitor` now state that a set flag
+  may be stale, and that arming does not clear status — a flag set under a
+  previous set of thresholds can read as asserted against the new ones. There is
+  no procedure that fixes it: with no read-to-clear contract, discarding a read
+  changes nothing, so every asserted read is potentially stale. What a caller can
+  rely on is the unasserted case, and corroborating a set flag against a fresh
+  snapshot. This is a limitation of what the sources support, recorded where a
+  caller meets it rather than only in repository contracts.
+- `disable_threshold_monitor` now states that it clears the monitor bit only and
+  does not restore the power state that preceded arming, so a device armed from
+  shutdown stays active after disabling.
+- Recorded D-027: why cancellation is documented rather than defended, why a
+  cleanup guard or background task would trade an honest limitation for a hidden
+  one, and why these tests assert sequencing rather than device state.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

@@ -322,3 +322,45 @@ reconfigurations: setting the shutdown bit alone, and disabling an enabled
 monitor alone. They cannot be combined. Re-arming an enabled monitor on an
 active device therefore shuts down first with the monitored domain intact, then
 disables the monitor while shut down.
+
+## D-027 — Cancellation is documented, not defended
+
+**Date:** 2026-08-14 **Status:** Current
+
+No async operation is cancellation-safe. Dropping a future does not undo what it
+has already done, and the public documentation says so at every await boundary
+rather than implying otherwise.
+
+Making them safe was considered and rejected. A driver cannot run cleanup during
+a drop: `Drop` is synchronous, the bus is `async`, and there is nowhere to await
+the restoring writes. The options that do exist are worse than the limitation.
+A cleanup guard would need a blocking bus it does not have. A background task
+would need an executor this crate refuses to depend on. Both would trade an
+honest limitation for a hidden one.
+
+So the driver states the boundary behavior exactly and gives a recovery
+procedure using public operations only: read the registers back, shut down to
+stop an abandoned conversion, then reinstate the domain. Read-back is the
+instruction because inference is unsound — the state after a drop mid-write is
+genuinely ambiguous.
+
+The measurement delay is called out separately in the documentation. It is by
+far the longest suspension, so a timeout or `select!` lands there most often,
+and it leaves the sensor awake and converting in a domain the caller did not ask
+to persist. The guidance is to bound the operation with a shorter integration
+time rather than by racing the future.
+
+**A failed write is not a rejected write.** An I²C error can mean the byte never
+arrived, or that it arrived, took effect, and the acknowledgement was lost. The
+transport cannot distinguish them, so no error type in this crate reports a write
+as rolled back or not applied. `ThresholdMonitorError` carries `confirmed` — the
+last stage that definitely landed — separately from `stage`, whose commit status
+is unknown. A caller can therefore act on what is certain without being told
+something the bus never established.
+
+Cancellation is tested by sequencing, not by state. A pending-capable transport
+parks on a chosen operation; the test polls once, drops, and asserts exactly
+which transactions were issued. Whether the device physically committed the
+transaction in flight is unknowable in a scripted harness and is asserted
+nowhere. That boundary is the same one the model respects, and it is why these
+tests live beside the scripted transport rather than in the independent model.

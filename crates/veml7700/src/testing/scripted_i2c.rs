@@ -58,6 +58,16 @@ impl ScriptedI2c {
         );
     }
 
+    /// Expectations not yet consumed.
+    ///
+    /// A cancellation test scripts the whole operation and then drops its future
+    /// at a chosen boundary. What remains here names that boundary exactly, so
+    /// the assertion is about which transactions were issued rather than about
+    /// device state the transport cannot observe.
+    pub(crate) fn remaining(&self) -> usize {
+        self.expectations.len()
+    }
+
     fn next(&mut self) -> Expectation {
         self.expectations
             .pop_front()

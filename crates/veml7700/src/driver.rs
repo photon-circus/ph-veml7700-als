@@ -104,6 +104,34 @@ where
     ///
     /// The VEML7700 has no dedicated interrupt pin. This method makes no claim
     /// about flag-clearing side effects beyond the vendor's documented read.
+    ///
+    /// # A set flag may be stale
+    ///
+    /// The sources establish no reliable clearing contract, so this driver
+    /// promises none: not read-to-clear, not write-to-clear, not latched GPIO
+    /// behaviour. A flag observed here says a qualification happened at some
+    /// point, not that the condition holds now.
+    ///
+    /// That matters most after
+    /// [`arm_threshold_monitor`](Self::arm_threshold_monitor), which does not
+    /// clear status either. A flag set under a *previous* set of thresholds can
+    /// still read as asserted against the new ones.
+    ///
+    /// There is no procedure that fixes this. Reading and discarding does not
+    /// help: with no read-to-clear contract, a set flag stays set, so the second
+    /// read is exactly as stale as the first. **Every** asserted read is
+    /// potentially stale unless the caller has independently established a
+    /// clearing mechanism for their part.
+    ///
+    /// What a caller can rely on is the *unasserted* case: a clear flag has not
+    /// qualified since the last time the device set it. Treat a set flag as
+    /// "qualified at some point", and corroborate with
+    /// [`read_als_snapshot`](Self::read_als_snapshot) against the thresholds if
+    /// the current condition is what matters.
+    ///
+    /// This is a limitation of what the sources support, not of the
+    /// implementation, and it will not change without a source that establishes
+    /// the clearing semantics.
     pub async fn read_threshold_status(&mut self) -> Result<ThresholdStatus, Error<I2C::Error>> {
         self.read_threshold_status_for(Operation::Inspect).await
     }
@@ -160,6 +188,15 @@ where
     /// old or new. Read the configuration back to establish which. This is the
     /// cost of following the required sequence: the alternative is a write the
     /// sources do not sanction.
+    ///
+    /// A returned error also does **not** establish that the failing write was
+    /// rejected. An I²C error can mean the byte never arrived, or that it
+    /// arrived and the acknowledgement was lost; the transport cannot tell them
+    /// apart. This applies to every write in this driver — see
+    /// [`set_power_state`](Self::set_power_state) for the general rule.
+    ///
+    /// Dropping this future has the same effect as a failure at that point,
+    /// without an error to inspect.
     pub async fn set_measurement_config(
         &mut self,
         measurement: MeasurementConfig,
@@ -210,6 +247,26 @@ where
     /// Change active/shutdown state while preserving unrelated fields.
     ///
     /// An enabled threshold monitor prevents changing its active monitored state.
+    ///
+    /// This is a single write and not a reconfiguration, so it needs no shutdown
+    /// sequencing and has no partial state.
+    ///
+    /// # A failed write is not a rejected write
+    ///
+    /// This rule holds for every write in this driver, and is stated once here.
+    ///
+    /// An `Err` establishes that the operation did not *complete*. It does not
+    /// establish that the device is unchanged. An I²C error can mean the byte
+    /// never arrived, or that it arrived, took effect, and the acknowledgement
+    /// was lost on the way back. Nothing at the transport layer distinguishes
+    /// those, so no driver above it can either.
+    ///
+    /// The same holds for dropping the future: cancellation mid-write leaves the
+    /// same uncertainty, without an error to inspect.
+    ///
+    /// Read the register back when it matters. This driver never reports a
+    /// commit status it cannot establish, which is why no error type here says a
+    /// write was "rolled back" or "not applied".
     pub async fn set_power_state(
         &mut self,
         power_state: PowerState,
@@ -241,7 +298,25 @@ where
     ///
     /// A failure part way through can leave an originally active device shut
     /// down, with the cadence either old or new. Read both registers back to
-    /// establish which.
+    /// establish which. As everywhere, an error does not establish that the
+    /// failing write was rejected — see [`set_power_state`](Self::set_power_state).
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// Two reads then up to three writes, and dropping at any of them leaves the
+    /// device where that boundary reached:
+    ///
+    /// | Dropped at | Device is left |
+    /// | --- | --- |
+    /// | Either read | Unchanged; nothing was written |
+    /// | Entering shutdown | Active or shut down, cadence unchanged |
+    /// | Writing the cadence | Shut down; cadence old or new |
+    /// | Returning to active | Shut down or active, cadence new |
+    ///
+    /// The middle rows leave an originally active device asleep. Recover by
+    /// reading [`read_configuration`](Self::read_configuration) and
+    /// [`read_power_saving`](Self::read_power_saving), then reinstating what you
+    /// want; both are idempotent, so repeating the call is safe.
     pub async fn set_power_saving(
         &mut self,
         power_saving: PowerSavingConfig,
@@ -302,7 +377,60 @@ where
     /// The operation disables power-saving cadence, installs the requested
     /// measurement domain while shut down, creates a known shutdown-to-active
     /// wake edge, waits, enters shutdown again to freeze data, reads ALS and
-    /// white, then restores the original configuration and power-saving register.
+    /// white, then restores the original configuration and power-saving register
+    /// — **when polled to completion.**
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// Dropping it does not undo what it has already done. The driver is not an
+    /// executor and cannot run cleanup during a drop, so restoration only
+    /// happens on paths that return.
+    ///
+    /// Every `await` is a point where a caller may drop, and the device is left
+    /// in the state that boundary reached:
+    ///
+    /// | Dropped at | Device is left |
+    /// | --- | --- |
+    /// | Observing configuration or power saving | Unchanged; nothing was written |
+    /// | Entering shutdown | Active or shut down, in the original domain |
+    /// | Disabling power saving | Shut down; cadence old or new |
+    /// | Installing the domain | Shut down, in the original or requested domain, cadence disabled |
+    /// | Activating | Shut down or **active and converting**, in the requested domain |
+    /// | **The measurement delay** | **Active and converting**, requested domain, cadence disabled |
+    /// | Freezing the result | Active or shut down, requested domain |
+    /// | Reading ALS or white | Shut down, requested domain; the sample is lost |
+    /// | Restoring power saving | Shut down; cadence old or new |
+    /// | Restoring configuration | Shut down or restored |
+    ///
+    /// The delay row is the one that matters in practice: it is by far the
+    /// longest suspension, so a timeout or `select!` is most likely to land
+    /// there, and it leaves the sensor **awake and drawing current** in a domain
+    /// the caller did not ask to persist.
+    ///
+    /// Each row spans two possibilities wherever a write was in flight, because
+    /// an interrupted I²C write may or may not have reached the device. That is
+    /// a property of the bus, not a gap in this description.
+    ///
+    /// # Recovering after a drop
+    ///
+    /// Do not infer the state — read it. This procedure is deterministic and
+    /// uses only public operations:
+    ///
+    /// 1. [`read_configuration`](Self::read_configuration) and
+    ///    [`read_power_saving`](Self::read_power_saving) to observe what is
+    ///    actually installed.
+    /// 2. [`set_power_state`](Self::set_power_state) with
+    ///    [`PowerState::Shutdown`] to stop conversion and current draw.
+    /// 3. [`set_power_saving`](Self::set_power_saving) and
+    ///    [`set_measurement_config`](Self::set_measurement_config) to reinstate
+    ///    the domain you want.
+    ///
+    /// Step 2 first: it is the only step that bounds how long an abandoned
+    /// conversion keeps running.
+    ///
+    /// A caller that cannot tolerate this should not race this future against a
+    /// timeout. Bound the operation by choosing a shorter integration time
+    /// instead, which shortens the delay rather than abandoning it.
     pub async fn measure_once_with_timing<D>(
         &mut self,
         delay: &mut D,
@@ -498,11 +626,42 @@ where
     ///
     /// # State after a failure
     ///
-    /// [`ThresholdMonitorError::stage`] names the write that failed. Every stage
-    /// after the first leaves the device shut down with the monitor disabled, so
-    /// it is not measuring against a half-programmed domain. Which thresholds
-    /// and cadence are installed depends on how far the sequence reached; read
-    /// them back rather than assuming, and re-arm to establish a known domain.
+    /// [`ThresholdMonitorError::stage`] names the write that failed and
+    /// [`confirmed`](ThresholdMonitorError::confirmed) the last one that
+    /// definitely landed. The failing write's commit status is unknown, so the
+    /// device is in one of exactly two states — see that type for the full rule.
+    ///
+    /// Every stage after the first leaves the device shut down with the monitor
+    /// disabled, so it is never qualifying against a half-programmed domain.
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// Dropping it leaves the monitor programmed up to whichever write had
+    /// completed, with no error to inspect. The boundaries are the same
+    /// sequence: observing configuration writes nothing; dropping *after* a
+    /// completed disable write leaves the monitor disabled and the device shut
+    /// down, with some prefix of the thresholds and cadence installed; dropping
+    /// at the final enable leaves the monitor either disabled or fully armed.
+    ///
+    /// Dropping *at* the disable write itself is the ambiguous case, and it is
+    /// not covered by the sentence above. That write may or may not have landed,
+    /// so from an active monitor-disabled start the device may still be active,
+    /// and while re-arming an enabled monitor it may still be enabled.
+    ///
+    /// Recover the same way as after a failure: read
+    /// [`read_configuration`](Self::read_configuration),
+    /// [`read_thresholds`](Self::read_thresholds) and
+    /// [`read_power_saving`](Self::read_power_saving), then re-arm. Re-arming is
+    /// idempotent in effect — it always installs the complete domain — so it is
+    /// the safe response to any uncertainty here.
+    ///
+    /// # Stale status after arming
+    ///
+    /// Arming does not clear [`read_threshold_status`](Self::read_threshold_status).
+    /// The sources establish no clearing contract, so a flag set under a
+    /// *previous* domain can still read as asserted after re-arming against new
+    /// thresholds. Treat the first status read after arming as unreliable, or
+    /// read and discard one before acting on the next.
     pub async fn arm_threshold_monitor(
         &mut self,
         monitor: ThresholdMonitorConfig,
@@ -512,6 +671,7 @@ where
             .await
             .map_err(|source| ThresholdMonitorError {
                 stage: ThresholdMonitorStage::ObserveConfiguration,
+                confirmed: None,
                 source,
             })?;
 
@@ -520,6 +680,10 @@ where
         // reconfiguration, which the sources require shutdown for first. That
         // only bites when re-arming an enabled monitor on an active device —
         // every other starting state needs one write.
+        // Tracks what definitely reached the device. Each write advances it only
+        // after returning success, so the failing stage is never counted as
+        // confirmed -- its commit status is exactly what nobody can establish.
+        let mut confirmed: Option<ThresholdMonitorStage> = None;
         if current.power_state == PowerState::Active
             && current.threshold_monitor == ThresholdMonitorState::Enabled
         {
@@ -530,8 +694,10 @@ where
             .await
             .map_err(|source| ThresholdMonitorError {
                 stage: ThresholdMonitorStage::EnterShutdown,
+                confirmed: None,
                 source,
             })?;
+            confirmed = Some(ThresholdMonitorStage::EnterShutdown);
         }
 
         // Thresholds, cadence and the new domain are then all written to a
@@ -543,8 +709,10 @@ where
             .await
             .map_err(|source| ThresholdMonitorError {
                 stage: ThresholdMonitorStage::DisableMonitor,
+                confirmed,
                 source,
             })?;
+        confirmed = Some(ThresholdMonitorStage::DisableMonitor);
         self.write_word(
             Register::LowThreshold,
             monitor.thresholds.low().counts(),
@@ -554,8 +722,10 @@ where
         .await
         .map_err(|source| ThresholdMonitorError {
             stage: ThresholdMonitorStage::WriteLowThreshold,
+            confirmed,
             source,
         })?;
+        confirmed = Some(ThresholdMonitorStage::WriteLowThreshold);
         self.write_word(
             Register::HighThreshold,
             monitor.thresholds.high().counts(),
@@ -565,14 +735,18 @@ where
         .await
         .map_err(|source| ThresholdMonitorError {
             stage: ThresholdMonitorStage::WriteHighThreshold,
+            confirmed,
             source,
         })?;
+        confirmed = Some(ThresholdMonitorStage::WriteHighThreshold);
         self.write_power_saving_for(monitor.power_saving, Operation::ThresholdMonitor)
             .await
             .map_err(|source| ThresholdMonitorError {
                 stage: ThresholdMonitorStage::ApplyPowerSaving,
+                confirmed,
                 source,
             })?;
+        confirmed = Some(ThresholdMonitorStage::ApplyPowerSaving);
 
         let enabled = disabled
             .with_measurement(monitor.measurement)
@@ -583,11 +757,30 @@ where
             .await
             .map_err(|source| ThresholdMonitorError {
                 stage: ThresholdMonitorStage::EnableMonitor,
+                confirmed,
                 source,
             })
     }
 
     /// Disable threshold monitoring while preserving all other configuration fields.
+    ///
+    /// This clears the monitor bit only. It does **not** restore whatever power
+    /// state preceded arming: a device armed from shutdown stays active after
+    /// disabling. Follow with [`set_power_state`](Self::set_power_state) if you
+    /// want it asleep.
+    ///
+    /// It does not clear threshold status either — see
+    /// [`read_threshold_status`](Self::read_threshold_status).
+    ///
+    /// # This future is not cancellation-safe
+    ///
+    /// One read then one write. Dropping at the read changes nothing; dropping
+    /// at the write leaves the monitor either enabled or disabled, and a
+    /// returned error does not distinguish those either — see
+    /// [`set_power_state`](Self::set_power_state) for the general rule.
+    ///
+    /// Recover by reading [`read_configuration`](Self::read_configuration) and
+    /// repeating the call, which is idempotent.
     pub async fn disable_threshold_monitor(&mut self) -> Result<(), Error<I2C::Error>> {
         let current = self
             .read_configuration_for(Operation::ThresholdMonitor)
@@ -792,6 +985,7 @@ mod tests {
     use futures::executor::block_on;
 
     use super::{I2C_ADDRESS, Veml7700};
+    use crate::testing::cancellation::{CancellableDelay, PendingAt, poll_once_then_drop};
     use crate::testing::scripted_i2c::{Expectation, ScriptError, ScriptedI2c};
     use crate::{
         AlsCounts, BusContext, ConfigurationError, Error, Gain, IntegrationTime, MeasureOnceError,
@@ -1287,6 +1481,192 @@ mod tests {
         sensor.release().done();
     }
 
+    // Cancellation boundaries.
+    //
+    // These assert *sequencing*: after dropping the future at boundary k,
+    // exactly k transactions were issued. That is the whole of what a scripted
+    // transport can establish. Whether the device physically committed the
+    // transaction in flight is unknowable here and is not asserted anywhere.
+
+    /// Complete `measure_once` script from a shut-down device, in order.
+    fn fresh_capture_script() -> [Expectation; 10] {
+        [
+            read_word(0x00, 0x0001),
+            read_word(0x03, 0x0000),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            // the measurement delay sits here
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0001, Ok(())),
+        ]
+    }
+
+    #[test]
+    fn dropping_fresh_capture_at_any_transport_boundary_issues_exactly_that_prefix() {
+        let total = fresh_capture_script().len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(fresh_capture_script()), boundary);
+            let mut delay = CancellableDelay::ready();
+            let mut sensor = Veml7700::new(bus);
+            let polled = poll_once_then_drop(
+                sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
+            );
+            assert!(
+                polled.is_pending(),
+                "boundary {boundary} should have parked the operation"
+            );
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(
+                total - remaining,
+                boundary,
+                "boundary {boundary} issued the wrong number of transactions"
+            );
+        }
+    }
+
+    #[test]
+    fn dropping_fresh_capture_during_the_measurement_delay_leaves_the_device_shut_down() {
+        // The delay is the longest suspension and the one most likely to be
+        // cancelled across. Five transactions precede it; the sixth would be the
+        // freeze write, so a caller that drops here leaves the device *active*
+        // in the temporary measurement domain with power saving disabled.
+        let bus = ScriptedI2c::new(fresh_capture_script());
+        let mut delay = CancellableDelay::parking();
+        let mut sensor = Veml7700::new(bus);
+        let polled = poll_once_then_drop(
+            sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
+        );
+        assert!(polled.is_pending());
+        let remaining = sensor.release().remaining();
+        assert_eq!(
+            remaining, 5,
+            "the delay should follow exactly the five domain-installing transactions"
+        );
+        assert_eq!(delay.elapsed_ns(), 0, "a parked delay must not record time");
+    }
+
+    #[test]
+    fn dropping_a_threshold_arm_at_any_boundary_issues_exactly_that_prefix() {
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let script = || {
+            [
+                read_word(0x00, 0x0001),
+                write_word(0x00, 0x0001, Ok(())),
+                write_word(0x02, 100, Ok(())),
+                write_word(0x01, 1_000, Ok(())),
+                write_word(0x03, 0x0003, Ok(())),
+                write_word(0x00, 0x1022, Ok(())),
+            ]
+        };
+        let total = script().len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(script()), boundary);
+            let mut sensor = Veml7700::new(bus);
+            let polled =
+                poll_once_then_drop(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
+                    MeasurementConfig::safe_bright_start(),
+                    thresholds,
+                    Persistence::Four,
+                    PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+                )));
+            assert!(
+                polled.is_pending(),
+                "boundary {boundary} should have parked the operation"
+            );
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(
+                total - remaining,
+                boundary,
+                "boundary {boundary} issued the wrong number of transactions"
+            );
+        }
+    }
+
+    #[test]
+    fn dropping_an_active_start_covers_the_conditional_shutdown_boundaries() {
+        // The scripts above start shut down, where `EnterShutdown` is skipped
+        // entirely — so on their own they do not reach the boundary that only
+        // exists on an active start. These do.
+        let fresh_from_active = [
+            read_word(0x00, 0x0000),
+            read_word(0x03, 0x0000),
+            write_word(0x00, 0x0001, Ok(())), // EnterShutdown
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            write_word(0x00, 0x1000, Ok(())),
+            write_word(0x00, 0x1001, Ok(())),
+            read_word(0x04, 0x1234),
+            read_word(0x05, 0x5678),
+            write_word(0x03, 0x0000, Ok(())),
+            write_word(0x00, 0x0000, Ok(())),
+        ];
+        let total = fresh_from_active.len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(fresh_from_active.clone()), boundary);
+            let mut delay = CancellableDelay::ready();
+            let mut sensor = Veml7700::new(bus);
+            let polled = poll_once_then_drop(
+                sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()),
+            );
+            assert!(polled.is_pending(), "active-start boundary {boundary}");
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(
+                total - remaining,
+                boundary,
+                "active-start boundary {boundary}"
+            );
+        }
+
+        // Re-arming an enabled monitor on an active device is the only threshold
+        // path with its own `EnterShutdown` write.
+        let thresholds =
+            Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
+        let arm_from_active_enabled = [
+            read_word(0x00, 0x0002),
+            write_word(0x00, 0x0003, Ok(())), // EnterShutdown, monitor still enabled
+            write_word(0x00, 0x0001, Ok(())), // DisableMonitor, now shut down
+            write_word(0x02, 100, Ok(())),
+            write_word(0x01, 1_000, Ok(())),
+            write_word(0x03, 0x0003, Ok(())),
+            write_word(0x00, 0x1022, Ok(())),
+        ];
+        let total = arm_from_active_enabled.len();
+        for boundary in 0..total {
+            let bus = PendingAt::new(ScriptedI2c::new(arm_from_active_enabled.clone()), boundary);
+            let mut sensor = Veml7700::new(bus);
+            let polled =
+                poll_once_then_drop(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
+                    MeasurementConfig::safe_bright_start(),
+                    thresholds,
+                    Persistence::Four,
+                    PowerSavingConfig::new(true, PowerSavingMode::Mode2),
+                )));
+            assert!(polled.is_pending(), "re-arm boundary {boundary}");
+            let remaining = sensor.release().into_inner().remaining();
+            assert_eq!(total - remaining, boundary, "re-arm boundary {boundary}");
+        }
+    }
+
+    #[test]
+    fn a_completed_capture_is_unaffected_by_the_cancellation_harness() {
+        // The same harness with an out-of-range boundary never parks, so a
+        // passing cancellation test cannot be an artefact of the wrapper
+        // swallowing transactions.
+        let bus = PendingAt::new(ScriptedI2c::new(fresh_capture_script()), usize::MAX);
+        let mut delay = CancellableDelay::ready();
+        let mut sensor = Veml7700::new(bus);
+        let sample =
+            block_on(sensor.measure_once(&mut delay, MeasurementConfig::safe_bright_start()))
+                .unwrap();
+        assert_eq!(sample.als, AlsCounts::from_counts(0x1234));
+        sensor.release().into_inner().done();
+    }
+
     #[test]
     fn every_fresh_capture_stage_failure_is_restored_and_identified() {
         let failure = ScriptError::new(ErrorKind::Bus);
@@ -1531,33 +1911,44 @@ mod tests {
             Persistence::Four,
             PowerSavingConfig::new(true, PowerSavingMode::Mode2),
         );
+        // The third column is what the driver must report as *confirmed* when
+        // that stage fails: the last write that actually returned success. The
+        // failing stage is never in it, because its commit status is precisely
+        // what an I2C error cannot establish. This starts from shutdown, so
+        // `EnterShutdown` is skipped and `DisableMonitor` is the first write.
         let stages = [
             (
                 ThresholdMonitorStage::ObserveConfiguration,
                 BusContext::ReadConfiguration,
+                None,
             ),
             (
                 ThresholdMonitorStage::DisableMonitor,
                 BusContext::WriteConfiguration,
+                None,
             ),
             (
                 ThresholdMonitorStage::WriteLowThreshold,
                 BusContext::WriteLowThreshold,
+                Some(ThresholdMonitorStage::DisableMonitor),
             ),
             (
                 ThresholdMonitorStage::WriteHighThreshold,
                 BusContext::WriteHighThreshold,
+                Some(ThresholdMonitorStage::WriteLowThreshold),
             ),
             (
                 ThresholdMonitorStage::ApplyPowerSaving,
                 BusContext::WritePowerSaving,
+                Some(ThresholdMonitorStage::WriteHighThreshold),
             ),
             (
                 ThresholdMonitorStage::EnableMonitor,
                 BusContext::WriteConfiguration,
+                Some(ThresholdMonitorStage::ApplyPowerSaving),
             ),
         ];
-        for (failed_index, (stage, context)) in stages.into_iter().enumerate() {
+        for (failed_index, (stage, context, confirmed)) in stages.into_iter().enumerate() {
             let mut expectations = vec![];
             if failed_index == 0 {
                 expectations.push(read_failure(0x00, failure));
@@ -1580,6 +1971,7 @@ mod tests {
                 block_on(sensor.arm_threshold_monitor(monitor)),
                 Err(ThresholdMonitorError {
                     stage,
+                    confirmed,
                     source: Error::Bus {
                         operation: Operation::ThresholdMonitor,
                         context,
