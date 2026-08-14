@@ -55,6 +55,11 @@ Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
 script. A green gate establishes agreement with the implemented host contracts
 only; it does not establish physical-device or calibrated-optical behavior.
 
+GitHub Actions runs the same script with `CI_PROFILE=bounded`, which skips the
+dependency policy, four of the five bare-metal targets, and packaging, and
+prints each skip. That workflow is contributor feedback, not the release gate:
+the full local run remains authoritative.
+
 ## Publication status
 
 The package retains `publish = false`. Release preparation, repository

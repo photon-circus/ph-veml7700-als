@@ -54,10 +54,15 @@ board, electrical, or silicon claims.
 
 ## Canonical gate
 
-`scripts/ci.sh` runs formatting, host tests/checks, clippy, rustdoc, doctests,
-representative bare-metal targets, dependency policy, package verification,
-and tests against the unpacked distributable package. Each step is announced,
-and the run ends with an explicit pass or failing-step line.
+`scripts/ci.sh` runs claim checks, formatting, host tests/checks, clippy,
+rustdoc, doctests, five bare-metal targets, dependency policy, package
+verification, and tests against the unpacked distributable package. Each step is
+announced, and the run ends with an explicit pass or failing-step line.
+
+`CI_PROFILE=bounded` selects the subset GitHub Actions runs. It skips dependency
+policy, four of the five targets, and packaging, naming each skip, and its
+summary states that it covers only part of the release gate. A skipped check is
+not a passed check.
 
 The crate currently has no doctests, so the two doctest steps pass with zero
 cases; see

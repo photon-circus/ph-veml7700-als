@@ -86,14 +86,21 @@ committing vendor PDFs.
 
 ## D-017 — Local bounded validation
 
-Private development uses one canonical local gate, `scripts/ci.sh`; only the
-PowerShell launcher is retained beside it, because locating Git Bash on Windows
-is real work and a POSIX passthrough wrapper is not. Hosted CI and generated
-pack inventories are not required product surfaces *while the repository is
-private*. That scope is deliberate: making the repository public activates the
-contributor-support and hosted-CI expectations of the organization standards,
-tracked in
-[issue #11](https://github.com/photon-circus/ph-veml7700-als/issues/11).
+There is one canonical gate, `scripts/ci.sh`, and it has two profiles. `full` is
+authoritative and is what a maintainer runs. `bounded` is the subset hosted CI
+runs; it drops the checks needing an extra binary or substantial runner time and
+reports each as an explicit skip, so a green hosted run can never be mistaken
+for a green release gate. Only the PowerShell launcher is retained beside the
+script, because locating Git Bash on Windows is real work and a POSIX
+passthrough wrapper is not.
+
+Hosted CI exists before the repository is public, deliberately. Preparing a
+repository to be public is not gated on it already being public, and the
+workflow is cheap to run and easy to correct while nobody is watching. Until the
+visibility change, a hosted failure is noted and investigated but does not
+override the local gate; the local run stays authoritative. Generated pack
+inventories remain rejected.
+
 The gate also tests the unpacked
 distributable package, so packaging-only failures such as a stripped path
 dependency cannot pass verification. Packaging is pinned to the repository

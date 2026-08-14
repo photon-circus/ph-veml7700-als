@@ -5,9 +5,24 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 cd "$repo_root"
 
+# `full` is the authoritative local gate. `bounded` is the subset hosted CI
+# runs: it drops the checks that need an extra binary or substantial runner
+# time, and reports each of them as an explicit skip. A skipped check is not a
+# passed check, so a green bounded run never stands in for a green full run.
+ci_profile=${CI_PROFILE:-full}
+case "$ci_profile" in
+    full | bounded) ;;
+    *)
+        echo "CI_PROFILE must be 'full' or 'bounded': $ci_profile" >&2
+        exit 1
+        ;;
+esac
+
 step_number=0
 skipped=0
 current_step="start"
+
+printf '[ci] profile: %s\n' "$ci_profile"
 
 report_outcome() {
     status=$?
@@ -97,32 +112,48 @@ step "doctests with all features"
 cargo test -p ph-veml7700-als --all-features --doc
 
 step "supported bare-metal targets"
-for target in \
-    thumbv6m-none-eabi \
-    thumbv7em-none-eabihf \
-    thumbv8m.main-none-eabihf \
-    riscv32imc-unknown-none-elf \
-    riscv32imac-unknown-none-elf
-do
+if [ "$ci_profile" = bounded ]; then
+    bare_metal_targets="thumbv7em-none-eabihf"
+    skip "four of the five supported targets; the full gate compiles all five"
+else
+    bare_metal_targets="thumbv6m-none-eabi
+thumbv7em-none-eabihf
+thumbv8m.main-none-eabihf
+riscv32imc-unknown-none-elf
+riscv32imac-unknown-none-elf"
+fi
+for target in $bare_metal_targets; do
     cargo check -p ph-veml7700-als --target "$target" --no-default-features
     cargo check -p ph-veml7700-als-model --target "$target"
 done
 
 step "dependency advisory and license policy"
-cargo deny check -D warnings
+if [ "$ci_profile" = bounded ]; then
+    skip "cargo-deny is not provisioned for bounded runs; the full gate runs it"
+else
+    cargo deny check -D warnings
+fi
 
 # Pin packaging to the repository target directory. Cargo excludes only that
 # path from workspace member discovery, so an extracted package anywhere else
 # inside the repository cannot be tested.
 step "package construction, inspection, and unpacked test"
-package_target_dir=$repo_root/target
-package_dir=$package_target_dir/package
-rm -rf "$package_dir"
-cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir" --list
-cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir"
-cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
+if [ "$ci_profile" = bounded ]; then
+    skip "packaging belongs to the release gate and runs locally"
+else
+    package_target_dir=$repo_root/target
+    package_dir=$package_target_dir/package
+    rm -rf "$package_dir"
+    cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir" --list
+    cargo package -p ph-veml7700-als --locked --allow-dirty --target-dir "$package_target_dir"
+    cargo test --manifest-path "$package_dir"/ph-veml7700-als-*/Cargo.toml
+fi
 
 trap - EXIT
-printf '\n[ci] PASS: %s steps, %s skipped.\n' "$step_number" "$skipped"
+printf '\n[ci] PASS (%s): %s steps, %s skipped.\n' "$ci_profile" "$step_number" "$skipped"
+if [ "$ci_profile" = bounded ]; then
+    printf '[ci] This is a partial gate. It covers only part of the release gate;\n'
+    printf '[ci] the full local run remains authoritative.\n'
+fi
 printf '[ci] This gate establishes the implemented host boundary only. It does\n'
 printf '[ci] not establish physical-device or calibrated-optical behavior.\n'

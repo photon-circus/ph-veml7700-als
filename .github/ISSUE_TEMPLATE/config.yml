@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Driver contract and evidence boundary
+    url: https://github.com/photon-circus/ph-veml7700-als/tree/main/docs
+    about: What this driver claims, what it excludes, and what evidence exists.
+  - name: Report a vulnerability privately
+    url: https://github.com/photon-circus/ph-veml7700-als/blob/main/SECURITY.md
+    about: Do not open a public issue for a flaw that could corrupt measurements.
