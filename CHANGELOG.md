@@ -58,7 +58,7 @@ than a change from a prior version.
   active reconfiguration, threshold-flag clearing, unspecified register reset
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
-  default-branch protection both resolve at the visibility change. See issue #11.
+  default-branch protection both resolve at the visibility change. See issue #6.
 - The model crate's version convention is undecided relative to the driver's
   lifecycle-matching prerelease. See issue #12.
 - Vendor owner-verification is incomplete: `docs/vendor/README.md` records the
