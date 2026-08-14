@@ -40,7 +40,7 @@ tests assert exact transactions, not device behavior. Neither is conformance.
 | `read_thresholds` | armed | — | same, and `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
 | `disable_threshold_monitor` | armed, active | — | `threshold_monitor_public_operations_qualify_after_configured_persistence` |
 | `set_power_saving` | shut down | Mode 2 enabled | `public_power_operations_observe_the_documented_mode_2_refresh_boundary` |
-| `set_power_state` | both | — | four traces |
+| `set_power_state` | reset / shut down | requests active only; no trace shuts an active device down | four traces |
 | `read_als_snapshot` | active | — | `public_power_operations_observe_the_documented_mode_2_refresh_boundary`, `public_channel_reads_can_observe_independently_refreshed_generations` |
 | `read_white_snapshot` | active | — | `public_channel_reads_can_observe_independently_refreshed_generations` |
 | `read_configuration` | various | — | four traces |

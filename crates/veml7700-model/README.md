@@ -19,10 +19,18 @@ support for the rest of the driver API.
   measurement, power-saving cadence, threshold monitoring, and sequential
   ALS/white observation traces.
 - What agreement with this model establishes: the public driver and this
-  independently derived interpretation agree for those exercised traces
-  (address, ID, byte order, injected ALS/white samples and scheduling skew,
-  delay-driven refresh, configuration/power-saving restoration, documented
-  cadence, and threshold qualification).
+  independently derived interpretation agree, for the traces that exist.
+  **Which traces those are is not restated here.** The exact operation, initial
+  state, and configuration coverage — including the public operations with no
+  trace at all, and the configuration domain never exercised — lives in one
+  place, the coverage matrix in
+  [`crates/veml7700/README.md`](../veml7700/README.md), because that surface
+  ships to a consumer and this one does not.
+
+  A second list here would be a second thing to keep true. The canonical gate
+  compares the matrix against the executable test inventory in both directions;
+  it cannot police a prose copy in this file, which is exactly why there is not
+  one.
 - What agreement with this model does not establish: support for other driver
   features, undocumented silicon behavior, analog/electrical timing, optical
   physics, or physical-hardware qualification.

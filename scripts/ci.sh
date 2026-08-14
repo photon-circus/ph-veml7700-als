@@ -261,14 +261,21 @@ named_tests=$(printf '%s\n' "$matrix_block" \
     | sed -n '/^### Covered/,/^### Not covered/p' \
     | awk -F'|' 'NF >= 5 { print $(NF - 1) }' \
     | grep -oE '`[a-z0-9_]+`' | tr -d '`' | sort -u)
+# Compare against the parsed executable inventory, not against any function of
+# that name. A trace that loses its `#[test]` attribute but keeps its function
+# still satisfies a source grep, so both directions would pass while Cargo no
+# longer runs the trace the matrix advertises -- the matrix would cite a test
+# that exists and never executes.
 missing_from_tests=
 for named_test in $named_tests; do
-    if ! grep -qF "fn $named_test(" "$conformance_source"; then
+    if ! printf '%s\n' "$actual_tests" | grep -qx "$named_test"; then
         missing_from_tests="$missing_from_tests $named_test"
     fi
 done
 if [ -n "$missing_from_tests" ]; then
-    printf 'coverage matrix names tests that do not exist:%s\n' "$missing_from_tests" >&2
+    printf 'coverage matrix names traces that are not executable tests:%s\n' \
+        "$missing_from_tests" >&2
+    printf 'they may be missing entirely, or present without #[test].\n' >&2
     exit 1
 fi
 printf '        %s conformance tests, all disclosed\n' \

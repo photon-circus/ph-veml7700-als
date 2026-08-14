@@ -263,7 +263,9 @@ than a change from a prior version.
   its own README.
 - `docs/TEST_PLAN.md` states what each test level may and may not be cited for,
   and defers to the packaged matrix for exact level-4 coverage rather than
-  restating it.
+  restating it. `crates/veml7700-model/README.md` defers the same way: it kept a
+  category-level list of what conformance establishes, which the exact matrix
+  immediately contradicted, and a second list is a second thing to keep true.
 
 ### Known issues
 
