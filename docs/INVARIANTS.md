@@ -41,7 +41,8 @@
 
 - **I-22:** the coupled fake is not described as independent driver validation.
 - **I-23:** an independent mock must use the I²C boundary and derive behavior
-  from the hardware contract without driver codecs as its oracle.
+  from the hardware contract without driver codecs as its oracle. The first
+  slice is declared in `crates/veml7700-model/README.md`.
 - **I-24:** host-model results are not physical or calibrated-optical evidence.
 - **I-25:** vendor PDFs remain untracked.
 - **I-26:** Cargo publication remains disabled.

@@ -29,18 +29,20 @@ The existing test-only fake covers:
 These tests are useful but not independent cross-validation because the fake
 uses driver types/timing constants and is not driven through I²C.
 
-## Level 4 — Independent I²C-level behavioral mock
+## Level 4 — Independent I²C-level behavioral model
 
-Not implemented yet.
+The first slice is implemented in `ph-veml7700-als-model`. Model-only tests cover
+reset, wake/conversion, latching, shutdown retention, stable reads, and duration
+partitions. Two driver-versus-model tests cover `probe` and one successful
+`measure_once` against the model's I²C boundary and relative-duration input.
 
-Derive the mock separately from `HARDWARE_CONTRACT.md`. It must autonomously
-model register-pointer and little-endian transaction semantics, configuration,
-shutdown retention, wake/integration deadlines, ALS and white refresh, power-
-saving cadence, threshold persistence/status, reset behavior, identity, and
-injectable transport faults.
+The maintained declaration is
+[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md). Agreement
+establishes compatibility with that slice only.
 
-Driver-versus-mock tests must use public driver APIs and the mock's I²C boundary.
-The mock must not import driver codecs or timing helpers as its oracle.
+Still unimplemented: threshold registers and status, power-saving cadence,
+standalone configuration sequences, transport-fault injection, and the rest of
+the driver API. Do not treat a green slice as full-device cross-validation.
 
 ## Physical evidence
 

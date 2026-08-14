@@ -20,7 +20,9 @@ redistributing vendor documents.
 Pure tests and strict scripted I²C establish codec and protocol behavior. The
 test-only fake exercises autonomous state, but it shares driver types and does
 not implement an I²C device endpoint; it is not independent driver
-cross-validation.
+cross-validation. The independent model in `crates/veml7700-model` covers only
+`probe` and one successful `measure_once` slice; see that crate README for the
+maintained claim.
 
 The repository contains no physical fixture, MCU application, hardware runner,
 or evidence protocol. It makes no calibrated-optical, electrical, timing,
