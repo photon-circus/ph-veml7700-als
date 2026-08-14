@@ -375,6 +375,27 @@ than a change from a prior version.
   reports a source: an unsupported interaction is a limit the model declares, not
   a failure forwarded from elsewhere.
 
+- Split the driver test corpus into six `#[cfg(test)]` modules by
+  responsibility — probe and identity, observation, configuration and power,
+  fresh measurement and recovery, threshold programming, and cancellation
+  boundaries. `driver.rs` drops from 2 023 lines to 1 031, of which 978 are
+  production code, so reviewing the driver no longer means scrolling past a
+  thousand lines of tests to reach the next function.
+- **Production code is byte-identical**, verified by diffing the pre-split file
+  against the post-split production half. The test count is unchanged at 58; no
+  test was dropped, merged, or weakened.
+- The exact-transaction builders moved to `crate::testing::scripted_i2c`, so the
+  wire format — pointer byte, then low, then high — has one definition rather
+  than one per test module. A byte-order regression cannot be written into a
+  test as though it were expected.
+- Removed a duplicate delay stub. `RecordingDelay` did what
+  `CancellableDelay::ready()` already did, and having two meant a test could
+  record elapsed time through either.
+- The package gains six files and loses none. It carries **2 017 lines of driver
+  source where it previously carried 2 023** — the same tests, rearranged. They
+  remain packaged deliberately: the gate tests the unpacked archive, and
+  excluding them would make that step verify less.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
