@@ -71,6 +71,26 @@ than a change from a prior version.
   observation.
 - The hardware-contract register map now records which registers have
   source-declared reset values and which do not.
+- `SECURITY.md` now names a monitored private reporting address instead of
+  directing reporters to "the repository owner" with no route, and states scope,
+  supported-version posture, and disclosure preference without promising a
+  response time.
+- `CODE_OF_CONDUCT.md` gained scope, a confidential reporting route, a
+  proportionate enforcement ladder, and an escalation path for reports
+  concerning the maintainer.
+- `CONTRIBUTING.md` is now self-sufficient for a human contributor: setup and
+  pinned tool prerequisites, fast-versus-full verification, which test layer
+  owns which claim, evidence-source language, per-document authority, the pull
+  request workflow, and contribution licensing. It no longer sends contributors
+  to `AGENTS.md`, and no longer describes every file under `docs/` as normative.
+- Added a feature-proposal issue form, which the repository's own template
+  directory had been suppressing, and pointed the issue-template contact links
+  at specific contract and evidence documents rather than the raw `docs/` tree.
+- The pull request template gained the organization's purpose, governing
+  decision, contract/compatibility, evidence-table, documentation/licence/package
+  and handoff fields, and now distinguishes scripted-I²C from pure unit evidence.
+- Recorded D-025: no `CODEOWNERS` while the project has one maintainer, with the
+  paths it should cover when a second joins.
 
 ### Known issues
 

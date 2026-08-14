@@ -65,11 +65,13 @@ Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
 `./tools/check.ps1` from PowerShell, which locates Git Bash and runs the same
 script.
 
-Hosted CI is dispatch-only while the repository is private; its automatic
-triggers and default-branch protection are both part of the visibility change.
-It runs the same script with `CI_PROFILE=bounded`, which skips the dependency
-policy, four of the five bare-metal targets, and packaging, printing each skip.
-It is contributor feedback, never the release gate.
+Hosted CI runs the same script with `CI_PROFILE=bounded`, which skips the
+dependency policy, four of the five bare-metal targets, and packaging, printing
+each skip. A skipped check is not a passed check: the bounded profile is
+contributor feedback, never the release gate.
+
+Its automatic triggers and default-branch protection arrive with the visibility
+change; while the repository is private the workflow is dispatch-only.
 
 ## Publication status
 
