@@ -70,8 +70,9 @@ grep -rn '0\.1\.0-incubating\.1' --exclude-dir=.git --exclude-dir=target .
 
 At the time of writing it appears in the root `Cargo.toml`, `Cargo.lock`, the
 root and packaged READMEs, `AGENTS.md`, `CHANGELOG.md`, `RELEASING.md`,
-`docs/API_CONTRACT.md`, `docs/DECISIONS.md`, and the bug-report form. A green
-gate does not mean you found them all.
+`docs/DECISIONS.md`, and the bug-report form. A green gate does not mean you
+found them all — and neither does this list, which is a copy of a grep result
+and can be wrong. Run the grep.
 
 `crates/veml7700/src/lib.rs` is deliberately absent: it includes the packaged
 README with `#![doc = include_str!]` and holds no copy of its own.
@@ -161,12 +162,10 @@ Files under `docs/` do not share one status. Treat them as follows:
 | --- | --- |
 | `docs/HARDWARE_CONTRACT.md` | **Normative** — interpreted device behavior |
 | `docs/vendor/README.md` | **Evidence record** — source provenance and digests |
-| `docs/API_CONTRACT.md` | **Normative** — public Rust surface semantics |
+| `docs/DRIVER_CONTRACT.md` | **Normative** — driver semantics, ownership, dependency direction |
 | `docs/INVARIANTS.md` | **Normative** — review-blocking truths |
-| `docs/ARCHITECTURE.md` | Non-normative — ownership and dependency rationale |
-| `docs/TEST_PLAN.md` | Contributor procedure — verification responsibilities |
+| `docs/VERIFICATION.md` | Contributor procedure — which test layer establishes what |
 | `docs/DECISIONS.md` | Non-normative — durable rationale, including superseded entries |
-| `docs/DOCUMENTATION_STANDARDS.md` | Contributor procedure — claim and terminology rules |
 | `crates/veml7700-model/README.md` | **Normative** — the model's maintained claim |
 
 A change that contradicts a normative document must change that document first,
@@ -179,7 +178,7 @@ unchecked row as settled.
 ## What a reviewable contribution looks like
 
 1. Behavioral claims trace to `docs/HARDWARE_CONTRACT.md`.
-2. The public surface matches `docs/API_CONTRACT.md`, or that contract and
+2. The public surface matches `docs/DRIVER_CONTRACT.md`, or that contract and
    `docs/DECISIONS.md` change first.
 3. Every touched invariant has a protecting test.
 4. Exact I²C address, pointer, byte order, payload, and transaction count are

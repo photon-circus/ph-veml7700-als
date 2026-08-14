@@ -1,5 +1,10 @@
 # Decision log
 
+> **Authority: non-normative rationale.** Why things are the way they are,
+> including decisions later superseded. Superseded entries are marked, not
+> deleted: the reasoning that was rejected is part of the record. Nothing here
+> is an acceptance contract.
+
 ## D-001 — Direct fixed-address I²C facade
 
 `Veml7700<I2C>` owns the bus directly. The supported device has one fixed
@@ -374,3 +379,41 @@ which transactions were issued. Whether the device physically committed the
 transaction in flight is unknowable in a scripted harness and is asserted
 nowhere. That boundary is the same one the model respects, and it is why these
 tests live beside the scripted transport rather than in the independent model.
+
+## D-028 — One authority per subject
+
+**Date:** 2026-08-14 **Status:** Current
+
+Every maintained document states its authority in a header: normative contract,
+evidence record, contributor procedure, or non-normative rationale. Before this,
+`CONTRIBUTING.md` called everything under `docs/` normative, which gave
+architecture prose and historical decisions the force of an acceptance contract
+they were never written to carry.
+
+Three consolidations follow from applying that consistently.
+
+`ARCHITECTURE.md` and `API_CONTRACT.md` became `DRIVER_CONTRACT.md`. They
+described the same thing from two angles — ownership and dependency direction in
+one, semantic promises in the other — and a reader had no way to know which
+governed when they disagreed.
+
+The handwritten public-signature inventory is deleted rather than moved. The
+compiler and rustdoc own signatures; a prose copy can only drift, and it had.
+What survives is what neither can express: what the surface *means*.
+
+`DOCUMENTATION_STANDARDS.md` was eleven lines, six of which `CONTRIBUTING.md`
+already carried after #33. The seventh — that examples compile as doctests —
+is review-blocking, so it became I-28. A document too small to justify its own
+authority is a place for drift to hide.
+
+`TEST_PLAN.md` became `VERIFICATION.md` and defers to the packaged coverage
+matrix rather than restating it. A plan describes intent; this describes what
+each layer establishes, which is the useful thing.
+
+**Vendor provenance moved to `docs/vendor/README.md`.** `AGENTS.md` previously
+named the model README canonical for digests, which put source identity under a
+document whose subject is the model. A digest is a fact about a retrieved file
+and belongs with the retrieval record.
+
+`docs/README.md` remains absent, per D-021. An index of seven documents is a
+seventh thing to keep true.

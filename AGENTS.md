@@ -14,12 +14,11 @@ plans, hardware runners, or orchestration dependencies.
 | Subject | Source |
 | --- | --- |
 | Device behavior and provenance | `docs/HARDWARE_CONTRACT.md`, `docs/vendor/README.md` |
-| Public Rust surface | `docs/API_CONTRACT.md` |
-| Ownership and dependencies | `docs/ARCHITECTURE.md` |
+| Driver semantics, ownership and dependencies | `docs/DRIVER_CONTRACT.md` |
 | Review-blocking truths | `docs/INVARIANTS.md` |
-| Verification responsibilities | `docs/TEST_PLAN.md` |
+| Verification responsibilities | `docs/VERIFICATION.md` |
+| Claim and terminology rules | `CONTRIBUTING.md` |
 | Durable rationale | `docs/DECISIONS.md` |
-| Claim and terminology rules | `docs/DOCUMENTATION_STANDARDS.md` |
 | Independent model claim | `crates/veml7700-model/README.md` |
 
 Put bounded distributable work in GitHub issues. Do not retain bootstrap roles,
@@ -51,8 +50,9 @@ The compiler cannot catch any of these.
   resolved value back through `cargo pkgid` — not by parsing manifest text,
   which would now find nothing — and requires an `-incubating.N` prerelease
   without storing the literal itself. The root README, packaged crate README,
-  AGENTS, API_CONTRACT, DECISIONS, CHANGELOG and RELEASING copies still rot
-  silently. Grep for the literal before and after any bump.
+  AGENTS, DECISIONS, CHANGELOG, RELEASING and the bug-report form still rot
+  silently. Grep for the literal before and after any bump — and trust the grep
+  over this list, which is itself a copy that can rot.
 
   `lib.rs` is **not** on that list any more: it includes the packaged README
   with `#![doc = include_str!]`, so it holds no literal of its own. Do not add
@@ -68,8 +68,11 @@ The compiler cannot catch any of these.
   packaged README verbatim; editing the README edits both.
 - **Vendor provenance lives in two places:** `docs/vendor/README.md` holds the
   retrieval record and `crates/veml7700-model/README.md` repeats the digests as
-  part of the model's source declaration. They are coupled but not gate-checked;
-  the model README is canonical when they disagree.
+  part of the model's source declaration. They are coupled but not gate-checked.
+  **`docs/vendor/README.md` governs.** It previously did not — the model README
+  was named canonical — which put source identity under a document whose subject
+  is the model. A digest is a fact about a retrieved file, so it belongs with the
+  retrieval record.
 - **Packaging is pinned to the repository `target/` directory** on purpose. See
   D-017: Cargo excludes only that path from workspace member discovery, so an
   extracted package placed anywhere else inside the repository becomes

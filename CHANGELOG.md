@@ -261,7 +261,7 @@ than a change from a prior version.
   documentation, so the two cannot disagree about what is claimed.
 - `ph-veml7700-als-model` now declares itself repository-only and unpublished in
   its own README.
-- `docs/TEST_PLAN.md` states what each test level may and may not be cited for,
+- `docs/VERIFICATION.md` states what each test level may and may not be cited for,
   and defers to the packaged matrix for exact level-4 coverage rather than
   restating it. `crates/veml7700-model/README.md` defers the same way: it kept a
   category-level list of what conformance establishes, which the exact matrix
@@ -330,6 +330,27 @@ than a change from a prior version.
   second consumer manual. It carries the status disclosure, points consumers at
   the packaged README, and describes layout, verification profiles, and
   publication status.
+
+- **Every maintained document now states its authority** — normative contract,
+  evidence record, contributor procedure, or non-normative rationale. Previously
+  `CONTRIBUTING.md` called everything under `docs/` normative, giving
+  architecture prose and historical decisions the force of an acceptance
+  contract.
+- `docs/ARCHITECTURE.md` and `docs/API_CONTRACT.md` are replaced by
+  `docs/DRIVER_CONTRACT.md`. They described the same subject from two angles, so
+  a reader had no way to know which governed when they disagreed.
+- **The handwritten public-signature inventory is deleted, not relocated.** The
+  compiler and rustdoc own signatures; a prose copy can only drift, and it had.
+  What survives is the semantic contract, which neither can express.
+- `docs/DOCUMENTATION_STANDARDS.md` is removed. Six of its eleven lines were
+  already in `CONTRIBUTING.md`; the seventh — examples compile as doctests — is
+  review-blocking and became invariant I-28.
+- `docs/TEST_PLAN.md` is renamed `docs/VERIFICATION.md`, describing what each
+  test layer establishes rather than restating coverage that would then rot.
+- **`docs/vendor/README.md` is now the provenance source of truth.** `AGENTS.md`
+  previously named the model README canonical for source digests, which put
+  source identity under a document whose subject is the model.
+- Recorded D-028 with the reasoning for each consolidation.
 
 ### Known issues
 

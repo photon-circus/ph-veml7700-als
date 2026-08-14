@@ -61,7 +61,7 @@ and is contributor feedback only. Paste the final line of a full run:
 ## Checklist
 
 - [ ] Behavioral claims trace to `docs/HARDWARE_CONTRACT.md`.
-- [ ] The public surface matches `docs/API_CONTRACT.md`, or that contract and
+- [ ] The public surface matches `docs/DRIVER_CONTRACT.md`, or that contract and
       `docs/DECISIONS.md` changed first.
 - [ ] Every touched invariant has a protecting test.
 - [ ] Exact I²C address, pointer, byte order, payload, and transaction count are

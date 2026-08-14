@@ -1,5 +1,9 @@
 # Vendor source record
 
+> **Authority: evidence and provenance record.** This is the single source of
+> truth for vendor source identity: URLs, revisions, retrieval facts and
+> digests. Where any other document repeats a digest, this file governs.
+
 Do not commit vendor PDFs unless redistribution terms explicitly permit it.
 Pin, hash, and review local copies instead.
 
