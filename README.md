@@ -7,11 +7,12 @@ light sensor.
 > **Lifecycle:** Incubating.
 > **Distribution:** Unpublished; the candidate version is
 > `0.1.0-incubating.1` and the manifest retains `publish = false`.
-> **Model conformance:** An independent I²C-level model covers `probe`, fresh
-> measurement, power-saving cadence, threshold monitoring, and sequential
-> ALS/white observation. Transport faults, arbitrary active reconfiguration,
-> threshold-flag clearing, source-undeclared reset values, and unexercised
-> public operations remain outside the current model claim.
+> **Model conformance:** An independent I²C-level model covers twelve public
+> operations at gain ×1/8 and 100 ms only, from shut-down and active starts,
+> with high-threshold qualification only. `read_device_id`, `inspect`,
+> `snapshot`, `set_measurement_config`, and custom-timing
+> `measure_once_with_timing` have no conformance trace. See the coverage matrix
+> for the exact domain.
 > **Physical evidence:** None. No reviewed physical or calibrated-optical
 > evidence exists. Evidence applies only to the named operations, and eventual
 > publication would not imply hardware qualification.

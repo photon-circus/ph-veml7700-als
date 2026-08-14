@@ -235,6 +235,36 @@ than a change from a prior version.
   cleanup guard or background task would trade an honest limitation for a hidden
   one, and why these tests assert sequencing rather than device state.
 
+- **Replaced the model-conformance claim with an exact, packaged coverage
+  matrix.** The old disclosure said the model "covers `probe`, fresh
+  measurement, power-saving cadence, threshold monitoring, and sequential
+  ALS/white observation", then excluded "unexercised public operations" without
+  naming them. Both halves overstated it: the categories imply whole operations
+  when the traces are much narrower, and an unnamed exclusion is not a
+  disclosure. The matrix now names every covered operation with its accepted
+  initial state and configuration, every public operation with no conformance
+  trace, and — the part categories hide — the configuration domain that is never
+  exercised at all.
+- Named the five public operations with no conformance trace: `read_device_id`,
+  `inspect`, `snapshot`, `set_measurement_config`, and custom-timing
+  `measure_once_with_timing`. Each says why it is absent rather than only that
+  it is.
+- Disclosed that conformance exercises gain ×1/8 and 100 ms only, persistence 4
+  only, cadence Modes 1 and 2 only, and **high-threshold qualification only** —
+  no trace ever qualifies the low threshold. A claim outside that table has no
+  conformance evidence behind it.
+- The gate now fails if the matrix drifts from the test inventory in either
+  direction: a named test that does not exist, or a conformance test the
+  packaged claim does not disclose. The second is the honesty-critical one, and
+  it is the one a reviewer would not notice.
+- The gate also compares the matrix between the packaged README and the crate
+  documentation, so the two cannot disagree about what is claimed.
+- `ph-veml7700-als-model` now declares itself repository-only and unpublished in
+  its own README.
+- `docs/TEST_PLAN.md` states what each test level may and may not be cited for,
+  and defers to the packaged matrix for exact level-4 coverage rather than
+  restating it.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

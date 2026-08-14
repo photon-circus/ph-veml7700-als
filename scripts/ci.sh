@@ -218,6 +218,74 @@ if [ "$lib_example" != "$(example crates/veml7700/README.md)" ]; then
     exit 1
 fi
 
+# The coverage matrix is the packaged claim about what model conformance
+# establishes. It names tests, so it rots the moment a test is renamed, removed,
+# or added without updating it -- and a stale matrix is worse than none, because
+# it reads as an exact claim. Two directions, both required:
+#
+#   1. every test the matrix names must exist, or the claim cites nothing;
+#   2. every conformance test must appear in the matrix, or coverage exists that
+#      the packaged claim does not disclose.
+#
+# The second direction is the one that matters for honesty. Only the first is
+# obvious.
+step "the conformance matrix matches the conformance tests"
+conformance_source=crates/veml7700/tests/device_model.rs
+matrix_source=crates/veml7700/README.md
+actual_tests=$(grep -A1 '^#\[test\]' "$conformance_source" | sed -n 's/^fn \([a-z0-9_]*\).*/\1/p' | sort -u)
+if [ -z "$actual_tests" ]; then
+    echo "no conformance tests found in $conformance_source" >&2
+    exit 1
+fi
+matrix_block=$(sed -n '/^## Model conformance coverage/,/^## Usage/p' "$matrix_source")
+if [ -z "$matrix_block" ]; then
+    echo "no coverage matrix found in $matrix_source" >&2
+    exit 1
+fi
+missing_from_matrix=
+for conformance_test in $actual_tests; do
+    if ! printf '%s\n' "$matrix_block" | grep -qF "$conformance_test"; then
+        missing_from_matrix="$missing_from_matrix $conformance_test"
+    fi
+done
+if [ -n "$missing_from_matrix" ]; then
+    printf 'conformance tests absent from the packaged coverage matrix:%s\n' \
+        "$missing_from_matrix" >&2
+    printf 'coverage that the packaged claim does not disclose is the failure mode this check exists for.\n' >&2
+    exit 1
+fi
+# Only the final column of the "Covered" table names tests. Operation names are
+# backticked too, and the "Not covered" table backticks them in prose, so a
+# whole-block scan would treat `measure_once` as a missing test.
+named_tests=$(printf '%s\n' "$matrix_block" \
+    | sed -n '/^### Covered/,/^### Not covered/p' \
+    | awk -F'|' 'NF >= 5 { print $(NF - 1) }' \
+    | grep -oE '`[a-z0-9_]+`' | tr -d '`' | sort -u)
+missing_from_tests=
+for named_test in $named_tests; do
+    if ! grep -qF "fn $named_test(" "$conformance_source"; then
+        missing_from_tests="$missing_from_tests $named_test"
+    fi
+done
+if [ -n "$missing_from_tests" ]; then
+    printf 'coverage matrix names tests that do not exist:%s\n' "$missing_from_tests" >&2
+    exit 1
+fi
+printf '        %s conformance tests, all disclosed\n' \
+    "$(printf '%s\n' "$actual_tests" | wc -l | tr -d ' ')"
+
+# The matrix must reach a consumer, so it lives in the packaged README and is
+# mirrored into the crate documentation. Compare them rather than trusting that
+# two edits happened.
+step "the coverage matrix agrees between the packaged README and lib.rs"
+lib_matrix=$(sed -n '/^\/\/! ## Model conformance coverage/,/^\/\/! # Status/p' crates/veml7700/src/lib.rs \
+    | sed -e 's|^//! \{0,1\}||' -e 's|^//!$||' | sed '/^# Status/d')
+readme_matrix=$(printf '%s\n' "$matrix_block" | sed '/^## Usage/d')
+if [ "$(printf '%s\n' "$lib_matrix" | sed '/^$/d')" != "$(printf '%s\n' "$readme_matrix" | sed '/^$/d')" ]; then
+    echo "the coverage matrix differs between crates/veml7700/README.md and lib.rs" >&2
+    exit 1
+fi
+
 # Rustdoc validates intra-doc links but never looks at repository Markdown, so
 # a renamed or deleted document breaks its inbound links silently. That matters
 # most at release: the packaged README and the contract documents it points at

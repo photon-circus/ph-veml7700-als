@@ -1,7 +1,13 @@
 # VEML7700 device behavioral model
 
 This crate is the maintained behavioral declaration for the independent
-VEML7700 device model. Passing tests establish compatibility with this declared
+VEML7700 device model.
+
+**It is repository-only and unpublished.** It exists to cross-check
+`ph-veml7700-als` during development and is excluded from that crate's published
+package, so it cannot be depended on from a registry. Its manifest retains
+`publish = false` deliberately, and nothing in the driver's public surface
+exposes it. Passing tests establish compatibility with this declared
 slice only. They do not establish correctness on silicon, calibrated optics, or
 support for the rest of the driver API.
 
