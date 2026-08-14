@@ -7,11 +7,5 @@
   sequential reads.
 - Every nominal illuminance method states that it is not calibrated system lux.
 - Every complete multi-step operation documents restoration and uncertainty.
-- Public values include units in names or unit-bearing types.
-- Examples compile as doctests unless explicitly marked `ignore` with rationale.
-- Register numbers and bit names remain in implementation/contract detail; public
-  names describe physical behavior.
 - Avoid unsupported superlatives such as “accurate lux,” “atomic pair,” or
   “interrupt-driven.”
-- Markdown links are relative inside the repository; official vendor URLs are
-  recorded in `docs/vendor/README.md`.

@@ -31,21 +31,8 @@ and sequential channel reads across independently scheduled refreshes. Driver
 configuration and observations cross the model's I²C boundary; explicit
 relative duration and raw optical samples remain harness inputs.
 
-The maintained declaration is
-[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md). Agreement
-establishes compatibility with that slice only.
-
-Still unimplemented: transport-fault injection, arbitrary active
-reconfiguration, threshold-flag clearing, source-undeclared reset values, and
-unexercised driver operations. Do not treat a green slice as full-device
-cross-validation.
-
-## Physical evidence
-
-No physical or calibrated-optical protocol is defined here. Physical
-qualification is a separate future process that may compare silicon with the
-accepted independent model. Host tests cannot justify calibrated lux, fixture,
-board, electrical, or silicon claims.
+The maintained declaration, including unimplemented traces, is
+[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
 
 ## Canonical gate
 

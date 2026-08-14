@@ -3,10 +3,8 @@
 ## Product boundary
 
 This repository owns an async, allocation-free `no_std` VEML7700 driver plus
-pure, scripted-I²C, and independent-model tests. The independent device
-behavioral model lives in `crates/veml7700-model` and covers the declared probe,
-fresh-measurement, autonomous refresh, and threshold-monitor traces. Agreement
-with that bounded slice is not full-device or physical evidence.
+pure, scripted-I²C, and independent-model tests. The model's maintained claim is
+[`crates/veml7700-model/README.md`](crates/veml7700-model/README.md).
 
 Do not add MCU examples, board support, fixture definitions, physical-evidence
 plans, hardware runners, or orchestration dependencies.

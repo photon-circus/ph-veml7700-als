@@ -50,15 +50,13 @@ measurements, protects threshold-monitor domains, preserves restoration
 failures, and converts ALS counts using integer nominal datasheet scales. It
 does not claim calibrated lux or apply application-specific optical correction.
 
-Driver verification currently consists of pure codec tests, exact scripted I²C
-with failure injection, and the bounded independent model described above. The
-repository also carries a coupled autonomous-state fake, but its tests exercise
-that fake directly rather than the driver, so it contributes no driver
-evidence.
+Driver verification consists of pure codec tests, exact scripted I²C with
+failure injection, and the independent model whose claim is declared in
+[`crates/veml7700-model/README.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/crates/veml7700-model/README.md).
 
 The package is not published and retains `publish = false`. See the
 [repository README](https://github.com/photon-circus/ph-veml7700-als#readme) and
 [driver documentation](https://github.com/photon-circus/ph-veml7700-als/tree/main/docs)
-for the complete scope and evidence boundary.
+for the complete scope.
 
 Licensed under MIT.

@@ -46,14 +46,22 @@ scripts/ci.sh            canonical bounded local verification
 tools/check.ps1          PowerShell launcher for the same gate under Git Bash
 ```
 
-Start with [the documentation index](docs/README.md).
+Contracts: [hardware](docs/HARDWARE_CONTRACT.md),
+[invariants](docs/INVARIANTS.md),
+[architecture](docs/ARCHITECTURE.md),
+[API](docs/API_CONTRACT.md),
+[test plan](docs/TEST_PLAN.md),
+[decisions](docs/DECISIONS.md),
+[documentation standards](docs/DOCUMENTATION_STANDARDS.md),
+[vendor record](docs/vendor/README.md).
+The model's maintained claim is
+[`crates/veml7700-model/README.md`](crates/veml7700-model/README.md).
 
 ## Local verification
 
 Run `./scripts/ci.sh` under Git Bash or another POSIX-compatible shell, or
 `./tools/check.ps1` from PowerShell, which locates Git Bash and runs the same
-script. A green gate establishes agreement with the implemented host contracts
-only; it does not establish physical-device or calibrated-optical behavior.
+script.
 
 Hosted CI is dispatch-only while the repository is private; its automatic
 triggers and default-branch protection are both part of the visibility change.
@@ -63,11 +71,9 @@ It is contributor feedback, never the release gate.
 
 ## Publication status
 
-The package retains `publish = false`. Release preparation, repository
-visibility, and crates.io publication are separate maintainer-controlled steps
-described in [RELEASING.md](RELEASING.md). Model completeness, physical
-evidence, hardware qualification, and `ph-hil` adoption are not publication
-prerequisites; they limit only the claims they support.
+The package retains `publish = false`. Preparation, visibility, and crates.io
+publication are separate maintainer-controlled steps in
+[RELEASING.md](RELEASING.md).
 
 ## License
 
