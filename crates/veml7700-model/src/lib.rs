@@ -54,7 +54,7 @@ mod registers;
 
 pub use duration::RelativeDuration;
 pub use error::{NoAcknowledgeSource, TransportError, Unsupported};
-pub use model::{Inspection, Veml7700Model};
+pub use model::{Inspection, MAX_ADVANCE, RetainedInputs, Veml7700Model};
 pub use registers::{DEVICE_ID, I2C_ADDRESS};
 
 #[cfg(test)]

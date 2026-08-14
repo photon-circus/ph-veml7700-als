@@ -147,6 +147,43 @@ than a change from a prior version.
 
 ### Changed
 
+- The model no longer invents its own stimuli. `Veml7700Model::new` takes a
+  required `RetainedInputs` carrying the raw ALS/white pair and the white-channel
+  phase offset, and `Default` is gone rather than reimplemented.
+
+  Construction used to zero all three, so a harness that woke the model without
+  calling `set_raw_sample` received a conversion reporting **zero ambient
+  light** — a reading it never supplied. Nothing failed, which is the point:
+  zero is a plausible ALS value, so the fabricated sample flowed through
+  conversions, threshold comparisons and driver-versus-model traces looking
+  exactly like an injected one.
+
+  That is now the third instance of one pattern, and the model README states the
+  rule rather than the incident: **an invented value does not produce a
+  conformance failure, it produces agreement.** The persistence rule was
+  withdrawn, register `0x03`'s reset value was declared as an assumption, and the
+  retained sample is now required. Where the model would otherwise guess, it must
+  declare the guess or refuse to run.
+- `RelativeDuration::from_micros` rejects overflow instead of saturating, and
+  gains `try_from_micros` for non-literal input. Saturation silently substituted
+  roughly 584 years of virtual time for whatever was asked, and every later
+  assertion was then made against a timeline nobody chose. `RelativeDuration`
+  also gains `ZERO`, so "no offset" is written rather than defaulted.
+- `advance` rejects steps beyond the new `MAX_ADVANCE` (one hour of virtual
+  time), **before any mutation**, so a caller that catches the rejection observes
+  an unchanged model. The loop runs once per refresh event and the shortest
+  recurrence is about 32.5 ms, so a `u64::MAX` nanosecond input implied roughly
+  568 billion iterations — not an error, just a hang, which is the worst way for
+  a suite to report a bad argument.
+- The white-channel wake edge is computed with a checked add rather than a
+  saturating one. Bounding the phase offset where it enters the model makes
+  overflow unrepresentable, so the check is unreachable today and stays loud if
+  that bound is ever loosened.
+- Model tests cover **all six integration times** immediately before and exactly
+  at their first conversion boundary; only 100 ms was covered. A boundary
+  computed from the wrong integration constant is exactly the defect this model
+  exists to catch in the driver, so leaving five of six untested left the oracle
+  unchecked at the value it is asked about most. Model tests 25 → 30.
 - Driver-versus-model conformance moved out of the driver package into a third
   workspace package, `tests/conformance` (`ph-veml7700-als-conformance`,
   unpublished, `0.0.0`). The dependency arrow is now

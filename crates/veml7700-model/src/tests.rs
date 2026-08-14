@@ -1,6 +1,6 @@
 use crate::{
-    DEVICE_ID, I2C_ADDRESS, NoAcknowledgeSource, RelativeDuration, TransportError, Unsupported,
-    Veml7700Model,
+    DEVICE_ID, I2C_ADDRESS, MAX_ADVANCE, NoAcknowledgeSource, RelativeDuration, RetainedInputs,
+    TransportError, Unsupported, Veml7700Model,
 };
 
 const CONFIG: u8 = 0x00;
@@ -48,7 +48,7 @@ fn freeze_100ms(model: &mut Veml7700Model) {
 
 #[test]
 fn reset_state_matches_documented_defaults() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     assert_eq!(read_word(&mut model, CONFIG), 0x0001);
     assert_eq!(read_word(&mut model, POWER_SAVING), 0x0000);
     assert_eq!(
@@ -81,7 +81,7 @@ fn reset_state_matches_documented_defaults() {
 
 #[test]
 fn id_register_is_low_byte_first() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     let mut bytes = [0_u8; 2];
     model
         .write_read(I2C_ADDRESS, &[ID], &mut bytes)
@@ -92,7 +92,7 @@ fn id_register_is_low_byte_first() {
 
 #[test]
 fn conversion_does_not_complete_before_the_conservative_bound() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     model.set_raw_sample(0x1234, 0x5678);
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US - 1));
@@ -114,7 +114,7 @@ fn conversion_does_not_complete_before_the_conservative_bound() {
 
 #[test]
 fn conversion_latches_the_held_pair_at_the_conservative_bound() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     model.set_raw_sample(0x1234, 0x5678);
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
@@ -132,8 +132,7 @@ fn conversion_latches_the_held_pair_at_the_conservative_bound() {
 
 #[test]
 fn changing_the_held_sample_does_not_alter_an_already_latched_pair() {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(11, 22);
+    let mut model = Veml7700Model::new(RetainedInputs::new(11, 22));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
     model.set_raw_sample(99, 88);
@@ -143,8 +142,7 @@ fn changing_the_held_sample_does_not_alter_an_already_latched_pair() {
 
 #[test]
 fn shutdown_retains_the_last_pair_and_ignores_later_time_and_samples() {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(7, 8);
+    let mut model = Veml7700Model::new(RetainedInputs::new(7, 8));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
     freeze_100ms(&mut model);
@@ -162,8 +160,7 @@ fn shutdown_before_the_first_bound_completes_no_conversion() {
     // was no previous pair to keep. The retention claim now has its own test
     // below. A test whose name asserts more than its body is worse than a
     // missing test, because a coverage matrix reads the name.
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(3, 4);
+    let mut model = Veml7700Model::new(RetainedInputs::new(3, 4));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US - 1));
     freeze_100ms(&mut model);
@@ -187,8 +184,7 @@ fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
     // The source calls this Auto-Memorization: the part memorizes the last
     // ambient data before shutdown and the host may read it while shut down.
     // `docs/HARDWARE_CONTRACT.md` §7 records it as verified.
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(3, 4);
+    let mut model = Veml7700Model::new(RetainedInputs::new(3, 4));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
     assert_eq!(read_word(&mut model, ALS), 3);
@@ -207,7 +203,7 @@ fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
 
 #[test]
 fn repeated_active_configuration_is_rejected_without_mutation() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(10_000));
     let before = model.inspect();
@@ -224,7 +220,7 @@ fn repeated_active_configuration_is_rejected_without_mutation() {
 
 #[test]
 fn repeated_reads_are_stable_at_an_unchanged_frontier() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     model.set_raw_sample(0xABCD, 0xDCBA);
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
@@ -240,12 +236,12 @@ fn repeated_reads_are_stable_at_an_unchanged_frontier() {
 
 #[test]
 fn duration_partitions_are_observationally_equivalent() {
-    let mut once = Veml7700Model::new();
+    let mut once = Veml7700Model::new(RetainedInputs::new(0, 0));
     once.set_raw_sample(42, 43);
     wake_100ms(&mut once);
     once.advance(RelativeDuration::from_micros(BOUND_100MS_US));
 
-    let mut split = Veml7700Model::new();
+    let mut split = Veml7700Model::new(RetainedInputs::new(0, 0));
     split.set_raw_sample(42, 43);
     wake_100ms(&mut split);
     split.advance(RelativeDuration::from_micros(40_000));
@@ -263,8 +259,7 @@ fn duration_partitions_are_observationally_equivalent() {
 
 #[test]
 fn reads_do_not_consume_conversion_time() {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(1, 2);
+    let mut model = Veml7700Model::new(RetainedInputs::new(1, 2));
     wake_100ms(&mut model);
     for _ in 0..8 {
         assert!(matches!(
@@ -287,8 +282,7 @@ fn reads_do_not_consume_conversion_time() {
 
 #[test]
 fn wrong_address_is_a_device_nack_and_does_not_mutate() {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(5, 6);
+    let mut model = Veml7700Model::new(RetainedInputs::new(5, 6));
     let before = model.inspect();
     let write = model.write(0x11, &[CONFIG, 0x00, 0x10]);
     assert_eq!(
@@ -312,7 +306,7 @@ fn wrong_address_is_a_device_nack_and_does_not_mutate() {
 #[test]
 fn addresses_outside_seven_bit_domain_are_model_limitations() {
     for address in [0x80, 0xFF] {
-        let mut model = Veml7700Model::new();
+        let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
         let before = model.inspect();
         assert_eq!(
             model.write(address, &[CONFIG, 0x01, 0x00]),
@@ -335,7 +329,7 @@ fn addresses_outside_seven_bit_domain_are_model_limitations() {
 
 #[test]
 fn threshold_status_is_read_only_and_not_a_device_nack() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     assert_eq!(
         read_word_result(&mut model, THRESHOLD_STATUS),
         Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
@@ -353,7 +347,7 @@ fn threshold_status_is_read_only_and_not_a_device_nack() {
 
 #[test]
 fn unsupported_transaction_shape_is_rejected_without_mutation() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     let before = model.inspect();
     assert_eq!(
         model.write(I2C_ADDRESS, &[CONFIG]),
@@ -369,7 +363,7 @@ fn unsupported_transaction_shape_is_rejected_without_mutation() {
 
 #[test]
 fn words_outside_the_declared_slice_are_rejected_without_mutation() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     let before = model.inspect();
 
     let [low, high] = 0x0008_u16.to_le_bytes();
@@ -393,7 +387,7 @@ fn words_outside_the_declared_slice_are_rejected_without_mutation() {
 
 #[test]
 fn threshold_registers_are_unknown_until_programmed_and_use_little_endian_words() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     for pointer in [LOW_THRESHOLD, HIGH_THRESHOLD] {
         assert_eq!(
             read_word_result(&mut model, pointer),
@@ -432,7 +426,7 @@ fn every_documented_power_saving_cadence_refreshes_at_the_exact_boundary() {
     let modes = [(0_u16, 500_u64), (1, 1_000), (2, 2_000), (3, 4_000)];
     for (integration_field, integration_ms) in integrations {
         for (mode, sleep_ms) in modes {
-            let mut model = Veml7700Model::new();
+            let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
             let power_word = (mode << 1) | 1;
             write_word(&mut model, POWER_SAVING, power_word);
             model.set_raw_sample(1, 1);
@@ -456,7 +450,7 @@ fn every_documented_power_saving_cadence_refreshes_at_the_exact_boundary() {
 #[test]
 fn enabled_power_saving_rejects_undocumented_25_and_50_ms_cadence() {
     for integration_field in [0b1100_u16, 0b1000] {
-        let mut model = Veml7700Model::new();
+        let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
         write_word(&mut model, POWER_SAVING, 1);
         let active = integration_field << 6;
         let [low, high] = active.to_le_bytes();
@@ -475,7 +469,7 @@ fn enabled_power_saving_rejects_undocumented_25_and_50_ms_cadence() {
 
 #[test]
 fn injected_channel_skew_preserves_independent_refresh_generations() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     model.set_white_phase_offset(RelativeDuration::from_micros(10));
     model.set_raw_sample(10, 20);
     wake_100ms(&mut model);
@@ -501,7 +495,7 @@ fn injected_channel_skew_preserves_independent_refresh_generations() {
 #[test]
 fn protect_number_one_qualifies_both_threshold_directions() {
     for (sample, expected_status) in [(99_u16, 0x8000_u16), (201, 0x4000)] {
-        let mut model = Veml7700Model::new();
+        let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
         write_word(&mut model, LOW_THRESHOLD, 100);
         write_word(&mut model, HIGH_THRESHOLD, 200);
         model.set_raw_sample(sample, 0);
@@ -522,7 +516,7 @@ fn protect_numbers_above_one_declare_the_qualification_rule_undefined() {
     // refuses to produce a status rather than inventing a counting rule that
     // would agree with a driver that has no rule of its own. See D-030.
     for persistence_field in [1_u16, 2, 3] {
-        let mut model = Veml7700Model::new();
+        let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
         write_word(&mut model, LOW_THRESHOLD, 100);
         write_word(&mut model, HIGH_THRESHOLD, 200);
         model.set_raw_sample(250, 0);
@@ -549,7 +543,7 @@ fn protect_numbers_above_one_declare_the_qualification_rule_undefined() {
 
 #[test]
 fn disabling_the_monitor_does_not_clear_established_status() {
-    let mut model = Veml7700Model::new();
+    let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
     write_word(&mut model, LOW_THRESHOLD, 100);
     write_word(&mut model, HIGH_THRESHOLD, 200);
     model.set_raw_sample(250, 0);
@@ -566,8 +560,7 @@ fn disabling_the_monitor_does_not_clear_established_status() {
 
 #[test]
 fn a_large_advance_processes_multiple_autonomous_refreshes() {
-    let mut model = Veml7700Model::new();
-    model.set_raw_sample(7, 8);
+    let mut model = Veml7700Model::new(RetainedInputs::new(7, 8));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US + 20 * 130_000));
     assert_eq!(read_word(&mut model, ALS), 7);
@@ -576,4 +569,129 @@ fn a_large_advance_processes_multiple_autonomous_refreshes() {
         model.inspect().als_remaining,
         Some(RelativeDuration::from_micros(130_000))
     );
+}
+
+/// Every integration time, immediately before and exactly at its first bound.
+///
+/// Only 100 ms was covered. A conversion boundary computed from the wrong
+/// integration constant is exactly the defect this model exists to catch in the
+/// driver, so leaving five of six untested left the oracle itself unchecked at
+/// the value it is asked about most.
+///
+/// The words are `ALS_SD = 0` with gain ×1/8 and the integration field from
+/// `docs/HARDWARE_CONTRACT.md` §5. Note again that the encoding order is not the
+/// magnitude order: `1100` is the *shortest* time.
+#[test]
+fn every_integration_time_latches_exactly_at_its_conservative_bound() {
+    // (integration field, nominal microseconds)
+    const TIMES: [(u16, u64); 6] = [
+        (0b1100, 25_000),
+        (0b1000, 50_000),
+        (0b0000, 100_000),
+        (0b0001, 200_000),
+        (0b0010, 400_000),
+        (0b0011, 800_000),
+    ];
+
+    for (field, nominal_us) in TIMES {
+        let prepared = (0b10 << 11) | (field << 6) | 0x0001;
+        let active = prepared & !0x0001;
+        let bound_us = 2_500 + nominal_us * 130 / 100;
+
+        // Immediately before: nothing has completed, and the outputs say so
+        // rather than reporting a zero-valued conversion.
+        let mut model = Veml7700Model::new(RetainedInputs::new(11, 22));
+        write_word(&mut model, CONFIG, prepared);
+        write_word(&mut model, CONFIG, active);
+        model.advance(RelativeDuration::from_micros(bound_us - 1));
+        assert_eq!(
+            read_word_result(&mut model, ALS),
+            Err(TransportError::Unsupported(
+                Unsupported::NoCompletedConversion(ALS)
+            )),
+            "integration field {field:04b} completed early"
+        );
+
+        // Exactly at: both channels latch the held pair.
+        let mut model = Veml7700Model::new(RetainedInputs::new(11, 22));
+        write_word(&mut model, CONFIG, prepared);
+        write_word(&mut model, CONFIG, active);
+        model.advance(RelativeDuration::from_micros(bound_us));
+        assert_eq!(
+            read_word(&mut model, ALS),
+            11,
+            "integration field {field:04b} did not latch ALS at its bound"
+        );
+        assert_eq!(
+            read_word(&mut model, WHITE),
+            22,
+            "integration field {field:04b} did not latch white at its bound"
+        );
+    }
+}
+
+#[test]
+fn advance_rejects_a_step_beyond_the_bound_without_mutating() {
+    let mut model = Veml7700Model::new(RetainedInputs::new(5, 6));
+    wake_100ms(&mut model);
+    let before = model.clone();
+
+    let excessive = RelativeDuration::from_nanos(MAX_ADVANCE.as_nanos() + 1);
+    let result = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+        model.advance(excessive);
+    }));
+    assert!(result.is_err(), "an over-long advance must be rejected");
+
+    // Rejected *before* mutation: the model a caller observes afterwards is the
+    // one it had. Checking this is the difference between a bound and a
+    // partially applied advance that happens to stop early.
+    assert_eq!(model, before);
+
+    // The bound itself is accepted.
+    model.advance(MAX_ADVANCE);
+}
+
+#[test]
+fn microsecond_durations_reject_overflow_instead_of_saturating() {
+    // Saturation silently substituted ~584 years for whatever was asked, and
+    // every later assertion was then made against a timeline nobody chose.
+    assert_eq!(RelativeDuration::try_from_micros(u64::MAX), None);
+    assert_eq!(
+        RelativeDuration::try_from_micros(1_000),
+        Some(RelativeDuration::from_nanos(1_000_000))
+    );
+    let overflowed = std::panic::catch_unwind(|| RelativeDuration::from_micros(u64::MAX));
+    assert!(overflowed.is_err());
+}
+
+#[test]
+fn construction_carries_the_injected_pair_without_a_separate_call() {
+    // The zero-ambient fabrication this construction input exists to prevent:
+    // waking without injecting used to yield a conversion of 0, which is a
+    // plausible reading and therefore failed nothing.
+    let mut model = Veml7700Model::new(RetainedInputs::new(0x1234, 0x5678));
+    wake_100ms(&mut model);
+    model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
+    assert_eq!(read_word(&mut model, ALS), 0x1234);
+    assert_eq!(read_word(&mut model, WHITE), 0x5678);
+}
+
+#[test]
+fn an_injected_white_phase_offset_is_carried_from_construction() {
+    let offset = RelativeDuration::from_micros(10);
+    let inputs = RetainedInputs::new(7, 8).with_white_phase_offset(offset);
+    let mut model = Veml7700Model::new(inputs);
+    wake_100ms(&mut model);
+
+    // At the ALS bound the white channel is still short by the offset.
+    model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
+    assert_eq!(read_word(&mut model, ALS), 7);
+    assert_eq!(
+        read_word_result(&mut model, WHITE),
+        Err(TransportError::Unsupported(
+            Unsupported::NoCompletedConversion(WHITE)
+        ))
+    );
+    model.advance(offset);
+    assert_eq!(read_word(&mut model, WHITE), 8);
 }

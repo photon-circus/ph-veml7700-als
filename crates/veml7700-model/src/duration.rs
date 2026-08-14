@@ -14,6 +14,9 @@ pub struct RelativeDuration {
 }
 
 impl RelativeDuration {
+    /// No elapsed time.
+    pub const ZERO: Self = Self { nanos: 0 };
+
     /// Construct from whole nanoseconds.
     #[must_use]
     pub const fn from_nanos(nanos: u64) -> Self {
@@ -21,10 +24,33 @@ impl RelativeDuration {
     }
 
     /// Construct from whole microseconds.
+    ///
+    /// # Panics
+    ///
+    /// If the value does not fit in nanoseconds.
+    ///
+    /// This used to saturate. Saturation is the wrong failure here: it silently
+    /// substitutes a different duration for the one the harness asked for, and
+    /// every later assertion is then made against a timeline nobody chose. A
+    /// test that overflows this is a defect in the test, and it should say so
+    /// where it happens rather than pass against ~584 years of virtual time.
+    ///
+    /// Use [`try_from_micros`](Self::try_from_micros) where the input is not a
+    /// literal.
     #[must_use]
     pub const fn from_micros(micros: u64) -> Self {
-        Self {
-            nanos: micros.saturating_mul(1_000),
+        match Self::try_from_micros(micros) {
+            Some(duration) => duration,
+            None => panic!("microsecond duration overflows nanosecond resolution"),
+        }
+    }
+
+    /// Construct from whole microseconds, or `None` on overflow.
+    #[must_use]
+    pub const fn try_from_micros(micros: u64) -> Option<Self> {
+        match micros.checked_mul(1_000) {
+            Some(nanos) => Some(Self { nanos }),
+            None => None,
         }
     }
 
