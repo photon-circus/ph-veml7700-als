@@ -163,6 +163,42 @@ than a change from a prior version.
   offline by design: external URLs are not fetched, because a gate that fails
   when a vendor site is briefly down teaches contributors to ignore it.
 
+- **Breaking:** every mutating operation now shuts the device down before
+  reconfiguring it. The sources require `ALS_SD = 1` before any reconfiguration,
+  so `set_measurement_config`, `set_power_saving`, `measure_once_with_timing`
+  and `arm_threshold_monitor` write the shutdown bit first when they start from
+  an active device, change fields only while shut down, and return to active
+  last. Operations starting from a shut-down device are unchanged and still
+  leave the device shut down. `set_power_state` changes only the shutdown bit
+  and is not a reconfiguration.
+
+  Two observable consequences. Transaction counts increase for active starts:
+  `set_measurement_config` and `set_power_saving` take three writes instead of
+  one. And a failure part way through can leave an originally active device shut
+  down, so a caller must read back rather than assume — the cost of following
+  the required sequence.
+
+  This resolves the driver-versus-model disagreement against the driver. The
+  model's rejection of active reconfiguration was correct and was not relaxed.
+- `set_measurement_config` and `set_power_saving` now return successfully
+  without writing when the requested value already matches. Previously an
+  idempotent call still cycled power, which would interrupt an enabled monitor's
+  active domain for a call that changes no field.
+- `arm_threshold_monitor` re-arming an enabled monitor on an active device now
+  shuts down with the monitored domain intact, then disables the monitor while
+  shut down. The shutdown and monitor bits cannot move in one write: each is
+  accepted alone as a transition, but together they are a reconfiguration.
+- A failed shutdown write in `measure_once_with_timing` reports without
+  attempting restoration. Nothing has been mutated at that point and the device
+  may still be active, so the generic restoration sequence would have committed
+  the very active write this change removes, turning one fault into
+  `RecoveryFailed`.
+- `MeasureStage::EnterShutdown` names the new pre-reconfiguration write, so a
+  failure at that point is attributable rather than folded into a later stage.
+  Entering shutdown first also makes the recovery path safe: every later stage
+  now runs on a shut-down device, so restoration can no longer attempt a write
+  while active — previously both the operation and its recovery failed together.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary

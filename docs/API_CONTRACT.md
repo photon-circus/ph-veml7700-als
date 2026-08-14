@@ -135,5 +135,31 @@ impl<I2C: embedded_hal_async::i2c::I2c> Veml7700<I2C> {
   build one and a reversed pair cannot reach the device. The driver therefore
   never writes threshold state that `read_thresholds` would reject on read-back.
 - monitor configuration is disable-first, enable-last.
+- **every mutating operation shuts the device down before reconfiguring it.**
+  The sources require `ALS_SD = 1` before any reconfiguration, so an operation
+  that starts from an active device writes the shutdown bit first, carrying the
+  existing domain unchanged; changes measurement, persistence, monitor and
+  power-saving fields only while shut down; and returns to active last. This
+  applies to `set_measurement_config`, `set_power_saving`,
+  `measure_once_with_timing` and `arm_threshold_monitor`. `set_power_state`
+  changes only the shutdown bit and is not a reconfiguration.
+- an operation that starts from a shut-down device performs no extra shutdown
+  write. `set_measurement_config`, `set_power_saving` and
+  `measure_once_with_timing` also leave it shut down, so neither silently wakes
+  a device the caller left asleep.
+- **`arm_threshold_monitor` is the exception, by design.** It always ends
+  active, from either starting state, because a shut-down monitor cannot
+  qualify anything — arming a device and leaving it asleep would be an
+  operation that cannot do its job. `disable_threshold_monitor` does not
+  restore the previous power state; a caller that wants the device asleep
+  afterwards asks for that with `set_power_state`.
+- `set_measurement_config` and `set_power_saving` return successfully without
+  writing when the requested value already matches, so an idempotent call never
+  costs a power cycle and never interrupts an enabled monitor.
+- because shutdown comes first, a failure part way through a mutating operation
+  can leave an originally active device shut down. Which fields were installed
+  depends on how far the sequence reached, so read the relevant registers back
+  rather than assuming. This is the cost of following the required sequence; the
+  alternative is a write the sources do not sanction.
 - no operation exposes a raw register pointer or owns an interrupt GPIO.
 - `MicroLux` values are nominal, not calibrated.

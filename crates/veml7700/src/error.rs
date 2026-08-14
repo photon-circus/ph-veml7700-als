@@ -122,6 +122,12 @@ pub enum MeasureStage {
     ObserveConfiguration,
     /// Observe original power-saving state.
     ObservePowerSaving,
+    /// Enter shutdown in the original domain before reconfiguring.
+    ///
+    /// Only reached when the operation started from an active device. The
+    /// sources require shutdown before any reconfiguration, so this write
+    /// changes nothing but the shutdown bit.
+    EnterShutdown,
     /// Disable autonomous power-saving cadence.
     DisablePowerSaving,
     /// Install the requested gain/integration fields while shut down.
@@ -181,6 +187,12 @@ pub enum MeasureOnceError<E> {
 pub enum ThresholdMonitorStage {
     /// Observe current configuration.
     ObserveConfiguration,
+    /// Enter shutdown with the monitored domain intact.
+    ///
+    /// Only reached when re-arming an enabled monitor on an active device. The
+    /// shutdown and monitor bits cannot move in one write there, so shutdown
+    /// goes first and the monitor is disabled while shut down.
+    EnterShutdown,
     /// Disable the threshold monitor before changing its domain.
     DisableMonitor,
     /// Write low threshold.
