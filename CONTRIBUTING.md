@@ -69,9 +69,12 @@ grep -rn '0\.1\.0-incubating\.1' --exclude-dir=.git --exclude-dir=target .
 ```
 
 At the time of writing it appears in the root `Cargo.toml`, `Cargo.lock`, the
-root and packaged READMEs, `crates/veml7700/src/lib.rs`, `AGENTS.md`,
-`CHANGELOG.md`, `RELEASING.md`, `docs/API_CONTRACT.md`, `docs/DECISIONS.md`, and
-the bug-report form. A green gate does not mean you found them all.
+root and packaged READMEs, `AGENTS.md`, `CHANGELOG.md`, `RELEASING.md`,
+`docs/API_CONTRACT.md`, `docs/DECISIONS.md`, and the bug-report form. A green
+gate does not mean you found them all.
+
+`crates/veml7700/src/lib.rs` is deliberately absent: it includes the packaged
+README with `#![doc = include_str!]` and holds no copy of its own.
 
 ## Verifying a change
 

@@ -162,13 +162,53 @@ measurements, protects threshold-monitor domains, preserves restoration
 failures, and converts ALS counts using integer nominal datasheet scales. It
 does not claim calibrated lux or apply application-specific optical correction.
 
-Driver verification consists of pure codec tests, exact scripted I²C with
-failure injection, and the independent model whose claim is declared in
-[`crates/veml7700-model/README.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/crates/veml7700-model/README.md).
+## Installing
 
-The package is not published and retains `publish = false`. See the
-[repository README](https://github.com/photon-circus/ph-veml7700-als#readme) and
-[driver documentation](https://github.com/photon-circus/ph-veml7700-als/tree/main/docs)
-for the complete scope.
+This is a prerelease, so the version must be written out in full — a `0.1`
+requirement will not match it:
+
+```toml
+[dependencies]
+ph-veml7700-als = "0.1.0-incubating.1"
+```
+
+It is **not yet published**; the manifest retains `publish = false`. The
+snippet above is what the dependency will look like, not something that
+resolves today.
+
+## Requirements
+
+| | |
+| --- | --- |
+| Rust | 1.92.0 (MSRV), Edition 2024 |
+| Runtime dependency | `embedded-hal-async` 1.0 |
+| Posture | `#![no_std]`, allocation-free, `#![forbid(unsafe_code)]` |
+| Bus | Caller-provided async I²C; the driver owns no HAL, executor, board, or clock |
+
+### Supported targets
+
+The full local gate compiles all five on every change. Hosted CI runs the
+`bounded` profile, which compiles `thumbv7em-none-eabihf` only and reports the
+other four as explicit skips — so the automated evidence a pull request carries
+is one triple, not five.
+
+```text
+thumbv6m-none-eabi          thumbv8m.main-none-eabihf   riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf       riscv32imc-unknown-none-elf
+```
+
+Compiling on a triple establishes that the documented `no_std` surface builds
+there. It establishes nothing about board wiring, bus timing, concurrency, or
+silicon.
+
+## Verification and scope
+
+Driver verification consists of pure codec tests, exact scripted I²C with
+failure injection, an independent behavioral model, and driver-versus-model
+conformance for the traces named above.
+
+`ph-veml7700-als-model` is repository-only and unpublished. It is excluded from
+this package, so it cannot be depended on and no link to it is given here — a
+consumer of the published crate has no way to use it.
 
 Licensed under MIT.

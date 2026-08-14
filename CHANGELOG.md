@@ -309,6 +309,28 @@ than a change from a prior version.
   enabled cadence would ask for behavior no source establishes. The preset
   documents that constraint.
 
+- **The packaged README is now the single consumer source of truth**, included
+  verbatim into the crate documentation with `#![doc = include_str!]`. docs.rs
+  and crates.io can no longer disagree about what this crate claims, because
+  there is no second copy to disagree with. Two gate checks that existed only to
+  keep the copies in step — the usage-example comparison and the coverage-matrix
+  comparison — were deleted in the same change, and the status-disclosure check
+  narrowed from three files to two.
+- Added the consumer information the packaged README was missing: exact
+  prerelease dependency syntax (a `0.1` requirement will not match
+  `0.1.0-incubating.1`), MSRV 1.92.0 and Edition 2024, the `no_std` /
+  allocation-free / unsafe-free posture, the runtime dependency, the five
+  reference target triples, and what compiling on them does and does not
+  establish.
+- Removed every link to mutable `main` from the packaged README rather than
+  deferring them to release-time verification. The content they pointed at is
+  either inline now or unusable to a consumer: `ph-veml7700-als-model` is
+  repository-only, so a link to it from the published crate offers nothing.
+- The root README is a landing page for people working on the repository, not a
+  second consumer manual. It carries the status disclosure, points consumers at
+  the packaged README, and describes layout, verification profiles, and
+  publication status.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
