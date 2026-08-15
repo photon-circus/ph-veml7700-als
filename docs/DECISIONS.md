@@ -764,19 +764,47 @@ tracked document here is hard-wrapped, so a line-oriented search cannot see a
 phrase spanning a line break — which is exactly how the packaged README kept a
 disproven claim through an audit that believed itself exhaustive.
 
-### What this does not do, on purpose
+### Interpretation is centralized; implementation is not
 
-**It does not deduplicate the driver and the model.** `CONTRIBUTING.md` requires
-the model to derive from this contract rather than from driver code, because if
-the two share a mistake neither can catch it. If they shared a prose fragment or
-a constant for a device fact, the model would stop being an independent
-derivation and conformance would stop being an oracle.
+These are opposite requirements, and the line between them is the whole design.
 
-So driver/model duplication is **load-bearing**, and the goal is not one copy. It
-is one *edit point for the claim* with independent derivations on each side, both
-traceable to the same `S-nn`. A future change that collapses them into a shared
-source of device facts would satisfy a tidiness instinct and destroy the reason
-the model exists.
+**Implementations must stay separate.** If the driver and the model share a
+constant, a codec, or a state machine for a device fact, they share its mistakes,
+and conformance stops being an oracle — it collapses into a tautology, where two
+expressions of one derivation agree because they are one derivation. That is what
+`CONTRIBUTING.md` protects when it forbids the model importing driver code, and
+it is why this repository accepts the cost of writing the same behavior twice.
+
+**The interpretation of record must not be duplicated.** What the datasheet says
+is not an implementation and has no oracle value in duplicate: two copies of a
+claim cannot catch each other being wrong. They can only diverge, which is
+observed rather than theoretical — the persistence rule was restated nine times
+and all nine were wrong at once, and the copy that reached consumers was the one
+a hand search missed.
+
+So the rule is not "duplicate less" or "duplicate more". It is:
+
+| | Driver | Model | Why |
+| --- | --- | --- | --- |
+| Behavior expressing a fact | own constant, own code | own constant, own code | two derivations that can disagree |
+| The fact itself, as recorded | cites `S-nn` | cites `S-nn` | one record, so there is nothing to diverge |
+
+`docs/HARDWARE_CONTRACT.md` is that one record. Both sides derive from it and
+neither derives from the other. An earlier draft of this decision said prose
+fragments should also be per crate; that was wrong, and it would have
+institutionalized exactly the rot this decision exists to remove. A shared
+*sentence about the datasheet* creates no shared behavior — prose does not
+execute — while a shared *constant* does.
+
+One practical constraint shapes how far the sharing can go. `crates/veml7700` is
+published, so it cannot `include_str!` a file outside its own directory: the
+packaged crate would not contain it, and the gate tests the unpacked package
+(D-017), so the attempt fails loudly rather than shipping broken. Where the same
+interpretation genuinely must appear inside both crates, the answer is the one
+already used for the status disclosure — **the gate compares the copies after
+normalizing whitespace**, so they are one text in effect even though the file
+system holds two. Prefer citing an `S-nn` over restating; compare when restating
+is unavoidable.
 
 ### What it costs
 

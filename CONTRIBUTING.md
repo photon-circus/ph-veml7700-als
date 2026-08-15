@@ -125,7 +125,14 @@ Two rules follow from the table and are enforced in review:
   purpose of having an independent one.
 - **The model is derived from `docs/HARDWARE_CONTRACT.md`, not from driver
   code.** It must not import driver codecs, constants, or state machines. If the
-  driver and the model share a mistake, neither can catch it.
+  driver and the model share a mistake, neither can catch it — conformance
+  collapses into a tautology, where two expressions of one derivation agree
+  because they *are* one derivation.
+- **That applies to implementations, not to the interpretation of record.** The
+  contract is the single source of truth for what the datasheet says, and both
+  sides cite it. Duplicating a *claim* has no oracle value — two copies cannot
+  catch each other being wrong, only diverge. Duplicating a *derivation* is the
+  point. See D-033.
 
 ## Evidence language
 

@@ -784,11 +784,14 @@ than a change from a prior version.
 - Turning the check on found **seven** uncited absence claims that no hand grep
   had reported, in `DRIVER_CONTRACT.md`, `driver.rs`, both crate READMEs, and the
   model's `Unsupported` documentation. Each now cites the row it depends on.
-- **Driver and model duplication is deliberately left in place.** The model must
-  derive from the contract rather than from driver code, so a shared fragment or
-  constant for a device fact would end its independence and make conformance
-  stop being an oracle. One edit point for the *claim*, two independent
-  derivations, both cited — not one copy.
+- **Interpretation is centralized; implementation is not**, and D-033 records
+  them as opposite requirements. Driver and model keep their own constants and
+  code for the same device fact, because sharing those collapses conformance
+  into a tautology — two expressions of one derivation agreeing because they are
+  one derivation. The *interpretation of record* is the opposite case: two
+  copies of a claim cannot catch each other being wrong, they can only diverge,
+  and nine simultaneously wrong restatements of the persistence rule are what
+  that looks like. One record, two derivations, both citing it.
 
 ### Known issues
 
