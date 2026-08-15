@@ -208,6 +208,15 @@ impl Veml7700Model {
         let mut step = elapsed.as_nanos();
         // Terminates because refresh_interval_ns never returns Some(0); the
         // smallest ideal-model interval is nominal 25 ms.
+        //
+        // Its None arm cannot appear here. A channel that completes a refresh
+        // reschedules from the same (configuration, power_saving) pair that
+        // write_configuration already validated as Some at activation, and
+        // neither field can move while active: write_configuration_while_active
+        // admits only entering shutdown or clearing the monitor bit, and
+        // write_power_saving refuses any change outside shutdown. If that ever
+        // loosens, a None here stalls the channel silently instead of erroring,
+        // so re-establish this argument rather than deleting the comment.
         loop {
             let Some(next) = Self::next_event(self.als_remaining_ns, self.white_remaining_ns)
             else {
@@ -359,10 +368,23 @@ impl Veml7700Model {
         }
     }
 
+    /// Register `0x06` has no success path in this model.
+    ///
+    /// Both arms are errors, so the `Ok` half of the return type is uninhabited
+    /// in practice. That is deliberate rather than incidental: while monitoring,
+    /// the evidence supports no qualification oracle at any protect number
+    /// (`S-39`, `S-49`, `S-50`), and while disabled there is no value or history
+    /// to report (`S-42`, `S-54`). Waiting resolves neither, so the two variants
+    /// separate the monitor-enable bit and nothing else.
+    ///
+    /// The consequence for conformance is that no trace can exercise the
+    /// driver's threshold-status decode against this model. That is a structural
+    /// property of the evidence, not a coverage gap to fill later, and
+    /// `docs/VERIFICATION.md` records it as such.
+    ///
+    /// The signature stays fallible so that a future proposition establishing a
+    /// status rule can add the success arm without changing every caller.
     const fn read_status(&self, pointer: u8) -> Result<u16, TransportError> {
-        // While monitoring, the evidence does not support a qualification
-        // oracle at any protect number (`S-39`, `S-49`, `S-50`). Waiting cannot
-        // turn that undefined rule into model knowledge.
         if threshold_monitor_is_enabled(self.configuration) {
             return Err(TransportError::Unsupported(
                 Unsupported::UndefinedQualificationRule {
@@ -370,9 +392,9 @@ impl Veml7700Model {
                 },
             ));
         }
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            pointer,
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(pointer),
+        ))
     }
 
     const fn write_threshold(&mut self, pointer: u8, word: u16) -> Result<(), TransportError> {

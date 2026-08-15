@@ -40,8 +40,17 @@ pub enum Unsupported {
     NoCompletedConversion(u8),
     /// A threshold register was read before this model had observed it written.
     NoProgrammedThreshold(u8),
-    /// Threshold status was read while this model had no supported status result.
-    NoQualifiedStatus(u8),
+    /// Threshold status was read while the monitor was disabled.
+    ///
+    /// The companion of [`Self::UndefinedQualificationRule`], which covers the
+    /// enabled case. Between them this model returns no status word at any
+    /// configuration, so the two are distinguished by the monitor-enable bit
+    /// rather than by whether waiting would help. Neither means "not yet".
+    ///
+    /// Disabling the monitor gives this model no value or history to report:
+    /// `S-42` locates the absence of any clearing behavior, and `S-54` leaves
+    /// the effect of disabling on the flag bits undefined.
+    StatusReadWhileMonitorDisabled(u8),
     /// Threshold status was read while monitoring, but `S-39`, `S-49`, and
     /// `S-50` do not support a complete qualification oracle.
     ///
@@ -52,7 +61,6 @@ pub enum Unsupported {
     /// it, because an invented completion still produces driver-model agreement
     /// and that agreement would mean nothing while looking exactly like
     /// evidence.
-    ///
     UndefinedQualificationRule {
         /// Complete configuration word selecting the protect number.
         configuration: u16,
@@ -112,9 +120,9 @@ impl fmt::Display for Unsupported {
                 f,
                 "threshold register 0x{pointer:02X} has no programmed value in this model"
             ),
-            Self::NoQualifiedStatus(pointer) => write!(
+            Self::StatusReadWhileMonitorDisabled(pointer) => write!(
                 f,
-                "threshold-status register 0x{pointer:02X} has no qualified status in this model"
+                "threshold-status register 0x{pointer:02X} was read with the monitor disabled, for which this model holds no status"
             ),
             Self::UndefinedQualificationRule { configuration } => write!(
                 f,

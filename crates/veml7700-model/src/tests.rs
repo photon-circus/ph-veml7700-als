@@ -71,9 +71,9 @@ fn construction_preserves_the_known_configuration_and_injected_power_word() {
     );
     assert_eq!(
         read_word_result(&mut model, THRESHOLD_STATUS),
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            THRESHOLD_STATUS
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(THRESHOLD_STATUS)
+        ))
     );
     assert_eq!(read_word(&mut model, ID), DEVICE_ID);
     let snapshot = model.inspect();
@@ -127,9 +127,9 @@ fn conversion_latches_the_held_pair_at_the_ideal_completion_point() {
     assert_eq!(read_word(&mut model, WHITE), 0x5678);
     assert_eq!(
         read_word_result(&mut model, THRESHOLD_STATUS),
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            THRESHOLD_STATUS
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(THRESHOLD_STATUS)
+        ))
     );
     assert!(model.inspect().als_remaining.is_some());
     assert!(model.inspect().white_remaining.is_some());
@@ -335,9 +335,9 @@ fn threshold_status_is_read_only_and_not_a_device_nack() {
     let mut model = Veml7700Model::new(injected_inputs(0, 0));
     assert_eq!(
         read_word_result(&mut model, THRESHOLD_STATUS),
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            THRESHOLD_STATUS
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(THRESHOLD_STATUS)
+        ))
     );
     let write = model.write(I2C_ADDRESS, &[THRESHOLD_STATUS, 0, 0]);
     assert_eq!(
@@ -610,9 +610,9 @@ fn disabling_the_monitor_does_not_invent_status_history() {
     model.advance(RelativeDuration::from_micros(1_300_000));
     assert_eq!(
         read_word_result(&mut model, THRESHOLD_STATUS),
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            THRESHOLD_STATUS
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(THRESHOLD_STATUS)
+        ))
     );
 }
 

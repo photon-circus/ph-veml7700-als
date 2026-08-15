@@ -61,19 +61,40 @@ establishes agreement only within the stated trace.
 `read_threshold_status` is called only to assert the model's exact
 `UndefinedQualificationRule` error. No successful status semantics are claimed.
 
+This is stronger than an untraced operation. The model returns an error from
+register `0x06` at every configuration — `UndefinedQualificationRule` while
+monitoring, `StatusReadWhileMonitorDisabled` otherwise — so the driver's
+threshold-status decode and `ThresholdStatusDecodeError` cannot be reached
+through any conformance trace at all. That is a structural consequence of
+`S-39`, `S-49`, and `S-50`, not coverage awaiting a test. Scripted-transport
+tests in the driver crate own that decode path instead.
+
 ### Configuration domain
 
-| Domain | Exercised | Not exercised or unsupported |
-| --- | --- | --- |
-| Gain | ×1, ×2, ×1/8 | ×1/4 |
-| Integration time | 25 ms, 100 ms | 50, 200, 400, 800 ms |
-| Persistence | 1 and 4 programming | 2 and 8; qualification at every value is unsupported |
-| Power-saving mode | Mode 1, Mode 2 | Mode 3, Mode 4 |
-| Threshold qualification | none | low and high status semantics |
+The middle column is deliberately narrow: a value counts as exercised only when
+a traced operation *selects* it. A value the model merely powers up in, or that
+a restoration assertion reads back, establishes nothing about behavior in that
+domain and is recorded separately.
+
+| Domain | Selected by a traced operation | Observed only as reset or restored state | Not exercised or unsupported |
+| --- | --- | --- | --- |
+| Gain | ×2, ×1/8 | ×1 | ×1/4 |
+| Integration time | 25 ms, 100 ms | — | 50, 200, 400, 800 ms |
+| Persistence | 1 and 4 programming | — | 2 and 8; qualification at every value is unsupported |
+| Power-saving mode | Mode 2 enabled | Mode 1 disabled | Mode 1 enabled, Mode 3, Mode 4 |
+| Threshold qualification | none | — | low and high status semantics |
 
 Threshold qualification is an evidence boundary, not a missing test. `S-39`,
 `S-49`, and `S-50` do not support a complete oracle, so the model returns
 `Unsupported` rather than manufacturing coverage.
+
+Enabled cadence is likewise bounded by evidence rather than by effort. `S-21`
+records refresh times only at gain ×2 and `S-22` leaves gain independence
+undefined, so the model declines to predict enabled cadence at any other gain.
+Traces that pair power saving with a gain now select ×2 for that reason; the
+×1/8 plus Mode 2 combination that earlier traces used is no longer
+representable, and no trace replaces it. This is a reduction in traced surface
+accepted in exchange for not assuming `S-22`.
 
 ## Canonical gate
 

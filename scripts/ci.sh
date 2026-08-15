@@ -259,6 +259,21 @@ if [ -z "$actual_tests" ]; then
     echo "no conformance tests found in $conformance_source" >&2
     exit 1
 fi
+# Both `sed` ranges below are delimited by headings. A missing *closing* heading
+# does not empty the range -- `sed` just runs to end of file -- so the emptiness
+# guard cannot catch it, and the scan would quietly widen to the rest of the
+# document. Assert all four literals first, where a rename fails loudly.
+for matrix_heading in \
+    '^## Model conformance coverage$' \
+    '^## Canonical gate$' \
+    '^### Covered$' \
+    '^### Untraced public operations$'; do
+    if ! grep -qE "$matrix_heading" "$matrix_source"; then
+        printf 'missing heading %s in %s\n' "$matrix_heading" "$matrix_source" >&2
+        printf 'the coverage scan is delimited by these headings; renaming one silently widens it.\n' >&2
+        exit 1
+    fi
+done
 matrix_block=$(sed -n '/^## Model conformance coverage/,/^## Canonical gate/p' "$matrix_source")
 if [ -z "$matrix_block" ]; then
     echo "no coverage matrix found in $matrix_source" >&2
@@ -324,11 +339,20 @@ fi
 # A citation to a mistyped identifier resolves to nothing. Retired identifiers
 # remain as tombstones, so historical citations continue to resolve without an
 # identifier ever acquiring a new meaning.
+#
+# `git ls-files` enumerates the index, so a listed path missing from the work
+# tree means a deletion is half-applied. Skipping it would silently shrink this
+# scan and the Markdown link scan below -- and the change most likely to produce
+# that state is exactly the one that deletes a cited document, which is when
+# both scans matter most. Fail instead.
 claim_sources=
 for claim_source in $(git ls-files '*.md' '*.rs'); do
-    if [ -f "$claim_source" ]; then
-        claim_sources="$claim_sources $claim_source"
+    if [ ! -f "$claim_source" ]; then
+        printf 'tracked file is missing from the work tree: %s\n' "$claim_source" >&2
+        printf 'the citation and link scans cannot be complete; commit or restore it.\n' >&2
+        exit 1
     fi
+    claim_sources="$claim_sources $claim_source"
 done
 dangling_ids=
 for cited_id in $(grep -ohE '`S-[0-9]+`' $claim_sources | tr -d '`' | sort -u); do
@@ -378,8 +402,11 @@ markdown_targets() {
         | sed -e 's/^](//' -e 's/)$//' -e 's/^<//' -e 's/>$//'
 }
 link_report=$(
+    # No existence guard: the claim-registry step above already refuses a tracked
+    # file missing from the work tree, and it covers every tracked `*.md`. A
+    # `continue` here would silently drop the file whose inbound links this step
+    # exists to check.
     for markdown_file in $(git ls-files '*.md'); do
-        [ -f "$markdown_file" ] || continue
         markdown_dir=$(dirname "$markdown_file")
         markdown_targets "$markdown_file" | while IFS= read -r target; do
             case "$target" in

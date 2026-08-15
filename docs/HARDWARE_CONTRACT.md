@@ -34,11 +34,22 @@ those reactions.
   evidence. `Not currently relevant` preserves a pre-existing ID that has no
   current driver, model, conformance, scoped-hardware, or reported-bug
   consumer; it creates no work or coverage obligation.
+- A **registry tombstone** is the row an identifier leaves behind when it stops
+  naming a live proposition. Because an ID is never reused, the tombstone is
+  what keeps an existing citation resolvable. Its state is `superseded` when one
+  or more named `S-nn` now carry the referent, and `retired` when none do.
+  Evidence is always `registry history only`: a tombstone asserts nothing about
+  documents or silicon, so it can be neither supported nor undefined, and
+  `Relevance` does not apply to it.
 
 Every row names its proposition kind, current knowledge state, and evidence
 polarity. `Supported` means the cited evidence supports that exact proposition;
 `undefined` means the cited evidence does not determine it. States report
 evidence, not approval or future work.
+
+A tombstone additionally names the **former proposition** it used to carry, so a
+reader arriving from an old citation learns what the identifier once meant
+without recovering the file's history.
 
 Rows contain propositions, evidence, and state only. Component consequences and
 work-item policy belong elsewhere. Cite an `S-nn`, never a movable section
@@ -132,11 +143,12 @@ commonly 2.2 kΩ to 4.7 kΩ.
 
 ### S-07
 
-**Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
+**Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
 
-This identifier historically named
-a component policy rule, not an evidence proposition. It remains
-resolvable and has no replacement `S-nn`.
+**Former proposition:** a component policy rule, not an evidence proposition.
+
+No `S-nn` carries the referent, because policy never belonged in this registry.
+The identifier remains resolvable.
 
 ## 3. Word transfer order
 
@@ -270,12 +282,13 @@ shutdown, bit 0 (`ALS_SD`: 0 power on, 1 shut down), from Table 1.
 
 **Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
 
-**Former proposition:** Reconfiguration requires shutdown first.
+**Former proposition:** Reconfiguration requires shutdown first, as a device
+proposition.
 
-This identifier historically named the device proposition that reconfiguration
-requires shutdown first. The cited evidence establishes only the distinct
-documentary proposition now identified by `S-56`. The former referent remains
-resolvable and is not evidence for either component consequence.
+No `S-nn` carries that referent. The cited evidence establishes only the
+distinct documentary proposition now identified by `S-56` — what the vendor's
+example flow does, not what the silicon requires — so `S-56` is not a
+replacement, and neither row is evidence for a component consequence.
 
 ### S-56
 
@@ -371,15 +384,17 @@ found no characterized integration-time or oscillator-accuracy limit.
 
 ### S-55
 
-**Kind:** device. **State:** undefined. **Evidence:** vendor guidance does not establish a characterized bound.
+**Kind:** device. **State:** undefined. **Evidence:** does not resolve.
 
 **Proposition:** With power saving disabled, a completed conversion is available
 no later than the `S-23` wake interval plus 130 % of the selected nominal
 integration time.
 
-**Documentary evidence: supports as vendor guidance, not as a characterized
-bound.** `S-23` and `S-24` are the applicable documentary propositions.
-**Physical evidence: none.**
+**Documentary evidence: does not resolve.** `S-24` states the ±30 % figure as an
+allowance that *can be assumed*, not as a min/max characterized across process,
+voltage, and temperature, so it does not determine this bound. `S-23` supplies
+the wake interval only. Neither proposition is evidence that the composed bound
+holds. **Physical evidence: none.**
 
 
 
@@ -529,19 +544,14 @@ integration time below 100 ms to cover the brightest conditions.
 
 **Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
 
-This identifier historically repeated
-the proposition now owned by `S-29`; its referent remains resolvable.
-
-**Relevance: retired.**
+**Former proposition:** a repetition of the proposition now owned by `S-29`.
 
 ### S-36
 
-**Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
+**Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
 
-This identifier historically summarized
-parts of `S-26`, `S-29`, and `S-30`; its referent remains resolvable.
-
-**Relevance: retired.**
+**Former proposition:** a summary spanning parts of `S-26`, `S-29`, and `S-30`,
+which now carry the referent separately.
 
 ### S-37
 
@@ -600,10 +610,9 @@ and Table 7 adds nothing. The condition is application-note-only.
 
 **Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
 
-This row formerly combined
-persistence sufficiency and partial-run behavior. Its meaning is retained
-here; the two independently correctable device propositions are now
-`S-49` and `S-50`.
+**Former proposition:** persistence sufficiency and partial-run behavior
+combined in one row. The two independently correctable device propositions are
+now `S-49` and `S-50`.
 
 ### S-49
 
