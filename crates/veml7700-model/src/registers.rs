@@ -99,8 +99,12 @@ pub(crate) const fn documented_integration_us(configuration: u16) -> Option<u64>
 
 /// Conservative conversion bound after a shutdown-to-active wake, in nanoseconds.
 ///
-/// Bound is 2.5 ms plus 130% of the selected integration time. This is not the
-/// driver's longer wait, which also adds software margin.
+/// Bound is 2.5 ms plus 130% of the selected integration time, where the 130%
+/// abstracts the ±30% integration-time tolerance the vendor states as assumable
+/// in application note 84323, page 4, *Command Code ALS_IT*. Collapsing that
+/// tolerance to one deterministic instant is model behavior; the vendor does not
+/// characterize the spread. This is not the driver's longer wait, which also
+/// adds software margin.
 pub(crate) const fn conversion_bound_ns(configuration: u16) -> Option<u64> {
     let Some(integration_us) = documented_integration_us(configuration) else {
         return None;

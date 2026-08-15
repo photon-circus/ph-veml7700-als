@@ -612,6 +612,43 @@ than a change from a prior version.
   is why the conservative wait is 130 % of the selected integration time, so the
   margin is conservative *given the assumption* rather than in general.
 
+- **Corrected the source classification of the ±30 % integration-time
+  tolerance.** The repository said no vendor document states it, called it
+  third-party in origin, and argued that no such passage could exist. It does:
+  application note 84323, Revision 06-Mar-2025, page 4, section *Command Code
+  ALS_IT*, `Remark` — "For the integration time a tolerance of ± 30 % can be
+  assumed. This tolerance should also be considered during the read out of the
+  measurement results." That is in a pinned source, under the digest already
+  recorded in `docs/vendor/README.md`. Found on an independent re-read during
+  review of #63; see #65.
+- The `HARDWARE_CONTRACT.md` §7 row is now verified with document, revision,
+  page, and section, and the conservative 130 % wait is recorded as this driver
+  acting on the Remark's second sentence rather than as a stand-in for a missing
+  figure. `INTEGRATION_TOLERANCE_PERCENT`, `measure_once`,
+  `conversion_bound_ns`, and the model's completion-boundary decision say
+  vendor-stated where they said assumed.
+- **Kept the distinction the citation does not close.** The vendor writes "can
+  be assumed" in an application note; the datasheet specifies no
+  integration-time tolerance and publishes no oscillator accuracy, showing the
+  oscillator only in its block diagram. So the figure is sourced and still not a
+  worst case characterized across process, voltage, and temperature — a spread
+  wider than ±30 % still fails the freshness guarantee silently.
+  `CONTRIBUTING.md` gains **specified** versus **vendor-stated guidance** as an
+  evidence-language distinction.
+- Recorded D-032: a claim that a source is silent needs a located negative —
+  document, revision, sections read — not an argument that the figure is the
+  kind of thing vendors do not publish. A D-029 Assumption asserts that further
+  reading cannot help, which suppresses the reading that would refute it, so it
+  is the one row type that must not rest on inference.
+- Recomputed the counts that claim tracked: **38 rows verified, 3 open**, two of
+  them D-029 Assumptions. The model's declared-assumption table drops to two
+  rows; the 130 % boundary moves out of it and into the source decisions as an
+  abstraction of vendor guidance. D-030's allocation table drops to three rows,
+  with a note on why the fourth left.
+- **No behavior changed.** The driver still waits 130 % of the selected
+  integration time, the model still completes at 130 %, and no test moved. The
+  repository had the right number and a false account of its provenance.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -619,12 +656,17 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **37 rows verified,
-  4 open.** The open rows are three D-029 Assumptions that only hardware can
-  close (refresh independence from ALS gain, register `0x03` reset value, the
-  ±30 % integration tolerance) and the persistence qualification rule, which
-  reading could still close and which D-030 resolves without it. No verified row is a
-  physical-support claim — matching a recorded interpretation to a recorded
-  document establishes nothing about silicon. No open row blocks release work.
+- Vendor owner-verification has been walked end to end: **38 rows verified,
+  3 open.** The open rows are two D-029 Assumptions that only hardware can
+  close (refresh independence from ALS gain, register `0x03` reset value) and
+  the persistence qualification rule, which reading could still close and which
+  D-030 resolves without it. No verified row is a physical-support claim —
+  matching a recorded interpretation to a recorded document establishes nothing
+  about silicon. No open row blocks release work.
+- A verified row is also not a characterized one. The ±30 % integration-time
+  tolerance is vendor-stated design guidance (#65, D-032), so the conservative
+  wait rests on a source rather than on a stand-in — but the vendor does not
+  characterize the spread across process, voltage, and temperature, and a wider
+  real spread would still break freshness silently.
 - No reviewed physical or calibrated-optical evidence exists, and candidate
   version `0.1.0-incubating.1` remains unpublished with `publish = false`.

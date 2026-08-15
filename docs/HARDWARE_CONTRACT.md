@@ -269,7 +269,8 @@ statement, so the inference is recorded here rather than left implicit in code.
 
 - after changing shutdown bit from 1 to 0, wait at least 2.5 ms before the first
   measurement;
-- integration time has an assumed ±30 % tolerance;
+- the vendor states that a ±30 % integration-time tolerance can be assumed, and
+  that it should be considered when reading measurement results;
 - data registers retain the last ambient result during shutdown;
 - waking causes later refresh by a new detection;
 - a plain register read therefore cannot prove freshness.
@@ -286,39 +287,42 @@ coherence policy, not a vendor-stated atomic pair primitive.
 
 - [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
       source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
-- [ ] **Assumption: integration time is within ±30 % of nominal.**
-      *Requires physical validation. Further reading cannot close this row.*
+- [x] **The vendor states that a ±30 % integration-time tolerance can be
+      assumed, and that it should be considered when reading measurement
+      results.** Application note 84323, Revision 06-Mar-2025, page 4, section
+      *Command Code ALS_IT*, `Remark`:
 
-      Neither source states it. It appears in neither Absolute Maximum Ratings
-      nor Basic Characteristics, and the reviewed timing material specifies the
-      I²C bus but not the conversion clock.
+      > For the integration time a tolerance of ± 30 % can be assumed. This
+      > tolerance should also be considered during the read out of the
+      > measurement results.
 
-      This row was briefly recorded as waiting on a passage. That was wrong
-      about the kind of fact it is. Integration intervals are counted off the
-      part's **internal oscillator**, so their spread is that oscillator's
-      tolerance — a process-dependent silicon characteristic, not a separately
-      specified timing parameter that a further page would list. Vishay
-      publishes no oscillator accuracy for this part, and an untrimmed
-      integrated RC oscillator drifting tens of percent over process, voltage
-      and temperature is ordinary. Waiting for a passage here is waiting for a
-      document that was never going to exist.
+      **This is application guidance, not a characterized guarantee**, and the
+      two must not be conflated. The figure appears in the application note
+      only. The datasheet gives no integration-time tolerance in Absolute
+      Maximum Ratings or Basic Characteristics, and publishes no oscillator
+      accuracy for this part — the oscillator appears in the block diagram and
+      nowhere in the electrical tables. The vendor's own wording is *can be
+      assumed*, which is a design allowance, not a specified min/max.
 
-      The ±30 % figure itself is third-party in origin and is **not** adopted as
-      a source-backed value. What the sources do support is that the timing is
-      oscillator-derived and unspecified; ±30 % is this repository's
-      conservative stand-in for an unpublished tolerance.
+      So this row records that ±30 % is **vendor-stated**. It does not record a
+      worst case guaranteed across process, voltage, and temperature. Integration
+      intervals are counted off the part's internal oscillator, and nothing in
+      either source bounds that oscillator's spread over PVT.
 
-      **This driver assumes it.** `INTEGRATION_TOLERANCE_PERCENT` is why the
-      conservative wait is 130 % of the selected integration time, so the margin
-      is conservative *given the assumption* rather than in general. A real
-      spread wider than ±30 % would make the driver read a register before the
-      conversion behind it completed — the freshness guarantee fails silently,
-      returning a stale value that is indistinguishable from a new one.
+      **This driver applies it.** `INTEGRATION_TOLERANCE_PERCENT` is why the
+      conservative wait is 130 % of the selected integration time, which is this
+      driver acting on the Remark's second sentence. The margin is therefore
+      conservative *given the vendor's stated tolerance* rather than in general:
+      a real spread wider than ±30 % would make the driver read a register before
+      the conversion behind it completed — the freshness guarantee fails
+      silently, returning a stale value that is indistinguishable from a new one.
 
-      **What would settle it:** clocking actual conversion completion against
-      the shutdown-to-active wake edge. Procedure and sampling considerations
-      are in #58, not here — this document names the observation; it does not
-      carry a physical-evidence plan.
+      **What measurement would add:** clocking actual conversion completion
+      against the shutdown-to-active wake edge would turn vendor guidance into
+      characterization evidence for the parts measured. That is optional
+      compliance work, not the discovery of a missing figure, and no row depends
+      on it. Sampling considerations are in #58, not here — this document does
+      not carry a physical-evidence plan.
 - [x] Data registers retain the last result while shut down. The source calls
       this *Auto-Memorization*: the part memorizes the last ambient data before
       shutdown, the host may read it directly while shut down, and on wake the

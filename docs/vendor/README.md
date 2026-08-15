@@ -57,9 +57,9 @@ are coupled and must change together.
 ## Owner record to complete
 
 - [x] local copy observed and its SHA-256 recorded;
-- [x] every hardware-contract verification box reviewed — 37 rows verified,
-      including both §1 source-baseline entries. Four rows remain open and each
-      says why in place: three are declared **Assumptions** under D-029 that no
+- [x] every hardware-contract verification box reviewed — 38 rows verified,
+      including both §1 source-baseline entries. Three rows remain open and each
+      says why in place: two are declared **Assumptions** under D-029 that no
       further reading can close, and one is a provisional row still waiting on a
       passage. Reviewed is not the same as all-checked; an open row that states
       its own obstacle is a completed review of that row;

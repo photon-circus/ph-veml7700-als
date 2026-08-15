@@ -486,14 +486,20 @@ the sources never settled. Where the model genuinely cannot run without the fact
 — construction needs some register value to represent a power-on device — it
 assumes, and the assumption is tabulated in the model README with its code site.
 
-The four open rows resolve differently under this rule, which is the point:
+The open rows resolve differently under this rule, which is the point:
 
 | Row | Driver | Model |
 | --- | --- | --- |
 | Register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
 | Refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
-| ±30 % integration tolerance | Assumes — a wait must be some number | Assumes — a completion bound must exist |
 | Persistence qualification rule | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+
+The ±30 % integration tolerance was a fourth row here, allocated as *both
+assume*. It left the table under D-032: the sources do state the figure, so
+there was no silence to allocate. Its removal changes no behavior — the driver
+still waits 130 % and the model still completes at 130 % — which is what makes
+it a clean illustration of the boundary. This rule governs what to do about
+silence; it has nothing to say once the silence turns out not to be there.
 
 The last row is the one that shows the rule working. The model had implemented
 consecutive counting with reset on any non-qualifying refresh, and driver-model
@@ -568,3 +574,68 @@ this reasoning is ever loosened without being rechecked.
 A caller that catches the panic observes an unchanged model. Without that, a
 rejected advance would be indistinguishable from one that ran partway and
 stopped, and the model's own tests could not tell the difference either.
+
+## D-032 — A silence claim needs a located negative, not an argument
+
+**Date:** 2026-08-14 **Status:** Current
+
+The repository stated that no vendor document gives an integration-time
+tolerance, called the ±30 % figure third-party in origin, and explained at
+length why no such passage could exist. The passage exists. Application note
+84323, Revision 06-Mar-2025, page 4, section *Command Code ALS_IT*, `Remark`:
+"For the integration time a tolerance of ± 30 % can be assumed. This tolerance
+should also be considered during the read out of the measurement results." It is
+in a pinned source, under the digest the contract already anchors to.
+
+### How a careful process produced a false negative
+
+Not by skipping the reading. By reasoning about the **kind** of fact instead of
+about the document. Integration intervals are counted off an internal
+oscillator; an oscillator tolerance is a process characteristic; vendors do not
+publish process characteristics for parts like this. Each step is sound, and the
+conclusion — that further reading was pointless — is what closed the search.
+Once a row says *further reading cannot close this*, nobody reads further. The
+argument became load-bearing precisely where it was least examined.
+
+The failure mode is specific to a D-029 Assumption. It is the strongest claim
+this contract can make about a source: not "we did not find it" but "it is not
+there and cannot be". That claim also suppresses the work that would refute it,
+which makes it the one row type that must not rest on inference.
+
+### The rule
+
+An Assumption declaring that reading cannot close a row must record a **located
+negative**: which document, which revision, which sections were read and found
+silent. A reader must be able to check the claim by opening the same pages. An
+argument from the nature of the quantity may accompany that record; it may not
+substitute for it.
+
+The physics argument here was, in fact, still correct about the thing it
+described — Vishay publishes no oscillator accuracy, and the datasheet shows the
+oscillator only in the block diagram. What it was wrong about is that this
+implies vendor silence on integration-time tolerance. An application note gives
+design guidance, which is a different act from specifying silicon, and this
+repository had no category for it.
+
+### Vendor-stated is not characterized
+
+That category now exists, and the correction stops there. The vendor writes
+"can be assumed", which is a design allowance, not a min/max across process,
+voltage, and temperature. So `INTEGRATION_TOLERANCE_PERCENT` is now sourced but
+is still not a guarantee, and a spread wider than ±30 % still breaks the
+freshness guarantee silently. Recording a citation raises the provenance of a
+claim, never its strength — see the evidence-language rules in
+`CONTRIBUTING.md`.
+
+### What did not change
+
+The driver waits 130 % of the selected integration time. The model completes at
+130 %. No test moved. The repository had the right number and the wrong account
+of where it came from, and under this repository's posture the second is the
+part that matters: a correct value carried by a false provenance claim is
+exactly what the contract exists to prevent, and it survived several revisions
+of deliberate review.
+
+Consequently #58's integration-time observation is no longer the means of
+discovering an unpublished figure. It is optional characterization — evidence
+about parts on a bench, against a tolerance the vendor already states.

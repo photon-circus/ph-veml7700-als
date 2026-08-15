@@ -48,9 +48,9 @@ support for the rest of the driver API.
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 Vendor PDFs remain untracked. Owner verification of the hardware contract has
-been walked end to end: 37 rows are verified against the pinned sources,
+been walked end to end: 38 rows are verified against the pinned sources,
 including both §1 source-baseline entries, which the owner closed by recomputing
-both SHA-256 digests over the retrieved copies. Four rows remain open and each
+both SHA-256 digests over the retrieved copies. Three rows remain open and each
 states its own obstacle in place.
 
 No verified row is a physical-support claim: confirming that a recorded
@@ -130,40 +130,53 @@ provably non-overflowing because the offset is bounded where it enters.
 | Classification | Included behavior |
 | --- | --- |
 | Modeled | Fixed address and ID; reset/default configuration; low-byte-first access to every declared register; supported measurement configuration; shutdown-to-active wake; recurring refresh; shutdown retention; documented 100–800 ms power-saving cadence; threshold programming at every protect number, and polled status at protect number one; configuration and power-saving restoration. |
-| Abstracted | **Three declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at conservative boundaries. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
+| Abstracted | **Two declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at the vendor-stated conservative boundary, which is an abstraction of application-note guidance rather than an independently chosen number. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair and white-channel phase offset, both required at construction; relative elapsed duration, bounded per step. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
 | Unsupported | Threshold qualification above protect number one, whose rule the sources never state (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ### Declared assumptions
 
-Three model behaviors rest on facts the pinned sources do not state. They are
+Two model behaviors rest on facts the pinned sources do not state. They are
 collected here rather than left in the code, because a reader deciding what
 model agreement is worth needs to know where the model is guessing.
 
-Each is recorded in `docs/HARDWARE_CONTRACT.md` beside the row it affects. All
-three are declared **Assumptions** under D-029: unresolvable by any further
-reading, closable only with a part on a bench. Each row names the observation
-that would settle it; the procedures live in #58, because this repository does
-not carry physical-evidence plans.
+Each is recorded in `docs/HARDWARE_CONTRACT.md` beside the row it affects. Both
+are declared **Assumptions** under D-029: unresolvable by any further reading,
+closable only with a part on a bench. Each row names the observation that would
+settle it; the procedures live in #58, because this repository does not carry
+physical-evidence plans.
 
 | Assumption | Where the model relies on it | Contract state | Observable consequence |
 | --- | --- | --- | --- |
 | Register `0x03` reads `0x0000` before it is written | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. The **driver** has no such assumption — it reads the register before acting on it. |
 | Refresh time does not depend on ALS gain | `refresh_interval_ns`, which takes no gain argument | **Assumption** (D-029) | Every cadence the model predicts is gain-independent. If silicon disagreed, model and driver would agree with each other and both diverge from the part. |
-| Integration time is within ±30 % of nominal | `conversion_bound_ns`, via the 130 % conservative bound | **Assumption** (D-029) | Conversion completion is predicted at 130 % of nominal. A wider real spread would make the model complete a conversion the device has not. |
 
-The integration-time row is an Assumption rather than unread reading because of
-where the number comes from: intervals are counted off the part's internal
-oscillator, so the spread is an oscillator characteristic, and Vishay publishes
-no oscillator accuracy for this part. There is no page to go back to.
+The 130 % conversion boundary is **not** in this table. It is not a
+source-silent assumption: application note 84323 states that a ±30 %
+integration-time tolerance can be assumed, so `conversion_bound_ns` latching at
+130 % of nominal is an abstraction of vendor guidance, not a number this
+repository invented. What that guidance does not supply is a worst case
+characterized across process, voltage, and temperature — so a real spread wider
+than ±30 % would still make the model complete a conversion the device has not.
+That is a fidelity limit of a deterministic model, recorded under
+[Source decisions](#source-decisions), not a place where the model guesses at
+silence.
 
 ### The assumption this model removed
 
-There were four. The persistence qualification rule is no longer among them,
-because under D-030 a model assumes only what it needs to run, and nothing here
-forced a rule: `update_threshold_status` now qualifies at protect number one and
-reports `Unsupported::UndefinedQualificationRule` above it.
+There were four. Two left the table for different reasons, and the difference is
+worth keeping straight.
+
+The persistence qualification rule left because under D-030 a model assumes only
+what it needs to run, and nothing here forced a rule: `update_threshold_status`
+now qualifies at protect number one and reports
+`Unsupported::UndefinedQualificationRule` above it. That is a model that stopped
+guessing.
+
+The ±30 % integration tolerance left for the opposite reason — nothing about the
+model changed. The source turned out to state the figure, so the row was
+misclassified, not over-assumed. Only the classification moved.
 
 It is worth recording what that assumption had been doing, because it is the
 failure the whole model-conformance apparatus exists to prevent, found in this
@@ -234,8 +247,12 @@ an active device and would fail against the previous driver with
 
 - Completion boundary: after the shutdown-to-active wake edge, latch the held
   raw pair at 2.5 ms wake allowance plus 130% of the selected integration time.
-  This is deterministic model behavior, not a claim that silicon always converts
-  at that instant. The driver may wait longer (it adds software margin).
+  The 130% is an abstraction of the vendor's stated ±30% integration-time
+  tolerance (application note 84323, page 4, *Command Code ALS_IT*), collapsed
+  to a single deterministic instant. It is not a claim that silicon always
+  converts at that instant, and the vendor states the tolerance as assumable
+  rather than characterizing it. The driver may wait longer (it adds software
+  margin).
 - Elapsed duration: retain remaining conversion progress so valid partitions of
   the same duration are observationally equivalent. No absolute time is stored.
 - Recurring refresh: with power saving disabled, use 130% of the selected

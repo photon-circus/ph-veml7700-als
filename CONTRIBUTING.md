@@ -139,6 +139,20 @@ Say exactly what produced a result. These distinctions are not stylistic:
   what a device would do with it.
 - **Code reading** — an unexecuted claim.
 
+Vendor sources carry two strengths, and a citation establishes which one:
+
+- **Specified** — a characterized limit in the datasheet's rating or
+  characteristic tables.
+- **Vendor-stated guidance** — a design allowance in the application note, such
+  as the ±30 % integration-time tolerance that document 84323 says "can be
+  assumed". Cite it with document, revision, page, and section. It is not a
+  worst case across process, voltage, and temperature, and no amount of citation
+  makes it one.
+
+A claim that a source is **silent** on something needs a located negative —
+which document, revision, and sections were read — not an argument that the
+figure is the kind of thing vendors do not publish. See D-032.
+
 Related wording rules:
 
 - Never call a snapshot fresh. Snapshot methods state that data may be retained
