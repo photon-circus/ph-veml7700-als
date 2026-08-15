@@ -666,6 +666,31 @@ than a change from a prior version.
   after the reclassification. Both entry points now classify the same 130 %
   bound the same way.
 
+- **Restored the I²C bus voltage range alongside `V_ih` and `V_il`.** §2 said
+  "1.7 V appears nowhere in the source". It appears in three: the datasheet's
+  page-one `PRODUCT SUMMARY` carries a column named `I²C BUS VOLTAGE RANGE` =
+  1.7 V to 3.6 V, beside `OPERATING VOLTAGE RANGE` = 2.5 V to 3.6 V; the
+  datasheet's own application circuit labels the same rail; and application note
+  84323 page 2 states in prose that the pull-up resistors may be connected to a
+  1.7 V to 3.6 V supply. Recorded as its own verified row under Vishay's
+  parameter name. See #67.
+- The three quantities that were being merged are now named and separated in
+  place: sensor supply `V_DD` (2.5–3.6 V), the bus rail the pull-ups may use
+  (1.7–3.6 V), and the input thresholds `V_ih` / `V_il` (1.3–3.6 V and
+  −0.3–0.4 V, both at `V_DD` = 3.3 V). Nothing is inferred beyond what Vishay
+  states — no level shifting, no minimum bus voltage per clock rate, no
+  relationship between the rail and `V_ih`.
+- The row had been wrong in both directions: it once recorded a "high-level
+  supply … 1.7 V to 3.6 V", merging rail and threshold. #54 separated them
+  correctly and then overcorrected into the absence claim. #54 had itself
+  enumerated the right answer — "1.7 V is from a different parameter" — and
+  passed over it because the search stopped at the passage the dispute quoted.
+- D-032 widened accordingly: the located-negative rule governs **any** absence
+  claim, not only D-029 Assumption rows. This one sat inside a checked row,
+  where the checkmark read as confirmation of the whole row rather than of the
+  fact it recorded.
+- Counts recomputed to **39 verified, 3 open**.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -673,7 +698,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **38 rows verified,
+- Vendor owner-verification has been walked end to end: **39 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which

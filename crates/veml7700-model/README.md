@@ -48,7 +48,7 @@ support for the rest of the driver API.
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 Vendor PDFs remain untracked. Owner verification of the hardware contract has
-been walked end to end: 38 rows are verified against the pinned sources,
+been walked end to end: 39 rows are verified against the pinned sources,
 including both §1 source-baseline entries, which the owner closed by recomputing
 both SHA-256 digests over the retrieved copies. Three rows remain open and each
 states its own obstacle in place.
