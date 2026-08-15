@@ -6,7 +6,7 @@ use core::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TransportError {
-    /// Documented device refusal at the I²C address.
+    /// Model response to an address mismatch, separate from model limitations.
     NoAcknowledge {
         /// Which part of the transfer the device refused.
         source: NoAcknowledgeSource,
@@ -17,7 +17,7 @@ pub enum TransportError {
     Unsupported(Unsupported),
 }
 
-/// Source-backed I²C NACK classification used by this slice.
+/// Model address-mismatch response selected from `S-05`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NoAcknowledgeSource {
@@ -40,31 +40,22 @@ pub enum Unsupported {
     NoCompletedConversion(u8),
     /// A threshold register was read before this model had observed it written.
     NoProgrammedThreshold(u8),
-    /// Threshold status was read before a monitored ALS refresh established it.
-    NoQualifiedStatus(u8),
-    /// Threshold status was read while the selected persistence protect number
-    /// is above one, for which the sources do not declare a complete
-    /// qualification rule — `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
+    /// Threshold status was read while the monitor was disabled.
     ///
-    /// This is not "not yet" — waiting longer never resolves it. Table 1
-    /// establishes `ALS_PERS` and its four values, and the vendor's application
-    /// note states the counting condition in **necessary** form: a flag is set
-    /// *only when* the threshold is exceeded and `ALS_PERS` measurements stay
-    /// above or below it. Predicting an assertion needs more than that. It needs
-    /// the condition to be sufficient, which is not stated, and it needs to know
-    /// what a non-qualifying measurement does to a partial run, which is not
-    /// stated either. Either gap alone is enough.
+    /// This is the model's unsupported reaction to `S-10`, `S-42`, and `S-54`;
+    /// it does not mean that waiting will produce a value.
+    StatusReadWhileMonitorDisabled(u8),
+    /// Threshold status was read while monitoring, but `S-39`, `S-49`, and
+    /// `S-50` do not support a complete qualification oracle.
+    ///
+    /// This is not "not yet" — waiting longer never resolves the missing
+    /// sufficiency and partial-run propositions `S-49` and `S-50`.
     ///
     /// This model therefore declares the rule undefined rather than completing
     /// it, because an invented completion still produces driver-model agreement
     /// and that agreement would mean nothing while looking exactly like
     /// evidence.
     ///
-    /// A protect number of one is unaffected **as to counting**: a single
-    /// qualifying refresh has no sequence, so there is no reset rule to be
-    /// missing. Sufficiency is a separate question and is not vacuous at one —
-    /// see #78, which asks whether the datasheet's definition of the flag
-    /// licenses asserting it at all. This model asserts at one today.
     UndefinedQualificationRule {
         /// Complete configuration word selecting the protect number.
         configuration: u16,
@@ -78,10 +69,10 @@ pub enum Unsupported {
     MidConversionReconfiguration,
     /// Integration-time field is a reserved encoding, so no bound exists.
     ReservedIntegrationTime(u16),
-    /// Power-saving cadence is not documented for the selected integration
-    /// (`S-44`).
-    UndocumentedPowerSavingCadence {
-        /// Complete configuration word selecting the integration time.
+    /// Selected power-saving behavior is outside the evidence-backed model
+    /// domain (`S-22`, `S-44`).
+    UnsupportedPowerSavingDomain {
+        /// Complete configuration word selecting the measurement domain.
         configuration: u16,
         /// Complete power-saving word selecting and enabling the mode.
         power_saving: u16,
@@ -124,13 +115,13 @@ impl fmt::Display for Unsupported {
                 f,
                 "threshold register 0x{pointer:02X} has no programmed value in this model"
             ),
-            Self::NoQualifiedStatus(pointer) => write!(
+            Self::StatusReadWhileMonitorDisabled(pointer) => write!(
                 f,
-                "threshold-status register 0x{pointer:02X} has no qualified status in this model"
+                "threshold-status register 0x{pointer:02X} was read while the monitor was disabled"
             ),
             Self::UndefinedQualificationRule { configuration } => write!(
                 f,
-                "configuration 0x{configuration:04X} selects a persistence protect number above one, whose qualification rule this model declares undefined"
+                "configuration 0x{configuration:04X} enables threshold monitoring whose qualification rule this model declares undefined"
             ),
             Self::ConfigurationWord(observed) => write!(
                 f,
@@ -149,12 +140,12 @@ impl fmt::Display for Unsupported {
                     "reserved integration-time encoding 0b{observed:04b} has no conversion bound"
                 )
             }
-            Self::UndocumentedPowerSavingCadence {
+            Self::UnsupportedPowerSavingDomain {
                 configuration,
                 power_saving,
             } => write!(
                 f,
-                "power-saving word 0x{power_saving:04X} has no documented cadence for configuration 0x{configuration:04X}"
+                "power-saving behavior is unsupported for configuration 0x{configuration:04X} and word 0x{power_saving:04X}"
             ),
             Self::ThresholdWriteWhileMonitoring(pointer) => write!(
                 f,

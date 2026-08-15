@@ -6,7 +6,7 @@ use crate::illuminance::{MicroLux, NominalScale};
 use crate::power::PowerSavingSnapshot;
 use crate::threshold::{ThresholdStatus, Thresholds};
 
-/// Raw ambient-light-channel counts.
+/// Raw ambient-light-channel counts (`S-32`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AlsCounts(u16);
@@ -22,18 +22,21 @@ impl AlsCounts {
         self.0
     }
 
-    /// Return whether the ADC word is at its maximum code.
-    pub const fn is_saturated(self) -> bool {
+    /// Return whether the observed ALS word is `0xFFFF`.
+    ///
+    /// This is an exact register observation. It does not itself prove physical
+    /// clipping, scene overrange, or an illuminance lower bound (`S-51`, `S-52`).
+    pub const fn is_max_code(self) -> bool {
         self.0 == u16::MAX
     }
 
-    /// Convert with the nominal vendor-table scale.
+    /// Convert with the nominal scale recorded by `S-26`.
     pub const fn nominal_micro_lux(self, config: MeasurementConfig) -> MicroLux {
         NominalScale::for_config(config).scale_counts(self.0)
     }
 }
 
-/// Raw white-channel counts.
+/// Raw white-channel counts (`S-33`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct WhiteCounts(u16);
@@ -56,8 +59,8 @@ impl WhiteCounts {
 pub enum MeasurementPairCoherence {
     /// Registers were read sequentially and may straddle an autonomous refresh.
     SequentialRegisters,
-    /// The driver first entered shutdown to freeze the most recently completed data.
-    FrozenAfterFreshWait,
+    /// The driver entered shutdown after its requested conversion wait.
+    FrozenAfterRequestedWait,
 }
 
 /// Diagnostic register snapshot with no freshness guarantee.
@@ -76,10 +79,15 @@ pub struct SnapshotMeasurement {
     pub coherence: MeasurementPairCoherence,
 }
 
-/// Fresh measurement deliberately configured and observed after a bounded wait.
+/// Measurement captured after a controlled configuration and requested wait.
+///
+/// This records the operation the driver performed, not proof that the returned
+/// registers contain a new conversion. The default wait is a conditional timing
+/// policy; [`requested_wait_us`](Self::requested_wait_us) records what was asked
+/// of the delay provider.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct FreshMeasurement {
+pub struct MeasurementCapture {
     /// Ambient-light counts.
     pub als: AlsCounts,
     /// White-channel counts.
@@ -88,20 +96,16 @@ pub struct FreshMeasurement {
     pub configuration: MeasurementConfig,
     /// Nominal illuminance computed from ALS counts.
     ///
-    /// **Invalid as any kind of estimate when [`als`](Self::als) is saturated.**
-    /// At maximum code the conversion clipped, so this is the domain's ceiling
-    /// rather than an observation. It does not bound the actual illuminance
-    /// either: the figure is nominal, so it says nothing about the scene outside
-    /// its own scale. A clipped reading establishes only that the configuration
-    /// was too narrow.
+    /// At maximum code this driver conservatively treats the nominal value as an
+    /// unreliable point estimate. The observable fact is only `als == 0xFFFF`;
+    /// it does not prove clipping, overrange, or a lower bound on scene
+    /// illuminance (`S-51`).
     ///
-    /// Check [`AlsCounts::is_saturated`] before using this at all; saturation is
-    /// not reported as an error, so an unchecked read looks like an ordinary
-    /// value.
+    /// Check [`AlsCounts::is_max_code`] before using this value. The maximum-code
+    /// observation is not reported as an error.
     ///
-    /// Nominal throughout: the vendor scale factor applied to counts, never
-    /// calibrated system lux, and uncorrected for the non-linearity the sources
-    /// describe above roughly 1 000 lx.
+    /// Nominal throughout: the `S-26` scale applied to counts, never calibrated
+    /// system lux, and without the correction described by `S-29` and `S-30`.
     pub nominal_illuminance: MicroLux,
     /// Delay this driver **requested** before freezing the result.
     ///
@@ -141,7 +145,7 @@ mod tests {
             assert_eq!(AlsCounts::from_counts(counts).counts(), counts);
             assert_eq!(WhiteCounts::from_counts(counts).counts(), counts);
             assert_eq!(
-                AlsCounts::from_counts(counts).is_saturated(),
+                AlsCounts::from_counts(counts).is_max_code(),
                 counts == u16::MAX
             );
         }

@@ -1,119 +1,66 @@
 # Agent guidance
 
-## Product boundary
+Read `CONTRIBUTING.md` for contributor policy and document authority. This file
+adds only operational limits for automated work.
 
-This repository owns an async, allocation-free `no_std` VEML7700 driver plus
-pure, scripted-I²C, and independent-model tests. The model's maintained claim is
-[`crates/veml7700-model/README.md`](crates/veml7700-model/README.md).
+## Scope and fan-out
 
-Do not add MCU examples, board support, fixture definitions, physical-evidence
-plans, hardware runners, or orchestration dependencies.
+The repository owns a `no_std` async VEML7700 driver plus pure,
+scripted-transport, independent-model, and conformance tests. Do not add MCU or
+board examples, fixtures, hardware runners, orchestration, or speculative
+physical-evidence plans.
 
-## Canonical documents
+Do not create an issue, follow-up, decision entry, audit, or CI rule unless the
+maintainer explicitly requests that artifact. Keep one evidence correction as
+one bounded change across directly affected layers. Unrelated observations go
+in the handoff; they are not blockers or repository work by default.
 
-| Subject | Source |
-| --- | --- |
-| Device behavior and provenance | `docs/HARDWARE_CONTRACT.md`, `docs/vendor/README.md` |
-| Driver semantics, ownership and dependencies | `docs/DRIVER_CONTRACT.md` |
-| Review-blocking truths | `docs/INVARIANTS.md` |
-| Verification responsibilities | `docs/VERIFICATION.md` |
-| Claim and terminology rules | `CONTRIBUTING.md` |
-| Durable rationale | `docs/DECISIONS.md` |
-| Independent model claim | `crates/veml7700-model/README.md` |
+For a new peripheral, start with a disposable capability survey. Select
+consumers before creating maintained evidence rows. Add a stable proposition
+only when a concrete driver, model, conformance, approved-hardware, or bug path
+needs it; never inventory every source fact in advance.
 
-Put bounded distributable work in GitHub issues. Do not retain bootstrap roles,
-task packets, generated inventories, or tool-specific agent hierarchies.
+## Evidence boundary
+
+`docs/HARDWARE_CONTRACT.md` is the one shared evidence registry. An `S-nn`
+permanently identifies one proposition and its evidence. Driver and model cite
+the same identifier but derive behavior independently; do not share codecs,
+constants, timing helpers, state machines, or inference rules.
+
+Outside the registry, state only the component consequence and cite the
+applicable `S-nn`. Never copy the proposition, vendor coordinates, or a hardware
+artifact. A retained `not currently relevant` legacy row creates no coverage,
+validation, or implementation obligation.
+
+Map a suspected device-behavior bug to its exact ID before deciding driver,
+model, or hardware consequences. If no exact referent exists, add one atomic
+proposition. Pure software defects may use no device proposition.
 
 ## Change discipline
 
 - Keep `new()` inert and return the exact bus from `release()`.
-- Use low byte then high byte for every 16-bit register transaction.
-- Never describe a snapshot as fresh.
-- Bind explicit timing to the selected integration time.
+- Keep snapshots observational and one-shot timing explicitly conditional.
 - Preserve the complete threshold-monitor domain and reject silent retargeting.
-- Keep white-channel counts distinct from ALS nominal scaling.
-- Preserve concrete bus errors and multi-stage restoration context.
-- Keep optical correction and calibration outside this driver.
-- Keep the independent model derived from the hardware contract, not driver
-  codecs, timing helpers, or private constants.
+- Keep white counts distinct from ALS nominal scaling.
+- Preserve concrete bus errors, partial commits, and restoration uncertainty.
+- Keep calibration and optical policy outside the driver.
+- Keep autonomous device behavior in the independent model, never in scripted
+  driver test state.
+- Prefer `Unsupported`, injected input, or unknown model state over invented
+  behavior.
 
-Public behavior changes require coupled tests, contracts, rationale, and
-changelog updates.
+Public behavior changes need protecting tests and a user-visible changelog entry.
+Durable rationale changes only when the durable decision changes. Unsupported
+model behavior, uncertainty, or a possible improvement is not a blocker unless
+current behavior is known wrong or an explicit acceptance criterion cannot be
+met.
 
-## Operational traps
+## Validation and reserved actions
 
-The compiler cannot catch any of these.
+Run `CI_PROFILE=full sh scripts/ci.sh`; `tools/check.ps1` launches the same gate
+on Windows. `bounded` is non-authoritative feedback. Do not run `release` during
+ordinary development.
 
-- **The candidate version is duplicated across tracked prose.** Both product crates
-  inherit `version` from `[workspace.package]`, so a bump edits one manifest
-  line and drift between the crates is unrepresentable. The gate reads the
-  resolved value back through `cargo pkgid` — not by parsing manifest text,
-  which would now find nothing — and requires an `-incubating.N` prerelease
-  without storing the literal itself. The root README, packaged crate README,
-  AGENTS, DECISIONS, CHANGELOG, RELEASING and the bug-report form still rot
-  silently. Grep for the literal before and after any bump — and trust the grep
-  over this list, which is itself a copy that can rot.
-
-  `lib.rs` is **not** on that list any more: it includes the packaged README
-  with `#![doc = include_str!]`, so it holds no literal of its own. Do not add
-  one back.
-- **The status disclosure lives in two places** that must agree word for word:
-  root `README.md` and the packaged `crates/veml7700/README.md`. The packaged one
-  is what a consumer sees, and it is also the crate documentation, so docs.rs
-  shows the same text rather than a third copy. The gate compares the two after
-  normalizing `>` prefixes and line wrapping, so only the wording is free. Keep
-  the disclosure to the four profile facts.
-
-  The crate documentation is not a copy to maintain. `lib.rs` includes the
-  packaged README verbatim; editing the README edits both.
-- **Vendor provenance lives in two places:** `docs/vendor/README.md` holds the
-  retrieval record and `crates/veml7700-model/README.md` repeats the digests as
-  part of the model's source declaration. They are coupled but not gate-checked.
-  **`docs/vendor/README.md` governs.** It previously did not — the model README
-  was named canonical — which put source identity under a document whose subject
-  is the model. A digest is a fact about a retrieved file, so it belongs with the
-  retrieval record.
-- **Packaging is pinned to the repository `target/` directory** on purpose. See
-  D-017: Cargo excludes only that path from workspace member discovery, so an
-  extracted package placed anywhere else inside the repository becomes
-  untestable.
-- **A validating constructor needs private fields.** `Thresholds` enforces
-  `low <= high` in `new()`; that is only meaningful because the fields are
-  private. Adding `pub` to a field beside a validating constructor silently
-  demotes the invariant to advice.
-
-## Validation and release safety
-
-Run `scripts/ci.sh`; `tools/check.ps1` is a thin PowerShell launcher for it.
-`CI_PROFILE=bounded` selects the subset hosted CI runs and is never
-authoritative. `CI_PROFILE=release` is `full` plus artifact identity: it refuses
-a dirty worktree, packages without `--allow-dirty`, and writes
-`target/release-evidence/evidence.md`. It performs no registry action. Add
-checks to the script, not to the workflow: there must stay exactly one
-implementation of the gate.
-The gate is local and bounded. Version `0.1.0-incubating.1` is unpublished and
-`publish = false` is intentional. Follow `RELEASING.md`; do not change
-repository visibility, enable registry publication, add credentials, create
-tags, or create releases without the corresponding recorded maintainer
-decision.
-
-## Cursor Cloud specific instructions
-
-This is a pure `no_std` async library workspace: there is no server, daemon, or
-long-running service to start, and no GUI. "Running the application" means
-running the verification gate, which exercises the public driver against scripted
-I²C transport and the independent model.
-
-- The pinned toolchain (Rust 1.92.0, its five bare-metal targets, `clippy`, and
-  `rustfmt`) installs automatically from `rust-toolchain.toml`; the startup
-  update script also runs `cargo fetch --locked` and installs the gate-required
-  `cargo-deny` (the exact version asserted by `scripts/ci.sh`). No manual
-  toolchain setup is needed inside a session.
-- Run the authoritative gate with `CI_PROFILE=full sh scripts/ci.sh` — this is
-  the end-to-end check (format, driver/model/conformance tests, all-features
-  compile, `clippy -D warnings`, docs, five target builds, `cargo-deny`, and
-  packaging). `CI_PROFILE=bounded` skips `cargo-deny`, four of five targets, and
-  packaging, so it is faster but never authoritative. See `CONTRIBUTING.md` for
-  the profile table.
-- Do not run `CI_PROFILE=release`: it refuses a dirty worktree and is a
-  maintainer-only release step.
+Do not change repository visibility, enable crates.io publication, publish,
+add credentials, tag, or create a release. Visibility and publication remain
+separate maintainer decisions governed by `RELEASING.md`.

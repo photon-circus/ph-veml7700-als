@@ -7,8 +7,9 @@
 //! # What the adapters must not do
 //!
 //! They are test glue, **not** the model's behavioral API. The rule that makes
-//! the whole layer worth having: a model limitation and a source-backed device
-//! NACK must not become the same error. Flattening them would let the driver
+//! the whole layer worth having: a model limitation and the model's
+//! address-mismatch reaction to `S-05` must not become the same error. Flattening
+//! them would let the driver
 //! appear to handle a device response it never saw, and the harness would be
 //! manufacturing the evidence it is supposed to collect.
 //!
@@ -52,7 +53,7 @@ impl ModelDelay {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ModelBusError {
-    /// A source-backed device response: no device acknowledged the address.
+    /// The model's address-mismatch reaction to `S-05`.
     NoAcknowledge(HalNack),
     /// A limit this model declares. **Not** a device response, and it must
     /// never be presented to the driver as one.
@@ -138,7 +139,8 @@ impl DelayNs for ModelDelay {
 }
 
 pub fn connected_model(sample_als: u16, sample_white: u16) -> (Veml7700<ModelI2c>, ModelDelay) {
-    let model = Veml7700Model::new(RetainedInputs::new(sample_als, sample_white));
+    // Harness input for the undefined `S-11` initial word; not a model claim.
+    let model = Veml7700Model::new(RetainedInputs::new(sample_als, sample_white, 0x0000));
     let shared = SharedModel(Rc::new(RefCell::new(model)));
     (Veml7700::new(ModelI2c(shared.clone())), ModelDelay(shared))
 }

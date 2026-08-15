@@ -12,7 +12,7 @@ use crate::error::{
 };
 use crate::id::DeviceId;
 use crate::measurement::{
-    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence, SnapshotMeasurement,
+    AlsCounts, DeviceSnapshot, MeasurementCapture, MeasurementPairCoherence, SnapshotMeasurement,
     WhiteCounts,
 };
 use crate::power::{PowerSavingConfig, PowerSavingSnapshot, decode_power_saving};
@@ -20,10 +20,18 @@ use crate::register::Register;
 use crate::threshold::{ThresholdMonitorConfig, ThresholdStatus, Thresholds};
 use crate::timing::MeasurementTiming;
 
-/// Fixed 7-bit I²C address of the VEML7700.
+/// Driver address selection (`S-05`).
 pub const I2C_ADDRESS: u8 = 0x10;
 
 /// Async VEML7700 driver owning one I²C resource.
+///
+/// # Write and cancellation uncertainty
+///
+/// A failed I²C write establishes only that the operation did not complete. The
+/// write may not have arrived, or it may have taken effect before an
+/// acknowledgement was lost. Dropping a future during a write has the same
+/// uncertainty without returning an error. Read device state back when commit
+/// status matters; this driver never claims rollback it cannot establish.
 pub struct Veml7700<I2C> {
     i2c: I2C,
 }
@@ -100,43 +108,15 @@ where
         self.read_white_for(Operation::Snapshot).await
     }
 
-    /// Read the polled threshold flags.
+    /// Read one raw observation of the polled threshold flags.
     ///
-    /// The VEML7700 has no dedicated interrupt pin. This method makes no claim
-    /// about flag-clearing side effects beyond the vendor's documented read.
-    ///
-    /// # A set flag may be stale
-    ///
-    /// The sources establish no reliable clearing contract, so this driver
-    /// promises none: not read-to-clear, not write-to-clear, not latched GPIO
-    /// behaviour. A flag observed here says a qualification happened at some
-    /// point, not that the condition holds now.
-    ///
-    /// That matters most after
-    /// [`arm_threshold_monitor`](Self::arm_threshold_monitor), which does not
-    /// clear status either. A flag set under a *previous* set of thresholds can
-    /// still read as asserted against the new ones.
-    ///
-    /// There is no procedure that fixes this. Reading and discarding does not
-    /// help: with no read-to-clear contract, a set flag stays set, so the second
-    /// read is exactly as stale as the first. **Every** asserted read is
-    /// potentially stale unless the caller has independently established a
-    /// clearing mechanism for their part.
-    ///
-    /// What a caller can rely on is the *unasserted* case: a clear flag has not
-    /// qualified since the last time the device set it. Treat a set flag as
-    /// "qualified at some point", and corroborate with
-    /// [`read_als_snapshot`](Self::read_als_snapshot) against the thresholds if
-    /// the current condition is what matters.
-    ///
-    /// This is a limitation of what the sources support, not of the
-    /// implementation, and it will not change without a source that establishes
-    /// the clearing semantics.
+    /// See [`ThresholdStatus`] for the clearing, history, and qualification
+    /// limits carried by this result.
     pub async fn read_threshold_status(&mut self) -> Result<ThresholdStatus, Error<I2C::Error>> {
         self.read_threshold_status_for(Operation::Inspect).await
     }
 
-    /// Read both raw threshold registers.
+    /// Read and validate the ordered threshold-register pair.
     pub async fn read_thresholds(&mut self) -> Result<Thresholds, Error<I2C::Error>> {
         self.read_thresholds_for(Operation::Inspect).await
     }
@@ -176,24 +156,20 @@ where
     ///
     /// # Sequence
     ///
-    /// The sources require shutdown before any reconfiguration, so an active
-    /// device is shut down first, reconfigured while shut down, and returned to
-    /// active last — three writes rather than one. A device that is already shut
-    /// down takes the single-write path and stays shut down.
+    /// In reaction to `S-56`, an active device is shut down first, reconfigured
+    /// while shut down, and returned to active last — three writes rather than
+    /// one. A device that is already shut down takes the single-write path and
+    /// stays shut down.
     ///
     /// # State after a failure
     ///
     /// Because shutdown comes first, a failure part way through can leave an
     /// originally active device shut down, with the measurement domain either
     /// old or new. Read the configuration back to establish which. This is the
-    /// cost of following the required sequence: the alternative is a write the
-    /// sources do not sanction — `docs/HARDWARE_CONTRACT.md` `S-19`.
+    /// cost of following the shutdown-first sequence `S-56`.
     ///
     /// A returned error also does **not** establish that the failing write was
-    /// rejected. An I²C error can mean the byte never arrived, or that it
-    /// arrived and the acknowledgement was lost; the transport cannot tell them
-    /// apart. This applies to every write in this driver — see
-    /// [`set_power_state`](Self::set_power_state) for the general rule.
+    /// rejected; see the type-level write uncertainty on [`Veml7700`].
     ///
     /// Dropping this future has the same effect as a failure at that point,
     /// without an error to inspect.
@@ -251,22 +227,6 @@ where
     /// This is a single write and not a reconfiguration, so it needs no shutdown
     /// sequencing and has no partial state.
     ///
-    /// # A failed write is not a rejected write
-    ///
-    /// This rule holds for every write in this driver, and is stated once here.
-    ///
-    /// An `Err` establishes that the operation did not *complete*. It does not
-    /// establish that the device is unchanged. An I²C error can mean the byte
-    /// never arrived, or that it arrived, took effect, and the acknowledgement
-    /// was lost on the way back. Nothing at the transport layer distinguishes
-    /// those, so no driver above it can either.
-    ///
-    /// The same holds for dropping the future: cancellation mid-write leaves the
-    /// same uncertainty, without an error to inspect.
-    ///
-    /// Read the register back when it matters. This driver never reports a
-    /// commit status it cannot establish, which is why no error type here says a
-    /// write was "rolled back" or "not applied".
     pub async fn set_power_state(
         &mut self,
         power_state: PowerState,
@@ -352,21 +312,17 @@ where
             .await
     }
 
-    /// Capture one fresh measurement using the default conservative timing.
+    /// Capture one measurement using the default conditional timing policy.
     ///
-    /// The wait is the vendor's 2.5 ms wake delay plus 130 % of the selected
-    /// integration time plus a 1 ms software margin. The wake delay is
-    /// specified; the 130 % applies
-    /// [`INTEGRATION_TOLERANCE_PERCENT`](crate::INTEGRATION_TOLERANCE_PERCENT),
-    /// which the vendor's application note states as assumable rather than
-    /// specifies as a characterized worst case; the margin is driver policy. If
-    /// the real spread exceeds ±30 %, this can return a value from the previous
-    /// conversion, indistinguishable from a new one.
+    /// The wait is 2.5 ms plus 130% of the selected integration time (`S-23`,
+    /// `S-24`, `S-55`) plus a 1 ms driver-policy margin. The corresponding device
+    /// bound remains undefined. If the real spread exceeds it, this can return a
+    /// value from the previous conversion, indistinguishable from a new one.
     pub async fn measure_once<D>(
         &mut self,
         delay: &mut D,
         measurement: MeasurementConfig,
-    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>
+    ) -> Result<MeasurementCapture, MeasureOnceError<I2C::Error>>
     where
         D: DelayNs,
     {
@@ -378,12 +334,12 @@ where
         .await
     }
 
-    /// Capture one fresh measurement using explicit conservative-or-longer timing.
+    /// Capture one measurement using an explicit policy-compliant wait.
     ///
     /// [`MeasurementTiming`] cannot represent a wait shorter than the
-    /// conservative minimum for its selected integration time. That minimum
-    /// rests on a vendor-stated tolerance the vendor does not characterize —
-    /// see [`measure_once`] and
+    /// conservative minimum for its selected integration time. That minimum is
+    /// the driver's conditional reaction to `S-23`, `S-24`, and `S-55` — see
+    /// [`measure_once`] and
     /// [`INTEGRATION_TOLERANCE_PERCENT`](crate::INTEGRATION_TOLERANCE_PERCENT).
     ///
     /// [`measure_once`]: Self::measure_once
@@ -450,7 +406,7 @@ where
         delay: &mut D,
         measurement: MeasurementConfig,
         timing: MeasurementTiming,
-    ) -> Result<FreshMeasurement, MeasureOnceError<I2C::Error>>
+    ) -> Result<MeasurementCapture, MeasureOnceError<I2C::Error>>
     where
         D: DelayNs,
     {
@@ -601,13 +557,13 @@ where
                     .await);
             }
         };
-        let sample = FreshMeasurement {
+        let sample = MeasurementCapture {
             als,
             white,
             configuration: measurement,
             nominal_illuminance: als.nominal_micro_lux(measurement),
             requested_wait_us: timing.total_us(),
-            coherence: MeasurementPairCoherence::FrozenAfterFreshWait,
+            coherence: MeasurementPairCoherence::FrozenAfterRequestedWait,
         };
 
         if let Err((stage, source)) = self
@@ -625,57 +581,19 @@ where
 
     /// Program and enable a complete threshold-monitor domain.
     ///
-    /// Configuration is applied disable-first and enable-last. Threshold status
-    /// is polled through register `0x06`; there is no GPIO to own.
+    /// The driver reaches shutdown before changing the domain, confirms the
+    /// monitor disabled, writes thresholds and cadence, then installs the final
+    /// domain active and enabled. Re-arming an active enabled monitor needs an
+    /// initial write that enters shutdown while preserving the enabled bit; only
+    /// the following confirmed write establishes disabled-and-shut-down state.
     ///
-    /// # Sequence
+    /// [`ThresholdMonitorError`] identifies the actual branch, last confirmed
+    /// write, and failing stage. A failed or cancelled write may have committed;
+    /// read configuration, thresholds, and power saving back before recovery.
+    /// Repeating this complete operation is idempotent in effect.
     ///
-    /// Accepts an active or shut-down starting state. The first write disables
-    /// the monitor and enters shutdown while carrying the existing measurement
-    /// domain; thresholds, cadence, and the new domain are written to a
-    /// shut-down device; the final write installs the monitored domain and
-    /// returns to active. The sources require shutdown before any
-    /// reconfiguration, so no field other than the shutdown and monitor bits
-    /// changes while the device is active.
-    ///
-    /// # State after a failure
-    ///
-    /// [`ThresholdMonitorError::stage`] names the write that failed and
-    /// [`confirmed`](ThresholdMonitorError::confirmed) the last one that
-    /// definitely landed. The failing write's commit status is unknown, so the
-    /// device is in one of exactly two states — see that type for the full rule.
-    ///
-    /// Every stage after the first leaves the device shut down with the monitor
-    /// disabled, so it is never qualifying against a half-programmed domain.
-    ///
-    /// # This future is not cancellation-safe
-    ///
-    /// Dropping it leaves the monitor programmed up to whichever write had
-    /// completed, with no error to inspect. The boundaries are the same
-    /// sequence: observing configuration writes nothing; dropping *after* a
-    /// completed disable write leaves the monitor disabled and the device shut
-    /// down, with some prefix of the thresholds and cadence installed; dropping
-    /// at the final enable leaves the monitor either disabled or fully armed.
-    ///
-    /// Dropping *at* the disable write itself is the ambiguous case, and it is
-    /// not covered by the sentence above. That write may or may not have landed,
-    /// so from an active monitor-disabled start the device may still be active,
-    /// and while re-arming an enabled monitor it may still be enabled.
-    ///
-    /// Recover the same way as after a failure: read
-    /// [`read_configuration`](Self::read_configuration),
-    /// [`read_thresholds`](Self::read_thresholds) and
-    /// [`read_power_saving`](Self::read_power_saving), then re-arm. Re-arming is
-    /// idempotent in effect — it always installs the complete domain — so it is
-    /// the safe response to any uncertainty here.
-    ///
-    /// # Stale status after arming
-    ///
-    /// Arming does not clear [`read_threshold_status`](Self::read_threshold_status).
-    /// The sources establish no clearing contract, so a flag set under a
-    /// *previous* domain can still read as asserted after re-arming against new
-    /// thresholds. Treat the first status read after arming as unreliable, or
-    /// read and discard one before acting on the next.
+    /// This operation performs no explicit status-clearing action and gives no
+    /// status-history or assertion-time guarantee. See [`ThresholdStatus`].
     pub async fn arm_threshold_monitor(
         &mut self,
         monitor: ThresholdMonitorConfig,
@@ -691,7 +609,8 @@ where
 
         // A single write may move the shutdown bit or the monitor bit, not both:
         // the device accepts either as a transition, but the two together are a
-        // reconfiguration, which the sources require shutdown for first. That
+        // reconfiguration, which the `S-56` driver reaction performs only in
+        // shutdown. That
         // only bites when re-arming an enabled monitor on an active device —
         // every other starting state needs one write.
         // Tracks what definitely reached the device. Each write advances it only
@@ -783,15 +702,15 @@ where
     /// disabling. Follow with [`set_power_state`](Self::set_power_state) if you
     /// want it asleep.
     ///
-    /// It does not clear threshold status either — see
-    /// [`read_threshold_status`](Self::read_threshold_status).
+    /// It performs no explicit threshold-status clearing action. See
+    /// [`ThresholdStatus`] for the resulting history limits.
     ///
     /// # This future is not cancellation-safe
     ///
     /// One read then one write. Dropping at the read changes nothing; dropping
     /// at the write leaves the monitor either enabled or disabled, and a
-    /// returned error does not distinguish those either — see
-    /// [`set_power_state`](Self::set_power_state) for the general rule.
+    /// returned error does not distinguish those either — see the type-level
+    /// write uncertainty on [`Veml7700`].
     ///
     /// Recover by reading [`read_configuration`](Self::read_configuration) and
     /// repeating the call, which is idempotent.
@@ -960,6 +879,7 @@ where
         operation: Operation,
         context: BusContext,
     ) -> Result<u16, Error<I2C::Error>> {
+        // Driver reaction to `S-08`.
         let mut bytes = [0_u8; 2];
         self.i2c
             .write_read(I2C_ADDRESS, &[register.pointer()], &mut bytes)
@@ -979,6 +899,7 @@ where
         operation: Operation,
         context: BusContext,
     ) -> Result<(), Error<I2C::Error>> {
+        // Driver reaction to `S-08`.
         let [low, high] = value.to_le_bytes();
         self.i2c
             .write(I2C_ADDRESS, &[register.pointer(), low, high])

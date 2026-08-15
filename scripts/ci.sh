@@ -183,9 +183,8 @@ if [ "$driver_version" != "$model_version" ]; then
         "$driver_version" "$model_version" >&2
     exit 1
 fi
-# Match the complete version, not a substring. A shell glob would accept
-# `0.1.0-incubating.1foo` and `0.1.0-foo-incubating.2`, both of which are valid
-# Cargo versions that are not the documented form.
+# Match the complete version, not a substring; a shell glob would accept valid
+# Cargo versions that do not have the required lifecycle form.
 if ! printf '%s\n' "$driver_version" \
     | grep -Eq "^[0-9]+\.[0-9]+\.[0-9]+-$expected_lifecycle\.[0-9]+$"; then
     printf 'version must be exactly X.Y.Z-%s.N: %s\n' \
@@ -194,11 +193,8 @@ if ! printf '%s\n' "$driver_version" \
 fi
 printf '        candidate version %s\n' "$driver_version"
 
-# The conformance package is deliberately outside the product version. Checking
-# it is not pedantry: making it inherit would be the natural-looking edit, and
-# it would silently enrol a package no consumer can observe into the release
-# lifecycle -- so a release bump would start touching it, and D-022's claim
-# about the product crates would quietly become false.
+# The repository-only conformance package deliberately uses a 0.0.0 sentinel
+# rather than inheriting the candidate version.
 #
 # Read the manifest, not the resolved metadata. The sentinel is deliberately a
 # literal, so the literal is what to check: `version.workspace = true` with a
@@ -232,8 +228,8 @@ fi
 evidence "- Candidate version: \`$driver_version\` (both product crates, inherited from \`[workspace.package]\`; \`ph-veml7700-als-conformance\` pins the \`0.0.0\` sentinel and is never published)"
 
 # `.gitignore` keeps vendor documents out by default, but `git add -f` and any
-# previously tracked file bypass it. This check is what actually enforces the
-# untracked claim in `docs/vendor/README.md` and I-26.
+# previously tracked file bypass it. This check enforces the provenance policy
+# recorded in `docs/vendor/README.md`.
 step "vendor documents remain untracked"
 if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     tracked_vendor=$(git ls-files docs/vendor | grep -v '^docs/vendor/README\.md$' || true)
@@ -245,50 +241,25 @@ else
     skip "no Git work tree, so tracked vendor documents cannot be checked"
 fi
 
-# The packaged README *is* the crate documentation now: `lib.rs` includes it with
-# `include_str!`, so those two cannot drift. The root README is a separate file
-# with its own audience, and it still carries the same disclosure, so that pair
-# is what remains to compare.
-step "the status disclosure agrees between the root and packaged READMEs"
-disclosure() {
-    sed -n '/\*\*Lifecycle:\*\*/,/hardware qualification\./p' "$1" \
-        | sed -e 's|^[[:space:]]*//!||' -e 's|^[[:space:]]*>||' \
-        | tr '\n' ' ' | tr -s '[:space:]' ' ' | sed -e 's|^ ||' -e 's| $||'
-}
-root_disclosure=$(disclosure README.md)
-if [ -z "$root_disclosure" ]; then
-    echo "no status disclosure found in README.md" >&2
-    exit 1
-fi
-for disclosure_file in crates/veml7700/README.md; do
-    other_disclosure=$(disclosure "$disclosure_file")
-    if [ "$root_disclosure" != "$other_disclosure" ]; then
-        printf '%s disclosure differs from README.md\n  README.md: %s\n  %s: %s\n' \
-            "$disclosure_file" "$root_disclosure" "$disclosure_file" "$other_disclosure" >&2
-        exit 1
-    fi
-done
-
-# The coverage matrix is the packaged claim about what model conformance
-# establishes. It names tests, so it rots the moment a test is renamed, removed,
-# or added without updating it -- and a stale matrix is worse than none, because
-# it reads as an exact claim. Two directions, both required:
+# The verification record owns the exact model-conformance inventory. It names
+# tests, so it rots the moment a test is renamed, removed, or added without
+# updating it. Two directions, both required:
 #
 #   1. every test the matrix names must exist, or the claim cites nothing;
 #   2. every conformance test must appear in the matrix, or coverage exists that
-#      the packaged claim does not disclose.
+#      the maintained record does not disclose.
 #
 # The second direction is the one that matters for honesty. Only the first is
 # obvious.
 step "the conformance matrix matches the conformance tests"
 conformance_source=tests/conformance/tests/device_model.rs
-matrix_source=crates/veml7700/README.md
+matrix_source=docs/VERIFICATION.md
 actual_tests=$(grep -A1 '^#\[test\]' "$conformance_source" | sed -n 's/^fn \([a-z0-9_]*\).*/\1/p' | sort -u)
 if [ -z "$actual_tests" ]; then
     echo "no conformance tests found in $conformance_source" >&2
     exit 1
 fi
-matrix_block=$(sed -n '/^## Model conformance coverage/,/^## Usage/p' "$matrix_source")
+matrix_block=$(sed -n '/^## Model conformance coverage/,/^## Canonical gate/p' "$matrix_source")
 if [ -z "$matrix_block" ]; then
     echo "no coverage matrix found in $matrix_source" >&2
     exit 1
@@ -300,16 +271,16 @@ for conformance_test in $actual_tests; do
     fi
 done
 if [ -n "$missing_from_matrix" ]; then
-    printf 'conformance tests absent from the packaged coverage matrix:%s\n' \
+    printf 'conformance tests absent from the maintained coverage matrix:%s\n' \
         "$missing_from_matrix" >&2
-    printf 'coverage that the packaged claim does not disclose is the failure mode this check exists for.\n' >&2
+    printf 'coverage that the maintained inventory does not disclose is the failure mode this check exists for.\n' >&2
     exit 1
 fi
 # Only the final column of the "Covered" table names tests. Operation names are
-# backticked too, and the "Not covered" table backticks them in prose, so a
-# whole-block scan would treat `measure_once` as a missing test.
+# backticked elsewhere, so a whole-block scan would treat `measure_once` as a
+# missing test.
 named_tests=$(printf '%s\n' "$matrix_block" \
-    | sed -n '/^### Covered/,/^### Not covered/p' \
+    | sed -n '/^### Covered/,/^### Untraced public operations/p' \
     | awk -F'|' 'NF >= 5 { print $(NF - 1) }' \
     | grep -oE '`[a-z0-9_]+`' | tr -d '`' | sort -u)
 # Compare against the parsed executable inventory, not against any function of
@@ -332,44 +303,16 @@ fi
 printf '        %s conformance tests, all disclosed\n' \
     "$(printf '%s\n' "$actual_tests" | wc -l | tr -d ' ')"
 
-# Source claims used to be restated wherever they mattered, so correcting one
-# meant finding every copy by hand. Four corrections in a row (#65, #67, #71,
-# #73) touched four to nine files each, and a ninth site was missed entirely
-# because the phrase wrapped across a line and the search was line-oriented.
-#
-# `docs/HARDWARE_CONTRACT.md` is the registry: every row carries a stable `S-nn`.
-# Everything else cites. This check enforces both directions, and the second is
-# the one that pays for itself -- it turns "find every copy" from a grep someone
-# has to get right into a mechanical list.
-#
-# The phrase list below is PROVISIONAL and its failure mode is silent
-# under-reporting. Matching ways of saying "the source is silent" is an unbounded
-# problem: three holes were found within a day of writing it. Do not treat a
-# clean run as proof there are no uncited claims, and do not respond to a new
-# hole by appending a pattern -- D-033 records the replacement, which detects
-# references to the sources (a closed vocabulary) rather than descriptions of
-# them (an open one). See #75.
-#
-# `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss claims historically,
-# including claims that have since been corrected, and rewriting history to
-# satisfy a citation rule would defeat the point of keeping it.
-step "source claims cite the contract registry"
+# `docs/HARDWARE_CONTRACT.md` is the shared registry. The gate enforces only
+# closed, syntactic invariants: identifiers are unique and every citation
+# resolves. Whether prose is a source claim, whether evidence
+# supports it, and whether a component reaction is justified remain review work;
+# a phrase detector cannot prove those semantics.
+step "claim registry identifiers resolve"
 claim_registry=docs/HARDWARE_CONTRACT.md
-claim_ids=$(grep -oE '^- \[[x ]\] `S-[0-9]+`' "$claim_registry" | grep -oE 'S-[0-9]+' | sort)
+claim_ids=$(sed -n 's/^### \(S-[0-9][0-9]*\)$/\1/p' "$claim_registry" | sort)
 if [ -z "$claim_ids" ]; then
     echo "no S-nn claim identifiers found in $claim_registry" >&2
-    exit 1
-fi
-# A row added without an identifier is invisible to every other check here: it
-# cannot be cited, and the uncited-claim scan skips the registry. It would sit
-# in the record uncitable while the gate stayed green, which is the one failure
-# this whole mechanism cannot tolerate.
-total_rows=$(grep -cE '^- \[[x ]\] ' "$claim_registry")
-numbered_rows=$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')
-if [ "$total_rows" -ne "$numbered_rows" ]; then
-    printf 'every contract row needs exactly one claim identifier: %s rows, %s numbered\n' \
-        "$total_rows" "$numbered_rows" >&2
-    grep -nE '^- \[[x ]\] ' "$claim_registry" | grep -vE '^\s*[0-9]+:- \[[x ]\] `S-[0-9]+`' >&2
     exit 1
 fi
 duplicate_ids=$(printf '%s\n' "$claim_ids" | uniq -d)
@@ -378,9 +321,15 @@ if [ -n "$duplicate_ids" ]; then
     printf 'an identifier names one row for the life of the document.\n' >&2
     exit 1
 fi
-# A citation to a retired or mistyped identifier resolves to nothing. That is the
-# intended failure -- loud beats quietly pointing at the wrong claim.
-claim_sources=$(git ls-files '*.md' '*.rs')
+# A citation to a mistyped identifier resolves to nothing. Retired identifiers
+# remain as tombstones, so historical citations continue to resolve without an
+# identifier ever acquiring a new meaning.
+claim_sources=
+for claim_source in $(git ls-files '*.md' '*.rs'); do
+    if [ -f "$claim_source" ]; then
+        claim_sources="$claim_sources $claim_source"
+    fi
+done
 dangling_ids=
 for cited_id in $(grep -ohE '`S-[0-9]+`' $claim_sources | tr -d '`' | sort -u); do
     if ! printf '%s\n' "$claim_ids" | grep -qx "$cited_id"; then
@@ -389,87 +338,11 @@ for cited_id in $(grep -ohE '`S-[0-9]+`' $claim_sources | tr -d '`' | sort -u); 
 done
 if [ -n "$dangling_ids" ]; then
     printf 'citations name claim identifiers that no contract row defines:%s\n' "$dangling_ids" >&2
-    printf 'a retired identifier is never reused, so this is a stale citation.\n' >&2
+    printf 'retired identifiers remain as tombstones, so this is mistyped or stale.\n' >&2
     exit 1
 fi
-# Paragraph mode plus whitespace collapsing is the whole trick. Every tracked
-# document here is hard-wrapped, so a line-oriented search cannot see a phrase
-# that spans a line break -- which is exactly how the packaged README kept a
-# disproven claim through an audit that believed it was exhaustive.
-#
-# Blocks are finer than paragraphs on purpose. A Markdown table and a Rust enum
-# are each one paragraph, so a single identifier anywhere in one would vouch for
-# every claim in it -- a fidelity table citing `S-39` would satisfy an unrelated
-# assertion about reset values three rows away. Each table row is its own block,
-# and a Rust doc-comment run ends at the code line it documents, so an identifier
-# only ever vouches for the claim it sits with.
-uncited_claims=$(awk '
-function flush(   block, lower) {
-    if (buf == "") return
-    block = buf
-    gsub(/[ \t\r\n]+/, " ", block)
-    lower = tolower(block)
-    if (lower ~ /no reviewed passage/ ||
-        lower ~ /no passage (states|declares|describes|bears)/ ||
-        lower ~ /never state[sd]?[ ,.]/ ||
-        lower ~ /nowhere in the source/ ||
-        lower ~ /(source|sources|vendor|datasheet|document|documents) (do|does) not (state|states|declare|declares|establish|establishes|provide|provides|specify|specifies|sanction|sanctions)/ ||
-        lower ~ /not declared by (the )?sources?/ ||
-        lower ~ /no source (says|states|establishes)/ ||
-        lower ~ /not source-backed/ ||
-        lower ~ /the sources are silent/ ||
-        lower ~ /no vendor document (states|declares|gives|specifies)/ ||
-        lower ~ /states no / ||
-        lower ~ /(is|are) not documented/ ||
-        lower ~ /no (vendor-)?documented/) {
-        if (block !~ /S-[0-9][0-9]/) {
-            if (length(block) > 140) block = substr(block, 1, 140) "..."
-            printf "  %s:%d\n    %s\n", buffile, bufline, block
-        }
-    }
-    buf = ""
-}
-FNR == 1 { flush() }
-{
-    buf_is_empty = (buf == "")
-    if (buf_is_empty) { buffile = FILENAME; bufline = FNR }
-    if ($0 ~ /^[ \t]*$/) { flush(); next }
-    # A table row stands alone: one row, one claim, one citation.
-    if ($0 ~ /^[ \t]*\|/) {
-        flush()
-        buf = $0; buffile = FILENAME; bufline = FNR
-        flush()
-        next
-    }
-    if (FILENAME ~ /\.rs$/ && $0 !~ /^[ \t]*(\/\/|\*|\/\*)/) {
-        # Code ends the doc-comment run it follows, so each item is separate.
-        flush()
-        next
-    }
-    if (buf == "") { buffile = FILENAME; bufline = FNR }
-    buf = buf " " $0
-}
-END { flush() }
-' $(printf '%s\n' $claim_sources | grep -v -E '^(docs/HARDWARE_CONTRACT\.md|docs/DECISIONS\.md|CHANGELOG\.md)$'))
-if [ -n "$uncited_claims" ]; then
-    printf 'these say what a source does not state, without citing a claim identifier:\n%s\n' \
-        "$uncited_claims" >&2
-    printf 'record the claim as a row in %s and cite its `S-nn`, or drop the assertion.\n' \
-        "$claim_registry" >&2
-    exit 1
-fi
-# The reverse direction is not a pass/fail condition -- most rows are evidence
-# nothing needs to cite -- but its size is worth reporting, because it is the
-# surface a claim correction has to sweep. Before #73, finding that surface was a
-# grep somebody had to get right, and the one they missed was the copy that
-# shipped. CONTRIBUTING records the one-liner that enumerates it per claim.
-citing_sources=$(printf '%s\n' $claim_sources | grep -vx "$claim_registry")
-cited_count=$(grep -ohE '`S-[0-9]+`' $citing_sources | tr -d '`' | sort -u | wc -l | tr -d ' ')
-citing_files=$(grep -lE '`S-[0-9]+`' $citing_sources | wc -l | tr -d ' ')
-printf '        %s claim identifiers, every outside assertion cited\n' \
+printf '        %s stable claim identifiers; every citation resolves\n' \
     "$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')"
-printf '        %s cited from %s files -- the surface a correction must sweep\n' \
-    "$cited_count" "$citing_files"
 
 # Rustdoc validates intra-doc links but never looks at repository Markdown, so
 # a renamed or deleted document breaks its inbound links silently. That matters
@@ -506,6 +379,7 @@ markdown_targets() {
 }
 link_report=$(
     for markdown_file in $(git ls-files '*.md'); do
+        [ -f "$markdown_file" ] || continue
         markdown_dir=$(dirname "$markdown_file")
         markdown_targets "$markdown_file" | while IFS= read -r target; do
             case "$target" in

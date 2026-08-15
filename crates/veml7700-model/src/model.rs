@@ -5,14 +5,10 @@ use crate::error::{NoAcknowledgeSource, TransportError, Unsupported};
 use crate::registers::{
     DEVICE_ID, I2C_ADDRESS, POINTER_ALS, POINTER_CONFIGURATION, POINTER_HIGH_THRESHOLD, POINTER_ID,
     POINTER_LOW_THRESHOLD, POINTER_POWER_SAVING, POINTER_THRESHOLD_STATUS, POINTER_WHITE,
-    RESET_CONFIGURATION, RESET_POWER_SAVING, configuration_fields_are_supported,
-    conversion_bound_ns, integration_field, is_shutdown, persistence_count,
-    power_saving_is_supported, refresh_interval_ns, threshold_monitor_is_enabled, without_monitor,
-    without_shutdown,
+    RESET_CONFIGURATION, configuration_fields_are_supported, conversion_completion_ns,
+    integration_field, is_shutdown, power_saving_is_supported, refresh_interval_ns,
+    threshold_monitor_is_enabled, without_monitor, without_shutdown,
 };
-
-const STATUS_LOW_BIT: u16 = 1 << 15;
-const STATUS_HIGH_BIT: u16 = 1 << 14;
 
 /// Independent VEML7700 predictor for the declared I²C behavioral slice.
 ///
@@ -24,7 +20,6 @@ pub struct Veml7700Model {
     power_saving: u16,
     low_threshold: Option<u16>,
     high_threshold: Option<u16>,
-    threshold_status: Option<u16>,
     held_als: u16,
     held_white: u16,
     completed_als: Option<u16>,
@@ -45,8 +40,6 @@ pub struct Inspection {
     pub low_threshold: Option<u16>,
     /// Programmed high-threshold register word, if observed.
     pub high_threshold: Option<u16>,
-    /// Threshold-status register word, if a monitored ALS refresh established it.
-    pub threshold_status: Option<u16>,
     /// Last completed ALS output word, if this model has completed a conversion.
     pub als: Option<u16>,
     /// Last completed white output word, if this model has completed a conversion.
@@ -64,8 +57,9 @@ pub struct Inspection {
 /// Largest single [`Veml7700Model::advance`] step: one hour of virtual time.
 ///
 /// Generous against every cadence this model can select — the longest is 800 ms
-/// integration plus a 4 s Mode 4 refresh, so an hour is roughly 750 refreshes
-/// and about 110,000 loop iterations at the shortest cadence. Both are trivial.
+/// integration plus a 4 s Mode 4 refresh, so an hour is roughly 750 refreshes;
+/// the nominal 25 ms recurrence is 144,000 event boundaries per aligned
+/// channel. Both are trivial.
 ///
 /// The bound exists because the alternative to a bound is a hang. It is not a
 /// claim that an hour is meaningful to the device; it is the point past which a
@@ -78,34 +72,24 @@ pub struct Inspection {
 /// non-overflowing.
 pub const MAX_ADVANCE: RelativeDuration = RelativeDuration::from_nanos(3_600_000_000_000);
 
-/// Stimuli a harness must supply before the model can produce a conversion.
+/// Scenario inputs a harness must supply before the model can run.
 ///
-/// # Why these are required rather than defaulted
-///
-/// `Veml7700Model::new()` used to zero all three. A harness that woke the model
-/// without calling `set_raw_sample` then received a conversion reporting zero
-/// ambient light — a reading it never supplied and the model had no basis for.
-///
-/// Nothing failed, which is the problem. Zero is a plausible ALS value, so the
-/// fabricated sample flowed through conversions, threshold comparisons and
-/// driver-versus-model traces looking exactly like an injected one. This is the
-/// same shape as the persistence rule removed in #56: **an invented value does
-/// not produce a failure, it produces agreement.**
-///
-/// Requiring them at construction makes the omission unrepresentable rather
-/// than merely discouraged. A harness that has not decided what the device is
-/// looking at cannot build a model, which is the correct outcome — that
-/// decision is the harness's to make, and defaulting it silently made it the
-/// model's.
-///
-/// `Default` is deliberately **not** implemented. It would reintroduce the
-/// zeroed construction through a different name.
+/// Plausible defaults would produce agreement without evidence. Requiring these
+/// values keeps ideal model behavior separate from injected variation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RetainedInputs {
-    /// Raw ALS counts available to a completed conversion. Not ambient lux.
+    /// Full raw ALS word domain used as this model's reaction to `S-32`. Not
+    /// ambient lux.
     pub als_counts: u16,
-    /// Raw white-channel counts available to a completed conversion.
+    /// Full raw white-channel word domain used as this model's reaction to
+    /// `S-33`.
     pub white_counts: u16,
+    /// Raw power-saving word at construction.
+    ///
+    /// The harness must inject this because `S-11` is undefined. Supplying a
+    /// value selects test topology; it does not turn that value into model or
+    /// silicon evidence.
+    pub initial_power_saving: u16,
     /// Offset applied to white-channel wake edges.
     ///
     /// Test scheduling topology, not a claim about silicon phase relationship.
@@ -116,13 +100,22 @@ pub struct RetainedInputs {
 impl RetainedInputs {
     /// Construct with no white-channel phase offset.
     ///
-    /// The common case, written so a harness that does not care about channel
-    /// skew still states the sample it is injecting.
+    /// The harness still states the raw pair and undefined initial `0x03` word.
+    ///
+    /// # Panics
+    ///
+    /// If `initial_power_saving` contradicts the known `S-48` mode field. The
+    /// still-undefined reserved and enable bits remain injectable (`S-11`).
     #[must_use]
-    pub const fn new(als_counts: u16, white_counts: u16) -> Self {
+    pub const fn new(als_counts: u16, white_counts: u16, initial_power_saving: u16) -> Self {
+        assert!(
+            initial_power_saving & 0b110 == 0,
+            "initial power-saving mode contradicts S-48"
+        );
         Self {
             als_counts,
             white_counts,
+            initial_power_saving,
             white_phase_offset: RelativeDuration::ZERO,
         }
     }
@@ -136,10 +129,10 @@ impl RetainedInputs {
 }
 
 impl Veml7700Model {
-    /// Construct the documented reset/default state needed by this slice.
+    /// Construct the evidence-backed state and injected inputs needed by this slice.
     ///
-    /// The retained inputs are **required**, not defaulted. See
-    /// [`RetainedInputs`] for why.
+    /// The retained inputs are required; the model supplies no device defaults
+    /// for them.
     ///
     /// # Panics
     ///
@@ -152,10 +145,9 @@ impl Veml7700Model {
         );
         Self {
             configuration: RESET_CONFIGURATION,
-            power_saving: RESET_POWER_SAVING,
+            power_saving: retained.initial_power_saving,
             low_threshold: None,
             high_threshold: None,
-            threshold_status: None,
             held_als: retained.als_counts,
             held_white: retained.white_counts,
             completed_als: None,
@@ -198,10 +190,10 @@ impl Veml7700Model {
     /// If `elapsed` exceeds [`MAX_ADVANCE`].
     ///
     /// The loop below runs once per refresh event, and the smallest recurrence
-    /// this model can produce is 130 % of 25 ms — about 32.5 ms. A `u64::MAX`
-    /// nanosecond input therefore implies on the order of **568 billion**
-    /// iterations: not an error, just a hang, which is the worst way for a test
-    /// suite to report a bad argument.
+    /// this model can produce is the nominal 25 ms integration interval. A
+    /// `u64::MAX` nanosecond input therefore implies roughly **738 billion**
+    /// event boundaries per aligned channel: not an error, just a hang, which is
+    /// the worst way for a test suite to report a bad argument.
     ///
     /// The input is rejected **before any mutation**, so a caller that catches
     /// the panic observes an unchanged model rather than a partially advanced
@@ -214,7 +206,8 @@ impl Veml7700Model {
             MAX_ADVANCE.as_nanos()
         );
         let mut step = elapsed.as_nanos();
-        // Terminates because refresh_interval_ns never returns Some(0); smallest interval is 130% of 25 ms.
+        // Terminates because refresh_interval_ns never returns Some(0); the
+        // smallest ideal-model interval is nominal 25 ms.
         loop {
             let Some(next) = Self::next_event(self.als_remaining_ns, self.white_remaining_ns)
             else {
@@ -244,6 +237,7 @@ impl Veml7700Model {
 
     /// I²C write of a complete register word: `[pointer, low, high]`.
     pub fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), TransportError> {
+        // Model reaction to `S-08`.
         Self::require_address(address)?;
         let [pointer, low, high] = <[u8; 3]>::try_from(bytes)
             .map_err(|_| TransportError::Unsupported(Unsupported::TransactionShape))?;
@@ -265,6 +259,7 @@ impl Veml7700Model {
         write: &[u8],
         read: &mut [u8],
     ) -> Result<(), TransportError> {
+        // Model reaction to `S-08`.
         Self::require_address(address)?;
         let [pointer] = <[u8; 1]>::try_from(write)
             .map_err(|_| TransportError::Unsupported(Unsupported::TransactionShape))?;
@@ -284,7 +279,6 @@ impl Veml7700Model {
             power_saving: self.power_saving,
             low_threshold: self.low_threshold,
             high_threshold: self.high_threshold,
-            threshold_status: self.threshold_status,
             als: self.completed_als,
             white: self.completed_white,
             held_als: self.held_als,
@@ -339,7 +333,7 @@ impl Veml7700Model {
             POINTER_POWER_SAVING => Ok(self.power_saving),
             POINTER_ALS => self.read_completed(self.completed_als, pointer),
             POINTER_WHITE => self.read_completed(self.completed_white, pointer),
-            POINTER_THRESHOLD_STATUS => self.read_status(self.threshold_status, pointer),
+            POINTER_THRESHOLD_STATUS => self.read_status(pointer),
             POINTER_ID => Ok(DEVICE_ID),
             other => Err(TransportError::Unsupported(Unsupported::RegisterPointer(
                 other,
@@ -365,24 +359,21 @@ impl Veml7700Model {
         }
     }
 
-    const fn read_status(&self, value: Option<u16>, pointer: u8) -> Result<u16, TransportError> {
-        // Checked before the `None` arm on purpose. Both would report "no status
-        // available", but they mean opposite things to a caller: NoQualifiedStatus
-        // says *not yet*, and waiting resolves it. This says the rule that would
-        // decide it was never written down, so waiting never does.
-        if persistence_count(self.configuration) > 1 {
+    const fn read_status(&self, pointer: u8) -> Result<u16, TransportError> {
+        // This model has no successful status oracle. The enabled reaction cites
+        // `S-39`, `S-49`, and `S-50`; the disabled reaction cites `S-10`,
+        // `S-42`, and `S-54`. `docs/VERIFICATION.md` records the conformance
+        // consequence.
+        if threshold_monitor_is_enabled(self.configuration) {
             return Err(TransportError::Unsupported(
                 Unsupported::UndefinedQualificationRule {
                     configuration: self.configuration,
                 },
             ));
         }
-        match value {
-            Some(value) => Ok(value),
-            None => Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-                pointer,
-            ))),
-        }
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(pointer),
+        ))
     }
 
     const fn write_threshold(&mut self, pointer: u8, word: u16) -> Result<(), TransportError> {
@@ -405,14 +396,14 @@ impl Veml7700Model {
                 word,
             )));
         }
-        if conversion_bound_ns(word).is_none() {
+        if conversion_completion_ns(word).is_none() {
             return Err(TransportError::Unsupported(
                 Unsupported::ReservedIntegrationTime(integration_field(word)),
             ));
         }
         if !is_shutdown(word) && refresh_interval_ns(word, self.power_saving).is_none() {
             return Err(TransportError::Unsupported(
-                Unsupported::UndocumentedPowerSavingCadence {
+                Unsupported::UnsupportedPowerSavingDomain {
                     configuration: word,
                     power_saving: self.power_saving,
                 },
@@ -435,7 +426,7 @@ impl Veml7700Model {
 
     const fn write_configuration_from_shutdown(&mut self, word: u16) -> Result<(), TransportError> {
         if !is_shutdown(word) {
-            let Some(first) = conversion_bound_ns(word) else {
+            let Some(first) = conversion_completion_ns(word) else {
                 return Err(TransportError::Unsupported(
                     Unsupported::ReservedIntegrationTime(integration_field(word)),
                 ));
@@ -445,7 +436,7 @@ impl Veml7700Model {
             // white channel to a boundary nobody chose, and the test asserting
             // against it would still pass. The sum cannot overflow because the
             // offset is bounded by MAX_ADVANCE wherever it enters the model and
-            // `first` is at most the wake allowance plus 130 % of 800 ms -- so
+            // `first` is at most the wake allowance plus the nominal 800 ms -- so
             // this panic is unreachable today, and stays loud if that bound is
             // ever loosened.
             let Some(white_first) = first.checked_add(self.white_phase_offset_ns) else {
@@ -496,7 +487,6 @@ impl Veml7700Model {
 
     const fn complete_als_refresh(&mut self) {
         self.completed_als = Some(self.held_als);
-        self.update_threshold_status();
         self.als_remaining_ns = refresh_interval_ns(self.configuration, self.power_saving);
     }
 
@@ -504,48 +494,5 @@ impl Veml7700Model {
         self.completed_white = Some(self.held_white);
         self.white_remaining_ns = refresh_interval_ns(self.configuration, self.power_saving);
     }
-
-    /// Qualify threshold status for a protect number of one only.
-    ///
-    /// Above one, the sources give the counting condition but not a complete
-    /// rule. The application note says a flag is set *only when* `ALS_PERS`
-    /// measurements stay above or below the threshold — necessary, not stated
-    /// to be sufficient — and says nothing about what a non-qualifying
-    /// measurement does to a partial run. Counting requires both. This model
-    /// therefore establishes nothing above one, and `read_status` reports
-    /// `UndefinedQualificationRule` rather than a value derived from the half
-    /// nobody wrote down. See D-030 and `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
-    ///
-    /// At one, the reset half is vacuous — no sequence, nothing to reset — which
-    /// is why this model still qualifies there. The sufficiency half is not
-    /// vacuous at one, and #78 asks whether asserting at all is source-backed.
-    const fn update_threshold_status(&mut self) {
-        if !threshold_monitor_is_enabled(self.configuration) {
-            return;
-        }
-        if persistence_count(self.configuration) > 1 {
-            return;
-        }
-        let (Some(low), Some(high)) = (self.low_threshold, self.high_threshold) else {
-            return;
-        };
-        let Some(als) = self.completed_als else {
-            return;
-        };
-        let mut status = match self.threshold_status {
-            Some(value) => value,
-            None => 0,
-        };
-        if als < low {
-            status |= STATUS_LOW_BIT;
-        }
-        if als > high {
-            status |= STATUS_HIGH_BIT;
-        }
-        self.threshold_status = Some(status);
-    }
 }
-
-// `Default` is deliberately not implemented. It would have to invent the
-// retained sample, which is the fabrication `RetainedInputs` exists to prevent
-// -- and it would do so under a name that reads like a safe convenience.
+// `Default` is deliberately absent because it would invent scenario inputs.
