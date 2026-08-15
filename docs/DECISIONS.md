@@ -738,6 +738,35 @@ restatements of the persistence rule were wrong at once. And the *pointer* went
 stale: two citations said §8 for a row that had moved to §9, and had read as
 correct for revisions.
 
+### Why a shared, stable evidence base is required at all
+
+Conformance has two failure modes, and they destroy it from opposite directions.
+
+**Share the interpretation, and the derivations collapse into one.** If the
+driver and the model are told how to read a fact — or share the constant, codec,
+or state machine that expresses it — their agreement is a tautology. Two
+expressions of one derivation agree because they *are* one derivation. This is
+the failure D-015 and D-030 guard, and it has been caught here in the field
+(#56).
+
+**Fail to share the evidence, and the derivations have no common baseline.** Two
+independent readings only mean something if both read the same thing. Without one
+stable record, a disagreement is uninformative — it could mean the driver is
+wrong, or the model is, or that the two were working from different documents,
+different revisions, or two copies of a sentence that had drifted apart. The
+signal conformance exists to produce is *attributable* disagreement, and
+attribution needs a fixed baseline.
+
+So the evidence must be shared and stable; the interpretation must not be shared
+at all. A **prescriptive** record fails the first way, because prescribing how to
+interpret is how the interpretation gets shared. A per-crate, duplicated, or
+drifting record fails the second.
+
+Stability is why this is not just "put it in one file". The record is anchored to
+digest-pinned sources (§1), its identifiers are permanent, and its rows change by
+governance rather than in-place edit. Each of those exists so that a conformance
+result means the same thing next year as it did when it was written.
+
 ### The rule
 
 `docs/HARDWARE_CONTRACT.md` is the registry. Every row carries a stable `S-nn`,
@@ -776,8 +805,7 @@ disproven claim through an audit that believed itself exhaustive.
 
 Three subjects are easy to run together, and this decision owns only the first.
 
-1. **Where the interpretation lives, and how it is named and cited.** This
-   decision.
+1. **Where the evidence lives, and how it is named and cited.** This decision.
 2. **How the driver and the model each decide what a rule means for them** —
    whether to act defensively, assume, or declare undefined. That is D-030, and
    nothing here changes it.
@@ -792,25 +820,72 @@ agreeing because they *are* one derivation. `CONTRIBUTING.md` states that rule
 and D-030 works out its consequences; centralizing the *record* must not become
 an excuse to centralize implementations.
 
-**With that fixed, the record itself must not be duplicated.** What the datasheet
-says has no oracle value in duplicate: two copies of a claim cannot catch each
-other being wrong, only diverge. That is observed rather than theoretical — the
-persistence rule was restated nine times and all nine were wrong at once, and the
-copy that reached consumers was the one a hand search missed.
+**With that fixed, the evidence itself must not be duplicated.** What the
+datasheet says has no oracle value in duplicate: two copies of a quotation cannot
+catch each other being wrong, only diverge. That is observed rather than
+theoretical — the persistence rule was restated nine times and all nine were
+wrong at once, and the copy that reached consumers was the one a hand search
+missed.
+
+The asymmetry is worth stating plainly, because it is what makes the two rules
+compatible rather than contradictory. Two independent *derivations* can disagree,
+and their disagreement is information — that is the whole mechanism of
+conformance. Two copies of a *quotation* cannot disagree usefully; if they
+differ, one is simply wrong. Duplicate what can be checked against reality;
+centralize what can only be checked against itself.
 
 An earlier draft of this decision said prose fragments should be per crate. That
 was wrong, and it would have institutionalized exactly the rot this decision
 exists to remove. A shared *sentence about the datasheet* creates no shared
 behavior — prose does not execute — while a shared *constant* does.
 
-### The extraction is global, and so are its citations
+### What the record is: agreed global facts, with their evidence
 
-There is one datasheet. From it this repository extracts normative rules about
-operation, and **that extraction is a single global artifact** —
-`docs/HARDWARE_CONTRACT.md` — not a per-crate asset and not something a crate
-owns. `S-nn` is a global name, valid from anywhere: driver, model, conformance,
-prose, or a future sibling crate. Nothing scopes an identifier to a crate,
-because nothing scopes the datasheet to one.
+The global artifact makes **no interpretation**. It records what has been
+**agreed** about global facts derived from the sources, and the evidence each
+fact rests on. A row is therefore two things and no more:
+
+- the agreed fact; and
+- its **evidence** — the source states it, quoted with document, revision, page,
+  and section — or its **negative evidence**, a located negative naming which
+  document, revision, and sections were read, and disclaiming absence outside
+  them.
+
+*Agreed* is doing real work in that sentence. A row is not one reader's reading;
+it is the settled position of this repository, which is why changing a row is a
+governance act with its own issue rather than an in-place edit, and why a row
+carries its verification state on its face.
+
+**The record is descriptive, never prescriptive.** It binds as a record — this
+is what we agree the sources establish — and prescribes nothing. That is a
+reclassification: the document called itself *normative* and *interpreted device
+behavior*, which is precisely the prescriptive reading this decision rejects.
+Prescription lives where it can differ per component: `DRIVER_CONTRACT.md` for
+the driver, the model's own claim for the model.
+
+Nothing else belongs in a row. Not what the driver should therefore do, not
+whether the model can model it, not whether a figure is good enough to rely on.
+Those are **reactions**, they differ per component by design, and a reaction
+recorded as a fact is how a repository convinces itself that a judgment is
+evidence.
+
+Keeping the record reaction-free is also what lets one row serve two components
+that answer it differently. If the row said what to do, it would have to say it
+twice, and the two would drift — the same failure as restating a rule, wearing
+different clothes.
+
+There is one datasheet. From it this repository consolidates that evidence, and
+**the consolidation is a single global artifact** — `docs/HARDWARE_CONTRACT.md` —
+not a per-crate asset and not something a crate owns. `S-nn` is a global name,
+valid from anywhere: driver, model, conformance, prose, or a future sibling
+crate. Nothing scopes an identifier to a crate, because nothing scopes the
+datasheet to one.
+
+**The record does not yet meet this.** Many rows carry reaction alongside
+evidence — "this driver applies it", "the driver does not rely on this", whole
+D-030 allocation paragraphs. Separating them is #80, not this decision, and the
+identifiers are what make it possible: a row can shed its reaction to
+`DRIVER_CONTRACT.md` or the model README without breaking a single citation.
 
 That settles a question this decision first got wrong twice. The answer is not
 per-crate fragments, and it is not copies compared by the gate either. **It is

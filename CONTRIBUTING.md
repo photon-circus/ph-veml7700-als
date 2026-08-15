@@ -128,11 +128,12 @@ Two rules follow from the table and are enforced in review:
   driver and the model share a mistake, neither can catch it — conformance
   collapses into a tautology, where two expressions of one derivation agree
   because they *are* one derivation.
-- **That applies to implementations, not to the interpretation of record.** The
-  contract is the single source of truth for what the datasheet says, and both
-  sides cite it. Duplicating a *claim* has no oracle value — two copies cannot
-  catch each other being wrong, only diverge. Duplicating a *derivation* is the
-  point. See D-033.
+- **That applies to implementations, not to the evidence record.**
+  `docs/HARDWARE_CONTRACT.md` is the single, global, descriptive record of what
+  the sources establish, and both sides cite it rather than restating it.
+  Duplicating a *quotation* has no oracle value — two copies cannot disagree
+  usefully, only diverge. Duplicating a *derivation* is the point, because two
+  derivations can disagree and their disagreement is information. See D-033.
 
 ## Evidence language
 
@@ -188,7 +189,7 @@ Files under `docs/` do not share one status. Treat them as follows:
 
 | Document | Authority |
 | --- | --- |
-| `docs/HARDWARE_CONTRACT.md` | **Normative** — interpreted device behavior |
+| `docs/HARDWARE_CONTRACT.md` | **Evidence record** — agreed device facts and the evidence for them; descriptive, never prescriptive |
 | `docs/vendor/README.md` | **Evidence record** — source provenance and digests |
 | `docs/DRIVER_CONTRACT.md` | **Normative** — driver semantics, ownership, dependency direction |
 | `docs/INVARIANTS.md` | **Normative** — review-blocking truths |

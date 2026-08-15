@@ -1,12 +1,25 @@
 # VEML7700 hardware contract
 
-> **Authority: normative.** Interpreted device behavior. Every device claim in
-> this repository derives from here, and a row is only as strong as its
-> verification state.
+> **Authority: the evidence record.** What has been agreed about device facts
+> derived from the pinned sources, and the evidence each fact rests on. Every
+> device claim in this repository derives from here, and a row is only as strong
+> as its verification state.
 
-Binding interpreted device facts for `ph-veml7700-als`. A checked row means the
-owner has verified the recorded official Vishay source. Unchecked rows remain
-provisional and must not be promoted to physical-support claims.
+**This document is descriptive, not prescriptive.** It records what the sources
+establish and what they do not. It does not say what the driver or the model
+should do about any of it — those are reactions, they differ per component by
+design, and they belong to [`DRIVER_CONTRACT.md`](DRIVER_CONTRACT.md), the model's
+own claim, and the decisions that allocate undefined behavior (D-029, D-030).
+
+It binds as the **record of agreement**: a row is the settled position of this
+repository rather than one reader's reading, which is why changing one is a
+governance act with its own issue rather than an in-place edit. A checked row
+means the owner has verified the recorded official Vishay source. Unchecked rows
+remain provisional and must not be promoted to physical-support claims.
+
+Rows do not yet meet this cleanly — six still carry reaction alongside evidence.
+Separating them is #80; the claim identifiers below are what make it possible
+without breaking a citation.
 
 Verification is tracked per fact rather than per section, because a section can
 be partly source-backed: §6 and §8 each have both.
