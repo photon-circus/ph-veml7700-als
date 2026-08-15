@@ -679,6 +679,16 @@ write-to-clear, or latched GPIO behavior.
       qualification is withdrawn. That behavior is unchanged by #73; only the
       account of why it is correct has moved.
 
+      **The line at one covers counting, not sufficiency.** At protect number one
+      there is no sequence and so no reset rule to be missing, which is why the
+      model still qualifies there. Sufficiency is a separate question and it is
+      not vacuous at one: satisfying a necessary condition does not entail the
+      consequent, so asserting a flag at any protect number needs a basis the
+      passage above does not give. The datasheet's Command Code #6 and Table 7
+      describe the bit as an interrupt flag triggered by data crossing a
+      threshold window; whether that licenses modeling assertion is **#78**,
+      which also governs whether the monitor is modelable at all.
+
       Third-party libraries describe this register in terms of an INT pin that
       latches and clears on read. This part has neither — §9 records that the
       interrupt pin is explicitly unavailable, and Table 7 states no clearing

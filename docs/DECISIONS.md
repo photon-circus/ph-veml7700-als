@@ -674,13 +674,21 @@ silence on the power-on word, the missing 25/50 ms refresh rows, the absent sign
 bit, and the absent flag-clearing rule are all confirmed. They now carry located
 negatives naming the sections read.
 
-Two limits of that exercise are worth recording, because a future reader will
+Three limits of that exercise are worth recording, because a future reader will
 otherwise over-trust it. Presence is provable and absence is not: every positive
 finding here quotes text, while every negative is a search over sections that
 were read, which is why the rule asks for sections rather than for a global
 negative — and why each backfilled row says that absence outside those sections
-is not claimed. And the searches ran over machine-extracted PDF text, which can
-drop glyphs set in figures.
+is not claimed. The searches ran over machine-extracted PDF text, which can drop
+glyphs set in figures.
+
+The third limit was found the hard way, and it applies to searching *this
+repository* rather than the vendor documents. The first sweep for a false claim
+missed the packaged crate README, because the phrase wrapped across a line and
+the search was line-oriented. Every tracked document here is hard-wrapped, so a
+grep for any phrase longer than a few words is unreliable by construction —
+**normalize whitespace before matching.** The missed copy was crate
+documentation, so it was the one site that reached consumers.
 
 The physics argument here was, in fact, still correct about the thing it
 described — Vishay publishes no oscillator accuracy, and the datasheet shows the

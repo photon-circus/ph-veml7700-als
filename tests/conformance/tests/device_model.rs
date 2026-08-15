@@ -163,8 +163,10 @@ fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
     // confirmation of when the flag asserts. The counting rule came from the
     // model alone, and the driver had no rule to disagree with.
     //
-    // Protect number one needs no rule -- one refresh, no sequence -- so this is
-    // the persistence value at which driver-model agreement means something.
+    // Protect number one needs no *counting* rule -- one refresh, no sequence,
+    // nothing to reset -- so this is the persistence value at which driver-model
+    // agreement means something. Whether the sources also license asserting the
+    // flag at all is a separate question, open as #78; it is not vacuous at one.
     // See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))

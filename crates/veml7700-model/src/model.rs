@@ -515,6 +515,10 @@ impl Veml7700Model {
     /// therefore establishes nothing above one, and `read_status` reports
     /// `UndefinedQualificationRule` rather than a value derived from the half
     /// nobody wrote down. See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
+    ///
+    /// At one, the reset half is vacuous — no sequence, nothing to reset — which
+    /// is why this model still qualifies there. The sufficiency half is not
+    /// vacuous at one, and #78 asks whether asserting at all is source-backed.
     const fn update_threshold_status(&mut self) {
         if !threshold_monitor_is_enabled(self.configuration) {
             return;

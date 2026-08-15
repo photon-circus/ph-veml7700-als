@@ -60,8 +60,11 @@ pub enum Unsupported {
     /// and that agreement would mean nothing while looking exactly like
     /// evidence.
     ///
-    /// A protect number of one is unaffected: a single qualifying refresh has no
-    /// sequence to count, so there is no rule to be missing.
+    /// A protect number of one is unaffected **as to counting**: a single
+    /// qualifying refresh has no sequence, so there is no reset rule to be
+    /// missing. Sufficiency is a separate question and is not vacuous at one —
+    /// see #78, which asks whether the datasheet's definition of the flag
+    /// licenses asserting it at all. This model asserts at one today.
     UndefinedQualificationRule {
         /// Complete configuration word selecting the protect number.
         configuration: u16,

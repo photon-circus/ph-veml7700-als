@@ -751,6 +751,20 @@ than a change from a prior version.
 - Fixed two cross-references that pointed at the wrong contract section:
   `config.rs` and the conformance trace both cited §8 for a row in §9. Section
   numbers are not stable identifiers, which is #75.
+- The packaged crate README was a **ninth** site, missed by the first sweep
+  because the phrase wrapped across a line and the search was line-based. It is
+  the crate documentation, so the false claim had been reaching docs.rs. The
+  audit method is recorded in D-032 with this limitation added: a hard-wrapped
+  document defeats a line-oriented grep, so claim sweeps normalize whitespace
+  before matching.
+- Sharpening the reading exposed a question it did not answer, now **#78**:
+  every justification for qualifying at protect number one argues that no
+  *counting* rule is needed there, which is true and does not address
+  sufficiency. Satisfying a necessary condition does not entail the consequent,
+  so asserting a flag at any protect number — one included — needs a basis the
+  application note does not give. Those justifications now say which half they
+  cover; the model's behavior is unchanged pending #78, because narrowing it
+  would withdraw the modeled monitor surface entirely.
 
 ### Known issues
 
