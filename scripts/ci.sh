@@ -406,8 +406,18 @@ if [ -n "$uncited_claims" ]; then
         "$claim_registry" >&2
     exit 1
 fi
+# The reverse direction is not a pass/fail condition -- most rows are evidence
+# nothing needs to cite -- but its size is worth reporting, because it is the
+# surface a claim correction has to sweep. Before #73, finding that surface was a
+# grep somebody had to get right, and the one they missed was the copy that
+# shipped. CONTRIBUTING records the one-liner that enumerates it per claim.
+citing_sources=$(printf '%s\n' $claim_sources | grep -vx "$claim_registry")
+cited_count=$(grep -ohE '`S-[0-9]+`' $citing_sources | tr -d '`' | sort -u | wc -l | tr -d ' ')
+citing_files=$(grep -lE '`S-[0-9]+`' $citing_sources | wc -l | tr -d ' ')
 printf '        %s claim identifiers, every outside assertion cited\n' \
     "$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')"
+printf '        %s cited from %s files -- the surface a correction must sweep\n' \
+    "$cited_count" "$citing_files"
 
 # Rustdoc validates intra-doc links but never looks at repository Markdown, so
 # a renamed or deleted document breaks its inbound links silently. That matters

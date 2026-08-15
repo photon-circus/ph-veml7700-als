@@ -135,6 +135,28 @@ Two rules follow from the table and are enforced in review:
   usefully, only diverge. Duplicating a *derivation* is the point, because two
   derivations can disagree and their disagreement is information. See D-033.
 
+## Correcting a source claim
+
+Every row in `docs/HARDWARE_CONTRACT.md` has a stable `S-nn`, and everything that
+depends on it cites that identifier. So the first step of a correction is not a
+search — it is a listing:
+
+```sh
+git grep -ln '`S-40`' -- '*.md' '*.rs'
+```
+
+That is the complete set of places the correction has to sweep. Before
+identifiers existed this was a grep somebody had to get right, and the copy that
+was missed in #73 was the one published to docs.rs.
+
+Cross-links are what make a divergence findable at all. A claim restated in nine
+places has nine chances to drift and no way to notice; a claim cited from nine
+places can be enumerated, opened, and compared in one pass. Keep the links dense
+for that reason, not for tidiness.
+
+The gate reports the size of that surface on every run, so a growing coupling is
+visible rather than discovered during the next correction.
+
 ## Evidence language
 
 Say exactly what produced a result. These distinctions are not stylistic:

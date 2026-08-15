@@ -791,7 +791,21 @@ itself:
    an `S-nn`.
 
 The third converts "find every copy" from a grep someone has to get right into a
-mechanical list. `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss
+mechanical list.
+
+**Dense cross-linking is what makes a divergence findable at all**, and that is
+worth more than the tidiness of a single edit point. A claim restated in nine
+places has nine chances to drift and no way to notice. A claim *cited* from nine
+places can be enumerated, opened, and compared in one pass:
+
+```sh
+git grep -ln '`S-40`' -- '*.md' '*.rs'
+```
+
+That command is the whole answer to the question that cost four corrections their
+time. The check verifies citations resolve; the links themselves are the audit
+surface, and the gate reports its size on every run so growing coupling is
+visible rather than discovered mid-correction. `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss
 claims historically, including claims since corrected, and rewriting history to
 satisfy a citation rule would defeat the point of keeping it.
 
