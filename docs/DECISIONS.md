@@ -305,7 +305,7 @@ reconfiguration and is unaffected.
 
 This is not a defensive choice. The vendor's own software flow sets `ALS_SD = 1`
 before any reconfiguration, changes gain or integration time while shut down,
-and clears `ALS_SD` afterwards. `docs/HARDWARE_CONTRACT.md` §5 records it as an
+and clears `ALS_SD` afterwards. `docs/HARDWARE_CONTRACT.md` `S-19` records it as an
 owner-verified row. It is a positive requirement, not an absence of permission
 to write while active, and that distinction is what settled the question.
 
@@ -486,13 +486,20 @@ the sources never settled. Where the model genuinely cannot run without the fact
 — construction needs some register value to represent a power-on device — it
 assumes, and the assumption is tabulated in the model README with its code site.
 
-The open rows resolve differently under this rule, which is the point:
+The open rows resolve differently under this rule, which is the point. The left
+column cites the evidence record; the other two are this decision's own subject,
+and the record says nothing about them:
 
-| Row | Driver | Model |
+| Negative evidence | Driver reaction | Model reaction |
 | --- | --- | --- |
-| Register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
-| Refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
-| Persistence qualification rule | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+| `S-11` — register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
+| `S-22` — refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
+| `S-40` — persistence sufficiency and partial runs | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+
+Three rows of negative evidence, six reactions, and no two cells derived from
+each other. That is the shape the whole arrangement is for: one stable record
+both sides read, and independent answers to it. D-033 keeps the left column
+singular; this decision keeps the right two apart.
 
 The ±30 % integration tolerance was a fourth row here, allocated as *both
 assume*. It left the table under D-032: the sources do state the figure, so
@@ -719,3 +726,295 @@ of deliberate review.
 Consequently #58's integration-time observation is no longer the means of
 discovering an unpublished figure. It is optional characterization — evidence
 about parts on a bench, against a tolerance the vendor already states.
+
+## D-033 — Source claims are cited, not restated
+
+**Date:** 2026-08-15 **Status:** Current
+
+D-032 made absence claims checkable. It did nothing about how many places carry
+one, and that turned out to be the expensive part.
+
+Four corrections in a row measured it: the ±30 % tolerance lived in six files
+(#65), the `0x03` power-on word in four (#71), the persistence rule in **nine**
+(#73). Two of the persistence sites were `pub` rustdoc, so a disproven claim was
+being published rather than merely recorded. Correcting one claim meant finding
+every copy by hand, and nothing detected a copy left behind.
+
+They rotted in two ways, both observed. The claim itself went stale — seven
+restatements of the persistence rule were wrong at once. And the *pointer* went
+stale: two citations said §8 for a row that had moved to §9, and had read as
+correct for revisions.
+
+### Why a shared, stable evidence base is required at all
+
+Conformance has two failure modes, and they destroy it from opposite directions.
+
+**Share the interpretation, and the derivations collapse into one.** If the
+driver and the model are told how to read a fact — or share the constant, codec,
+or state machine that expresses it — their agreement is a tautology. Two
+expressions of one derivation agree because they *are* one derivation. This is
+the failure D-015 and D-030 guard, and it has been caught here in the field
+(#56).
+
+**Fail to share the evidence, and the derivations have no common baseline.** Two
+independent readings only mean something if both read the same thing. Without one
+stable record, a disagreement is uninformative — it could mean the driver is
+wrong, or the model is, or that the two were working from different documents,
+different revisions, or two copies of a sentence that had drifted apart. The
+signal conformance exists to produce is *attributable* disagreement, and
+attribution needs a fixed baseline.
+
+So the evidence must be shared and stable; the interpretation must not be shared
+at all. A **prescriptive** record fails the first way, because prescribing how to
+interpret is how the interpretation gets shared. A per-crate, duplicated, or
+drifting record fails the second.
+
+Stability is why this is not just "put it in one file". The record is anchored to
+digest-pinned sources (§1), its identifiers are permanent, and its rows change by
+governance rather than in-place edit. Each of those exists so that a conformance
+result means the same thing next year as it did when it was written.
+
+### The rule
+
+`docs/HARDWARE_CONTRACT.md` is the registry. Every row carries a stable `S-nn`,
+the third instance of a convention this repository already runs twice, for
+`D-nn` and `I-nn`. Everywhere else **cites the identifier**; a section number is
+a position, and positions move.
+
+`scripts/ci.sh` enforces three things, and the third is the one that pays for
+itself:
+
+1. identifiers are unique, so one number names one row;
+2. every cited identifier resolves, so a retired or mistyped citation fails
+   loudly instead of quietly naming the wrong claim;
+3. any statement about what the sources do not say, outside the registry, cites
+   an `S-nn`.
+
+The third converts "find every copy" from a grep someone has to get right into a
+mechanical list.
+
+**Dense cross-linking is what makes a divergence findable at all**, and that is
+worth more than the tidiness of a single edit point. A claim restated in nine
+places has nine chances to drift and no way to notice. A claim *cited* from nine
+places can be enumerated, opened, and compared in one pass:
+
+```sh
+git grep -ln '`S-40`' -- '*.md' '*.rs'
+```
+
+That command is the whole answer to the question that cost four corrections their
+time. The check verifies citations resolve; the links themselves are the audit
+surface, and the gate reports its size on every run so growing coupling is
+visible rather than discovered mid-correction. `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss
+claims historically, including claims since corrected, and rewriting history to
+satisfy a citation rule would defeat the point of keeping it.
+
+**What the gate cannot check is restatement.** It can tell that a paragraph
+asserting source silence cites an identifier; it cannot tell whether the
+paragraph then goes on to repeat the rule's words instead of stating this
+repository's consequence. That distinction is semantic and stays a review
+obligation. Several surfaces still restate today; converting them is the
+remaining work, and the check is what makes that work enumerable rather than a
+search.
+
+### The detector is provisional, and its shape is wrong
+
+This must be said plainly, because the check will otherwise be trusted for more
+than it is worth.
+
+It works by matching phrasings — *no reviewed passage*, *the sources do not
+state*, *is not documented*, and a dozen more. **That list is unbounded by
+construction.** Three holes were found within a day of writing it: two by review
+and one by its own author, each a way of saying "the source is silent" that
+nobody had enumerated. There will always be another. Patching each one is
+plugging a dyke, and a detector that needs continual patching is not a control —
+it is a habit that occasionally fires.
+
+The maintainable shape inverts the question. Instead of detecting *ways of
+describing a source*, which is an open set, detect *references to the sources at
+all*, which is a closed one: the documents have names, numbers, revisions, and
+table designations, and the acts a document performs — state, declare, specify,
+document, establish, publish — are a small fixed vocabulary. The rule then
+becomes one rule rather than a list:
+
+> Outside the record, the sources may not be referred to except by citing an
+> `S-nn`.
+
+That subsumes both halves — a claim of positive evidence and a claim of negative
+evidence both have to name a source or a documentary act to be about one — and
+it fails closed, because a novel phrasing still has to use the vocabulary. It
+also replaces the separate direct-citation check this decision proposes above
+with the same rule, rather than a second list.
+
+It is not built here. Designing the vocabulary and its exemptions properly is
+worth more than bolting another pattern onto the current list, and the current
+list is a strict improvement over nothing while that happens. What is recorded
+now is that the present detector is **provisional**, that its failure mode is
+silent under-reporting, and that no absence of findings from it should be read
+as absence of claims. See #75.
+
+Direct source citation, by contrast, **is** mechanical — document numbers,
+revisions, and table names are literals. Twelve files currently carry them
+outside the record. A fourth check can enforce that, and should; it is the
+remaining part of #75 rather than of this decision.
+
+Note what the two checks cover between them, because the asymmetry is an
+artifact of implementation and not of principle. The existing check catches
+uncited claims of **negative** evidence, which announce themselves in phrasing.
+The proposed one catches uncited claims of **positive** evidence, which announce
+themselves in document coordinates. Neither form is privileged; they are simply
+detectable by different means.
+
+The check reads paragraphs with whitespace collapsed rather than lines. Every
+tracked document here is hard-wrapped, so a line-oriented search cannot see a
+phrase spanning a line break — which is exactly how the packaged README kept a
+disproven claim through an audit that believed itself exhaustive.
+
+### Scope: this decision is about the record, not about reacting to it
+
+Three subjects are easy to run together, and this decision owns only the first.
+
+1. **Where the evidence lives, and how it is named and cited.** This decision.
+2. **How the driver and the model each decide what a rule means for them** —
+   whether to act defensively, assume, or declare undefined. That is D-030, and
+   nothing here changes it.
+3. **Whether a rule is established at all**, and what a claim of silence
+   requires. That is D-029 and D-032.
+
+The only thing this decision borrows from the others is a constraint it must not
+break: driver and model implementations stay separate. If they share a constant,
+a codec, or a state machine for a device fact, they share its mistakes and
+conformance collapses into a tautology — two expressions of one derivation
+agreeing because they *are* one derivation. `CONTRIBUTING.md` states that rule
+and D-030 works out its consequences; centralizing the *record* must not become
+an excuse to centralize implementations.
+
+**With that fixed, the evidence itself must not be duplicated.** What the
+datasheet says has no oracle value in duplicate: two copies of a quotation cannot
+catch each other being wrong, only diverge. That is observed rather than
+theoretical — the persistence rule was restated nine times and all nine were
+wrong at once, and the copy that reached consumers was the one a hand search
+missed.
+
+The asymmetry is worth stating plainly, because it is what makes the two rules
+compatible rather than contradictory. Two independent *derivations* can disagree,
+and their disagreement is information — that is the whole mechanism of
+conformance. Two copies of a *quotation* cannot disagree usefully; if they
+differ, one is simply wrong. Duplicate what can be checked against reality;
+centralize what can only be checked against itself.
+
+An earlier draft of this decision said prose fragments should be per crate. That
+was wrong, and it would have institutionalized exactly the rot this decision
+exists to remove. A shared *sentence about the datasheet* creates no shared
+behavior — prose does not execute — while a shared *constant* does.
+
+### What the record is: agreed global facts, with their evidence
+
+The global artifact makes **no interpretation**. It records what has been
+**agreed** about global facts derived from the sources, and the evidence each
+fact rests on. A row is therefore two things and no more:
+
+- the agreed fact; and
+- its **evidence**, which takes one of two forms and is equally evidence in
+  either:
+  - **positive** — the source states it, quoted with document, revision, page,
+    and section;
+  - **negative** — a located negative naming which document, revision, and
+    sections were read, and disclaiming absence outside them.
+
+Throughout this repository, *evidence* means both. Nothing here treats a
+positive finding as evidence and an absence as its lesser cousin: a located
+negative is a finding, it is what four corrections turned on, and the row it
+supports carries it the same way. Where a distinction is needed, say **positive
+evidence** or **negative evidence** rather than narrowing the bare word.
+
+*Agreed* is doing real work in that sentence. A row is not one reader's reading;
+it is the settled position of this repository, which is why changing a row is a
+governance act with its own issue rather than an in-place edit, and why a row
+carries its verification state on its face.
+
+**The record is descriptive, never prescriptive.** It binds as a record — this
+is what we agree the sources establish — and prescribes nothing. That is a
+reclassification: the document called itself *normative* and *interpreted device
+behavior*, which is precisely the prescriptive reading this decision rejects.
+Prescription lives where it can differ per component: `DRIVER_CONTRACT.md` for
+the driver, the model's own claim for the model.
+
+Nothing else belongs in a row. Not what the driver should therefore do, not
+whether the model can model it, not whether a figure is good enough to rely on.
+Those are **reactions**, they differ per component by design, and a reaction
+recorded as a fact is how a repository convinces itself that a judgment is
+evidence.
+
+Keeping the record reaction-free is also what lets one row serve two components
+that answer it differently. If the row said what to do, it would have to say it
+twice, and the two would drift — the same failure as restating a rule, wearing
+different clothes.
+
+There is one datasheet. From it this repository consolidates that evidence, and
+**the consolidation is a single global artifact** — `docs/HARDWARE_CONTRACT.md` —
+not a per-crate asset and not something a crate owns. `S-nn` is a global name,
+valid from anywhere: driver, model, conformance, prose, or a future sibling
+crate. Nothing scopes an identifier to a crate, because nothing scopes the
+datasheet to one.
+
+**The record does not yet meet this.** Many rows carry reaction alongside
+evidence — "this driver applies it", "the driver does not rely on this", whole
+D-030 allocation paragraphs. Separating them is #80, not this decision, and the
+identifiers are what make it possible: a row can shed its reaction to
+`DRIVER_CONTRACT.md` or the model README without breaking a single citation.
+
+That settles a question this decision first got wrong twice. The answer is not
+per-crate fragments, and it is not copies compared by the gate either. **It is
+that no surface restates a rule.** Each states its own *consequence* and cites
+the rule.
+
+The driver and the model reach different consequences from the same row — one
+promises nothing about assertion timing, the other declares the rule undefined —
+and *why* they differ is D-030's subject, not this one. What matters here is the
+form: a consequence is a statement about this repository, so it cannot rot
+against Vishay. A restatement can, and did, nine times at once.
+
+**A reference to what a source does or does not establish points at the record,
+not at the source.** Both directions, equally: cite `S-24` rather than
+"application note 84323, Revision 06-Mar-2025, page 4, section *Command Code
+ALS_IT*", and cite `S-40` rather than restating which sections were read and
+found silent. The document coordinates are themselves evidence in both cases, so
+they belong in the row with everything else it holds; repeating them elsewhere is
+the same defect one level down. A pinned revision changes exactly once in the
+record, or it changes in twelve places and eleven of them are wrong until
+somebody greps well.
+
+Two exceptions, both narrow and both about provenance rather than device facts.
+`docs/vendor/README.md` is the retrieval record and governs source identity, and
+the model's README repeats the digests as part of its own source declaration —
+a coupling AGENTS.md already documents. `CONTRIBUTING.md` may name a document
+when teaching the difference between specified and vendor-stated, because the
+example is about the *kind* of source, not about a device fact.
+
+A copy compared by the gate would be a worse version of the same idea: it keeps
+the duplication and adds machinery to tolerate it. The status disclosure is
+compared that way because two audiences genuinely need the same *disclosure* text
+in two packages. A device fact has one home and a name.
+
+**Known limit.** A citation is only as resolvable as the document it names, and
+`docs/HARDWARE_CONTRACT.md` does not ship in the package: `crates/veml7700` is
+published, and a published crate cannot `include_str!` or package a file outside
+its own directory. So a docs.rs reader today sees `S-40` and a consequence
+without a way to follow the identifier. That is acceptable and not permanent —
+it resolves when the repository becomes public (#6), which is what makes `S-nn`
+a citable global name rather than an internal one. It is recorded here so nobody
+"fixes" it by copying the contract into the crate.
+
+### What it costs
+
+The registry is a thing to keep true, and D-021 declined a `docs/README.md` on
+exactly that reasoning — an index of seven documents is a seventh thing to keep
+true. The answer is that this index is machine-checked in both directions, which
+the rejected one would not have been. An unchecked index rots; a checked one
+fails the build.
+
+Identifiers also make the document less readable in one specific way: allocation
+order stops matching document order the first time a row is added. That is
+accepted, because the alternative is renumbering, and renumbering is precisely
+what breaks every citation elsewhere.

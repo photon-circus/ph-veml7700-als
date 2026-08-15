@@ -48,7 +48,7 @@ support for the rest of the driver API.
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 Vendor PDFs remain untracked. Owner verification of the hardware contract has
-been walked end to end: 40 rows are verified against the pinned sources,
+been walked end to end: 41 rows are verified against the pinned sources,
 including both §1 source-baseline entries, which the owner closed by recomputing
 both SHA-256 digests over the retrieved copies. Three rows remain open and each
 states its own obstacle in place.
@@ -133,11 +133,12 @@ provably non-overflowing because the offset is bounded where it enters.
 | Abstracted | **Two declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at the vendor-stated conservative boundary, which is an abstraction of application-note guidance rather than an independently chosen number. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair and white-channel phase offset, both required at construction; relative elapsed duration, bounded per step. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
-| Unsupported | Threshold qualification above protect number one, for which the sources state the counting condition but neither its sufficiency nor what a non-qualifying measurement does to a partial run (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+| Unsupported | Threshold qualification above protect number one, for which the sources state the counting condition (`S-39`) but neither its sufficiency nor what a non-qualifying measurement does to a partial run (`S-40`, `UndefinedQualificationRule`); enabled power saving at 25/50 ms (`S-44`); threshold, threshold-status (`0x06`), and output reset values not declared by sources (`S-10`); threshold-flag clearing/deassertion (`S-42`); threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ### Declared assumptions
 
-Two model behaviors rest on facts the pinned sources do not state. They are
+Two model behaviors rest on facts the pinned sources do not state (`S-11`,
+`S-22`). They are
 collected here rather than left in the code, because a reader deciding what
 model agreement is worth needs to know where the model is guessing.
 
@@ -305,7 +306,7 @@ an active device and would fail against the previous driver with
 - Model limitations (`TransportError::Unsupported`) are distinct from device
   address NACK. Adapters must preserve that distinction.
 - The pinned sources do not declare reset values for threshold, threshold-status
-  (`0x06`), ALS, or white output registers. Reading an output before conversion,
+  (`0x06`), ALS, or white output registers (`S-10`). Reading an output before conversion,
   a threshold before programming, or threshold status before a monitored ALS
   refresh is an explicit model limitation rather than an invented value.
 - Later silicon evidence may correct this baseline or introduce a selected

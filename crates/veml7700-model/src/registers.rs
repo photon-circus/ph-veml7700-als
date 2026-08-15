@@ -28,7 +28,7 @@ pub(crate) const RESET_CONFIGURATION: u16 = 0x0001;
 ///
 /// The naming deliberately matches `RESET_CONFIGURATION` above, which is why
 /// this comment exists: the two constants look like peers and are not. See the
-/// Assumption row in `docs/HARDWARE_CONTRACT.md` §4 and D-030 — the driver
+/// Assumption row `S-11` in `docs/HARDWARE_CONTRACT.md` and D-030 — the driver
 /// carries no equivalent, because it reads `0x03` before acting on it.
 pub(crate) const RESET_POWER_SAVING: u16 = 0x0000;
 

@@ -145,7 +145,7 @@ The maintained claim is
   can leave an originally active device shut down. Which fields were installed
   depends on how far the sequence reached, so read the relevant registers back
   rather than assuming. This is the cost of following the required sequence; the
-  alternative is a write the sources do not sanction.
+  alternative is a write the sources do not sanction (`S-19`).
 - **no async operation is cancellation-safe, and none claims to be.** Dropping a
   future does not undo what it has already done: the driver is not an executor
   and cannot run cleanup during a drop, so restoration happens only on paths that

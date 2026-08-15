@@ -1,12 +1,27 @@
 # VEML7700 hardware contract
 
-> **Authority: normative.** Interpreted device behavior. Every device claim in
-> this repository derives from here, and a row is only as strong as its
-> verification state.
+> **Authority: the evidence record.** What has been agreed about device facts
+> derived from the pinned sources, and the evidence each fact rests on —
+> **positive or negative, both equally evidence.** Every device claim in this
+> repository derives from here, and a row is only as strong as its verification
+> state.
 
-Binding interpreted device facts for `ph-veml7700-als`. A checked row means the
-owner has verified the recorded official Vishay source. Unchecked rows remain
-provisional and must not be promoted to physical-support claims.
+**This document is descriptive, not prescriptive.** It records what the sources
+establish and what they do not — a located negative is a finding, not the absence
+of one. It does not say what the driver or the model should do about any of it:
+those are reactions, they differ per component by design, and they belong to
+[`DRIVER_CONTRACT.md`](DRIVER_CONTRACT.md), the model's own claim, and the
+decisions that allocate undefined behavior (D-029, D-030).
+
+It binds as the **record of agreement**: a row is the settled position of this
+repository rather than one reader's reading, which is why changing one is a
+governance act with its own issue rather than an in-place edit. A checked row
+means the owner has verified the recorded official Vishay source. Unchecked rows
+remain provisional and must not be promoted to physical-support claims.
+
+Rows do not yet meet this cleanly — six still carry reaction alongside evidence.
+Separating them is #80; the claim identifiers below are what make it possible
+without breaking a citation.
 
 Verification is tracked per fact rather than per section, because a section can
 be partly source-backed: §6 and §8 each have both.
@@ -37,6 +52,37 @@ procedures live in #58 and the rows link to it.
 Counts of "verified" rows in the changelog and elsewhere refer to the bullet
 rows in §2 onward. The two §1 source-baseline entries are tracked in that
 section's table and are verified; every other row depends on them.
+
+## Claim identifiers
+
+Every row carries a stable identifier, `S-nn`, in the same spirit as `D-nn` for
+decisions and `I-nn` for invariants. **Cite the identifier, never the section
+number.**
+
+Section numbers are positions, not names. They shift when a section is added or
+a row moves, and nothing detects a citation left behind — two such citations
+were found pointing at §8 for a row that had moved to §9, having read as correct
+for several revisions. An identifier does not move.
+
+Three rules keep them worth citing:
+
+- **Identifiers are permanent.** A row keeps its `S-nn` for the life of the
+  document. It is never renumbered to restore document order.
+- **New rows take the next free number**, wherever they sit. The next allocation
+  may land in §2, above `S-01`, so the numbers will not read in order for long.
+  That looks untidy and is the entire point: tidiness here would mean
+  renumbering, and renumbering is what breaks citations.
+- **A retired row's identifier is not reused.** If a row is withdrawn, its
+  number goes with it, so a stale citation elsewhere resolves to nothing rather
+  than to the wrong claim — loud rather than quiet.
+
+When a row **splits**, the original identifier stays with the part that keeps
+the original subject, and the new part takes the next free number. `S-39` and
+`S-40` came from one row that way in #73, which is why `S-40` is open while its
+neighbours are verified.
+
+Elsewhere in the repository, any statement about what these sources do or do not
+say must cite an `S-nn`. `scripts/ci.sh` enforces this; see D-033.
 
 A row that fails to verify becomes its own issue rather than an in-place edit,
 because correcting the contract is a behavior change to the driver, the model,
@@ -69,17 +115,18 @@ silently normalized.
 
 ## 2. Electrical and bus boundary
 
-- [x] Sensor supply `V_DD` operating range is 2.5 V to 3.6 V. The Product
-      Summary names this `OPERATING VOLTAGE RANGE`; Basic Characteristics gives
-      `V_DD` as MIN 2.5 V, TYP 3.3 V, MAX 3.6 V.
-- [x] **`I²C BUS VOLTAGE RANGE` is 1.7 V to 3.6 V.** Datasheet 84286 Rev. 1.8,
-      page 1, `PRODUCT SUMMARY`, where it is a column of its own beside
-      `OPERATING VOLTAGE RANGE`. The same 1.7 V to 3.6 V rail is labelled in the
-      datasheet's own application circuit (*Application*, section *2. I²C
-      Interface*), and application note 84323 Rev. 06-Mar-2025, page 2,
-      *Application Circuitry for the VEML7700*, states it in prose: the sensor
-      connects to a 2.5 V to 3.6 V supply, and "the pull-up resistors at the I²C
-      bus lines may also be connected to a power supply between 1.7 V to 3.6 V".
+- [x] `S-01` Sensor supply `V_DD` operating range is 2.5 V to 3.6 V. The
+      Product Summary names this `OPERATING VOLTAGE RANGE`; Basic
+      Characteristics gives `V_DD` as MIN 2.5 V, TYP 3.3 V, MAX 3.6 V.
+- [x] `S-02` **`I²C BUS VOLTAGE RANGE` is 1.7 V to 3.6 V.** Datasheet 84286
+      Rev. 1.8, page 1, `PRODUCT SUMMARY`, where it is a column of its own
+      beside `OPERATING VOLTAGE RANGE`. The same 1.7 V to 3.6 V rail is
+      labelled in the datasheet's own application circuit (*Application*,
+      section *2. I²C Interface*), and application note 84323 Rev. 06-Mar-2025,
+      page 2, *Application Circuitry for the VEML7700*, states it in prose: the
+      sensor connects to a 2.5 V to 3.6 V supply, and "the pull-up resistors at
+      the I²C bus lines may also be connected to a power supply between 1.7 V
+      to 3.6 V".
 
       Recorded under the source's own parameter name and nothing further.
 
@@ -99,11 +146,11 @@ silently normalized.
         the two.
 
       Absence outside those sections is not claimed.
-- [x] I²C bus **input** H-level range `V_ih` is 1.3 V to 3.6 V, and input L-level
-      range `V_il` is −0.3 V to 0.4 V, both specified at `V_DD` = 3.3 V (Basic
-      Characteristics). These are signal thresholds on `SCL`/`SDA`, **not** a
-      supply. The datasheet's I²C Interface section restates the first as
-      "I²C H-level range = 1.3 V to 3.6 V".
+- [x] `S-03` I²C bus **input** H-level range `V_ih` is 1.3 V to 3.6 V, and
+      input L-level range `V_il` is −0.3 V to 0.4 V, both specified at `V_DD` =
+      3.3 V (Basic Characteristics). These are signal thresholds on
+      `SCL`/`SDA`, **not** a supply. The datasheet's I²C Interface section
+      restates the first as "I²C H-level range = 1.3 V to 3.6 V".
 
       **Three distinctly named quantities meet here and must not be merged:** the
       sensor supply (2.5 V to 3.6 V), the bus rail the pull-ups may use (1.7 V to
@@ -118,11 +165,12 @@ silently normalized.
       parameter" as a possible outcome — that was the right one, and it was
       passed over because the search stopped at the passage the dispute quoted.
       See #67 and D-032.
-- [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
-      10 kHz to 400 kHz in fast mode (*I²C Timing Characteristics*). The two
-      modes have different maxima; a single 10–400 kHz range would wrongly
-      permit standard mode at 400 kHz. The source marks these values as based on
-      the standard I²C protocol requirement and **not tested in production**.
+- [x] `S-04` Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode
+      and 10 kHz to 400 kHz in fast mode (*I²C Timing Characteristics*). The
+      two modes have different maxima; a single 10–400 kHz range would wrongly
+      permit standard mode at 400 kHz. The source marks these values as based
+      on the standard I²C protocol requirement and **not tested in
+      production**.
 
       One table-versus-table discrepancy is recorded rather than normalized:
       *Basic Characteristics* separately gives `f(SCL)` as a flat 10 kHz to
@@ -131,11 +179,12 @@ silently normalized.
       specific statement of the same quantity — consistent with §1, where the
       explicit tables govern loose prose. Nothing in this driver selects or
       constrains a bus mode; the bus is the caller's.
-- [x] The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in 8-bit form).
-- [x] Pull-ups are external; the vendor suggests values above 1 kΩ, commonly
-      2.2 kΩ to 4.7 kΩ.
-- [x] The driver never owns sensor power, board pull-ups, cover-window geometry,
-      or an external optical source.
+- [x] `S-05` The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in
+      8-bit form).
+- [x] `S-06` Pull-ups are external; the vendor suggests values above 1 kΩ,
+      commonly 2.2 kΩ to 4.7 kΩ.
+- [x] `S-07` The driver never owns sensor power, board pull-ups, cover-window
+      geometry, or an external optical source.
 
 ## 3. Word transfer order
 
@@ -149,11 +198,11 @@ Consequences:
 - a big-endian register helper is a review-blocking defect;
 - strict transaction tests inspect exact byte order.
 
-- [x] Low byte then high byte for every 16-bit register, on reads and writes.
-      Fig. 9 shows both frames explicitly: a write sends command code, then
-      `Data byte (LSB)`, then `Data byte (MSB)`; a read returns them in the
-      same order after the repeated start. This is the row a big-endian helper
-      would violate, and it is now source-backed rather than inferred.
+- [x] `S-08` Low byte then high byte for every 16-bit register, on reads and
+      writes. Fig. 9 shows both frames explicitly: a write sends command code,
+      then `Data byte (LSB)`, then `Data byte (MSB)`; a read returns them in
+      the same order after the repeated start. This is the row a big-endian
+      helper would violate, and it is now source-backed rather than inferred.
 
 ## 4. Register map
 
@@ -170,21 +219,21 @@ Consequences:
 
 No public raw-register accessor exists in v0.1.
 
-- [x] Pointer values and access direction for all eight registers, from the
-      COMMAND REGISTER FORMAT table: `00` ALS_CONF_0 R/W, `01` ALS_WH R/W,
-      `02` ALS_WL R/W, `03` Power saving R/W, `04` ALS R, `05` WHITE R,
-      `06` ALS_INT R, `07` ID R. This is the table §1 names as governing, and
-      it resolves the prose that calls `03h` "not defined": the register format
+- [x] `S-09` Pointer values and access direction for all eight registers, from
+      the COMMAND REGISTER FORMAT table: `00` ALS_CONF_0 R/W, `01` ALS_WH R/W,
+      `02` ALS_WL R/W, `03` Power saving R/W, `04` ALS R, `05` WHITE R, `06`
+      ALS_INT R, `07` ID R. This is the table §1 names as governing, and it
+      resolves the prose that calls `03h` "not defined": the register format
       defines it as power saving.
-- [x] Which registers have a source-declared reset value, and which do not.
-      `0x00` is declared (`0x0001`, register-format note) and `0x07` carries a
-      declared fixed identity (Table 8). No other register has a declared reset
-      **word**. `0x03` is the partial case: Table 4 constrains bits 15:3 to zero,
-      which is a write validity rule rather than a power-on value, while the
-      application note's power-saving discussion says the default is mode 1 =
-      `00` for bits 2:1 — a statement about the `PSM` field only, leaving
-      `PSM_EN` and therefore the word undeclared. See the Assumption row below
-      and #71.
+- [x] `S-10` Which registers have a source-declared reset value, and which do
+      not. `0x00` is declared (`0x0001`, register-format note) and `0x07`
+      carries a declared fixed identity (Table 8). No other register has a
+      declared reset **word**. `0x03` is the partial case: Table 4 constrains
+      bits 15:3 to zero, which is a write validity rule rather than a power-on
+      value, while the application note's power-saving discussion says the
+      default is mode 1 = `00` for bits 2:1 — a statement about the `PSM` field
+      only, leaving `PSM_EN` and therefore the word undeclared. See the
+      Assumption row below and #71.
 
       **Located negative (D-032)** for the "not declared by sources" cells in the
       table above. Read: datasheet 84286 Rev. 1.8 — the COMMAND REGISTER FORMAT
@@ -201,8 +250,8 @@ No public raw-register accessor exists in v0.1.
       places a reset value would be stated — a register's own definition — were
       read and do not state one.
 
-- [ ] **Assumption: register `0x03` reads `0x0000` before it is written.**
-      *Requires physical validation.*
+- [ ] `S-11` **Assumption: register `0x03` reads `0x0000` before it is
+      written.** *Requires physical validation.*
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, the
       command-register overview table, Table 4 *Power Saving Modes*, and the
@@ -256,14 +305,14 @@ persistence one, and threshold monitoring disabled.
 Reserved integration encodings and non-zero reserved bits are decode errors, not
 values to preserve as ordinary typed state.
 
-- [x] Reset/default word `0x0001`. The COMMAND REGISTER FORMAT note states it
-      directly: *command code 0 default value is 01 = devices is shut down*.
-      With every other field zero that is gain ×1, 100 ms, persistence 1 and the
-      monitor disabled — which is what this contract records. **Table 1 does not
-      establish this.** It gives bit meanings only and states no power-on
-      value. `0x0001` is consistent with every field zero except `ALS_SD`, but
-      consistency is not a source: the claim is about what the device powers up
-      in, and that needs a passage that says so.
+- [x] `S-12` Reset/default word `0x0001`. The COMMAND REGISTER FORMAT note
+      states it directly: *command code 0 default value is 01 = devices is shut
+      down*. With every other field zero that is gain ×1, 100 ms, persistence 1
+      and the monitor disabled — which is what this contract records. **Table 1
+      does not establish this.** It gives bit meanings only and states no
+      power-on value. `0x0001` is consistent with every field zero except
+      `ALS_SD`, but consistency is not a source: the claim is about what the
+      device powers up in, and that needs a passage that says so.
 
       **Located negative (D-032)** for that sentence. Read: datasheet 84286
       Rev. 1.8, Table 1 *ALS_CONF_0 #0* in full — every row is a bit range, a
@@ -272,21 +321,23 @@ values to preserve as ordinary typed state.
       register-format note, not in Table 1, which is the whole point of
       separating them here: a reader who cites "Table 1" for the reset word is
       citing the wrong object.
-- [x] Reserved bits 15:13, stated by the source as `000b`.
-- [x] Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that the
-      encoding order is not the magnitude order — `10` is ×1/8 and `11` is ×1/4,
-      so a table sorted by gain does not match a table sorted by bit pattern.
-- [x] Integration-time encodings, bits 9:6: `1100` 25 ms, `1000` 50 ms, `0000`
-      100 ms, `0001` 200 ms, `0010` 400 ms, `0011` 800 ms. Like gain, the
-      encoding order is not the magnitude order.
-- [x] Persistence encodings, bits 5:4: `00` 1, `01` 2, `10` 4, `11` 8
+- [x] `S-13` Reserved bits 15:13, stated by the source as `000b`.
+- [x] `S-14` Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that
+      the encoding order is not the magnitude order — `10` is ×1/8 and `11` is
+      ×1/4, so a table sorted by gain does not match a table sorted by bit
+      pattern.
+- [x] `S-15` Integration-time encodings, bits 9:6: `1100` 25 ms, `1000` 50 ms,
+      `0000` 100 ms, `0001` 200 ms, `0010` 400 ms, `0011` 800 ms. Like gain,
+      the encoding order is not the magnitude order.
+- [x] `S-16` Persistence encodings, bits 5:4: `00` 1, `01` 2, `10` 4, `11` 8
       (Table 1, `ALS_PERS`).
-- [x] Monitor-enable, bit 1 (`ALS_INT_EN`: 0 disable, 1 enable), and shutdown,
-      bit 0 (`ALS_SD`: 0 power on, 1 shut down), from Table 1.
-- [x] Reserved bits: 15:13 `000b`, bit 10 `0b`, and 3:2 `00b` (Table 1).
-- [x] **Reconfiguration requires shutdown first.** The source's own software
-      flow sets `ALS_SD = 1` (standby) before any reconfiguration, changes gain
-      or integration time while shut down, and clears `ALS_SD` afterwards.
+- [x] `S-17` Monitor-enable, bit 1 (`ALS_INT_EN`: 0 disable, 1 enable), and
+      shutdown, bit 0 (`ALS_SD`: 0 power on, 1 shut down), from Table 1.
+- [x] `S-18` Reserved bits: 15:13 `000b`, bit 10 `0b`, and 3:2 `00b` (Table 1).
+- [x] `S-19` **Reconfiguration requires shutdown first.** The source's own
+      software flow sets `ALS_SD = 1` (standby) before any reconfiguration,
+      changes gain or integration time while shut down, and clears `ALS_SD`
+      afterwards.
 
 ### Reconfiguration sequence
 
@@ -324,30 +375,29 @@ The vendor explicitly documents refresh times for 100, 200, 400, and 800 ms:
 | 3 | 2100 ms | 2200 ms | 2400 ms | 2800 ms |
 | 4 | 4100 ms | 4200 ms | 4400 ms | 4800 ms |
 
-The driver does not extrapolate a documented refresh interval for 25 or 50 ms.
-The source table has no rows for those integration times, which is why they are
-unsupported rather than computed.
-
-**Located negative (D-032)** for that absence. Read: the *Refresh Time, I_DD,
-and Resolution Relation* table in datasheet 84286 Rev. 1.8 and its identical
-copy in application note 84323 Rev. 06-Mar-2025, plus the app note's separate
-`PSM` / `ALS_IT` → refresh-time table. All three are indexed by `ALS_IT` ∈
-{100, 200, 400, 800} ms; neither 25 ms nor 50 ms appears as a row in any of
-them, in either document.
-
 The source records this relation at ALS gain ×2 only. The driver treats refresh
 time as independent of gain — `nominal_refresh_time_ms` takes an integration
 time and no gain. The pattern is exact (refresh = integration + 500, 1000, 2000,
 or 4000 ms for Modes 1 to 4), but exactness is not the same as a source
 statement, so the inference is recorded here rather than left implicit in code.
 
-- [x] Register `0x03` field layout (Table 4): bits 15:3 reserved, bits 2:1
-      `PSM` selecting `00` mode 1 through `11` mode 4, bit 0 `PSM_EN`
-      (0 disable, 1 enable).
-- [x] The sixteen refresh times above match the vendor's refresh time / I_DD /
-      resolution relation, at gain ×2.
-- [ ] **Assumption: refresh time is independent of ALS gain.**
-      *Requires physical validation. Further reading cannot close this row.*
+- [x] `S-20` Register `0x03` field layout (Table 4): bits 15:3 reserved, bits
+      2:1 `PSM` selecting `00` mode 1 through `11` mode 4, bit 0 `PSM_EN` (0
+      disable, 1 enable).
+- [x] `S-21` The sixteen refresh times above match the vendor's refresh time /
+      I_DD / resolution relation, at gain ×2.
+- [x] `S-44` **No refresh time is documented for 25 ms or 50 ms integration.**
+      The absence is the finding, which is why those pairings are unsupported
+      rather than computed.
+
+      **Located negative (D-032).** Read: the *Refresh Time, I_DD, and Resolution
+      Relation* table in datasheet 84286 Rev. 1.8 and its identical copy in
+      application note 84323 Rev. 06-Mar-2025, plus the app note's separate
+      `PSM` / `ALS_IT` → refresh-time table. All three are indexed by `ALS_IT` ∈
+      {100, 200, 400, 800} ms; neither 25 ms nor 50 ms appears as a row in any of
+      them, in either document. Absence outside those tables is not claimed.
+- [ ] `S-22` **Assumption: refresh time is independent of ALS gain.** *Requires
+      physical validation. Further reading cannot close this row.*
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, section
       *Refresh Time Determination of PSM* and the *Refresh Time, I_DD, and
@@ -396,9 +446,9 @@ It then enters shutdown before reading ALS and white so that autonomous refresh
 cannot occur between those two sequential register reads. This is a software
 coherence policy, not a vendor-stated atomic pair primitive.
 
-- [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
-      source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
-- [x] **The vendor states that a ±30 % integration-time tolerance can be
+- [x] `S-23` The 2.5 ms minimum wake-up delay after clearing the shutdown bit.
+      The source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
+- [x] `S-24` **The vendor states that a ±30 % integration-time tolerance can be
       assumed, and that it should be considered when reading measurement
       results.** Application note 84323, Revision 06-Mar-2025, page 4, section
       *Command Code ALS_IT*, `Remark`:
@@ -434,11 +484,11 @@ coherence policy, not a vendor-stated atomic pair primitive.
       compliance work, not the discovery of a missing figure, and no row depends
       on it. Sampling considerations are in #58, not here — this document does
       not carry a physical-evidence plan.
-- [x] Data registers retain the last result while shut down. The source calls
-      this *Auto-Memorization*: the part memorizes the last ambient data before
-      shutdown, the host may read it directly while shut down, and on wake the
-      data is refreshed by a new detection. That last clause is also why a
-      plain register read cannot prove freshness.
+- [x] `S-25` Data registers retain the last result while shut down. The source
+      calls this *Auto-Memorization*: the part memorizes the last ambient data
+      before shutdown, the host may read it directly while shut down, and on
+      wake the data is refreshed by a new detection. That last clause is also
+      why a plain register read cannot prove freshness.
 
 ## 8. ALS and white channels
 
@@ -514,25 +564,26 @@ would follow that shape rather than move correction into the driver.
 Nothing above commits this repository to building that layer. It records where
 the work belongs if it is done.
 
-- [x] The complete twenty-four-entry resolution table, every gain and every
-      integration time.
-- [x] The twenty-four-entry maximum-detection-range table.
-- [x] Gain ×1/8 at 25 ms is 2.1504 lx/count, reaching 140 926 lx — the widest
-      range the part offers. The Basic Characteristics table names that exact
-      pair as the *detectable maximum illuminance* condition, `E_V max` =
+- [x] `S-26` The complete twenty-four-entry resolution table, every gain and
+      every integration time.
+- [x] `S-27` The twenty-four-entry maximum-detection-range table.
+- [x] `S-28` Gain ×1/8 at 25 ms is 2.1504 lx/count, reaching 140 926 lx — the
+      widest range the part offers. The Basic Characteristics table names that
+      exact pair as the *detectable maximum illuminance* condition, `E_V max` =
       140 000 lx, so the widest-range preset is the configuration the source
       itself uses to state the part's maximum. It also gives 0.0042 lx/step at
       ×2 and 800 ms, matching the opposite corner of the resolution table.
-- [x] Above 100 lx, gain ×1 and ×2 are outside the linear region.
-- [x] Correction is called for with gain ×1/4 and ×1/8, and above 1 000 lx.
-- [x] The correction polynomial coefficients, checked against the source's own
-      worked example: 5581 counts at ×1/4 and 100 ms give 1500 lx uncorrected
-      and 1658 lx corrected.
-- [x] ALS output is a 16-bit word.
-- [x] The white channel is a 16-bit count: command code `05` is defined as
-      *MSB 8 bits data of whole WHITE 16 bits* and *LSB 8 bits*, read-only, with
-      all sixteen bits carrying data. No sign bit is defined for it or for ALS,
-      and no passage describes either as signed.
+- [x] `S-29` Above 100 lx, gain ×1 and ×2 are outside the linear region.
+- [x] `S-30` Correction is called for with gain ×1/4 and ×1/8, and above 1 000
+      lx.
+- [x] `S-31` The correction polynomial coefficients, checked against the
+      source's own worked example: 5581 counts at ×1/4 and 100 ms give 1500 lx
+      uncorrected and 1658 lx corrected.
+- [x] `S-32` ALS output is a 16-bit word.
+- [x] `S-33` The white channel is a 16-bit count: command code `05` is defined
+      as *MSB 8 bits data of whole WHITE 16 bits* and *LSB 8 bits*, read-only,
+      with all sixteen bits carrying data. No sign bit is defined for it or for
+      ALS, and no passage describes either as signed.
 
       **Located negative (D-032)** for that last sentence. Read: datasheet 84286
       Rev. 1.8 — the COMMAND REGISTER FORMAT entries for `04` (ALS) and `05`
@@ -564,11 +615,11 @@ integration time toward 800 ms. It places that loop in **application software**,
 which is where this driver leaves it. Automatic range selection stays a non-claim
 under §11, and this is the source's own framing rather than a driver limitation.
 
-- [x] Start at the lowest gain for unknown brightness, and reduce integration
-      time below 100 ms to cover the brightest conditions.
-- [x] Gain ×1 and ×2 are confined to illumination below 100 lx.
-- [x] Linear behavior spans 0.0042 lx to about 1 klx.
-- [x] Auto-ranging is application-software responsibility in the source.
+- [x] `S-34` Start at the lowest gain for unknown brightness, and reduce
+      integration time below 100 ms to cover the brightest conditions.
+- [x] `S-35` Gain ×1 and ×2 are confined to illumination below 100 lx.
+- [x] `S-36` Linear behavior spans 0.0042 lx to about 1 klx.
+- [x] `S-37` Auto-ranging is application-software responsibility in the source.
 
 Two prose-versus-table discrepancies in this section are recorded rather than
 normalized:
@@ -603,15 +654,15 @@ The official sources do not provide a reliable flag-clearing contract. The v0.1
 API exposes observed status only and does not promise read-to-clear,
 write-to-clear, or latched GPIO behavior.
 
-- [x] Status register `0x06`: bit 15 `int_th_low`, bit 14 `int_th_high`, both
-      read-only, bits 13:0 reserved (Table 7). The driver masks `0x3FFF` and
-      rejects any reserved bit set, which this table makes source-backed rather
-      than defensive.
-- [x] **The qualification condition is vendor-stated, in necessary form.**
-      Table 1 establishes `ALS_PERS` and its four values as a *persistence
-      protect number*, which is what the driver encodes. Application note 84323
-      Rev. 06-Mar-2025, printed page 16, section `INTERRUPT HANDLING`, states
-      the condition under which a flag is set:
+- [x] `S-38` Status register `0x06`: bit 15 `int_th_low`, bit 14 `int_th_high`,
+      both read-only, bits 13:0 reserved (Table 7). The driver masks `0x3FFF`
+      and rejects any reserved bit set, which this table makes source-backed
+      rather than defensive.
+- [x] `S-39` **The qualification condition is vendor-stated, in necessary
+      form.** Table 1 establishes `ALS_PERS` and its four values as a
+      *persistence protect number*, which is what the driver encodes.
+      Application note 84323 Rev. 06-Mar-2025, printed page 16, section
+      `INTERRUPT HANDLING`, states the condition under which a flag is set:
 
       > Only when the programmed threshold is exceeded and a programmed number
       > of measurements (`ALS_PERS`) stay above / below this threshold will the
@@ -632,8 +683,8 @@ write-to-clear, or latched GPIO behavior.
       and Table 7 adds nothing. The rule is application-note-only, which is why
       a search confined to the register definitions missed it for several
       revisions. See #73 and D-032.
-- [ ] Whether the stated condition is **sufficient**, and what a non-qualifying
-      measurement does to a partial run.
+- [ ] `S-40` Whether the stated condition is **sufficient**, and what a
+      non-qualifying measurement does to a partial run.
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8 — Table 1's
       `ALS_PERS` row, Table 7 *Interrupt Status #6*, and the Command Code #6
@@ -693,11 +744,11 @@ write-to-clear, or latched GPIO behavior.
       latches and clears on read. This part has neither — §9 records that the
       interrupt pin is explicitly unavailable, and Table 7 states no clearing
       behavior. Library documentation for family parts is not evidence here.
-- [x] The part has no dedicated interrupt pin. The source says so in as many
-      words — *Interrupt pin not available for VEML7700* — immediately above the
-      register format table, which is why this contract treats `0x06` as a
-      polled status word and the API owns no GPIO.
-- [x] The sources state no flag-clearing behavior. **The absence is the
+- [x] `S-41` The part has no dedicated interrupt pin. The source says so in as
+      many words — *Interrupt pin not available for VEML7700* — immediately
+      above the register format table, which is why this contract treats `0x06`
+      as a polled status word and the API owns no GPIO.
+- [x] `S-42` The sources state no flag-clearing behavior. **The absence is the
       finding.**
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8 — Table 7
@@ -729,14 +780,14 @@ At fixed 7-bit address `0x10`, the ID register is expected to transfer bytes
 This is compatibility evidence, not package-orientation, lot, authenticity, or
 calibration proof.
 
-- [x] The ID register transfers bytes `0x81, 0xC4`, decoding to `0xC481`, at the
-      fixed address option (Table 8). The low byte is the fixed device ID
-      `0x81`; the high byte is an **address-option code**, `0xC4` for slave
-      address `0x20` and `0xD4` for `0x90`. `0x20` is the 8-bit write form of the
-      7-bit `0x10` this driver fixes, so `0xC481` is the word for the supported
-      option — and `0xD481` is a real VEML7700 at an address this driver does not
-      support, which is why identity is a compatibility claim rather than a
-      presence claim.
+- [x] `S-43` The ID register transfers bytes `0x81, 0xC4`, decoding to
+      `0xC481`, at the fixed address option (Table 8). The low byte is the
+      fixed device ID `0x81`; the high byte is an **address-option code**,
+      `0xC4` for slave address `0x20` and `0xD4` for `0x90`. `0x20` is the
+      8-bit write form of the 7-bit `0x10` this driver fixes, so `0xC481` is
+      the word for the supported option — and `0xD481` is a real VEML7700 at an
+      address this driver does not support, which is why identity is a
+      compatibility claim rather than a presence claim.
 
       Byte order follows §3: low first, so `0x81` then `0xC4` on the wire.
 

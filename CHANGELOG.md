@@ -41,10 +41,11 @@ than a change from a prior version.
   host tests, lints with warnings denied, rustdoc, five bare-metal targets,
   dependency and license policy, package construction and inspection, and tests
   against the unpacked distributable package.
-- Two claim checks in that gate, so the repository's load-bearing promises fail
-  loudly rather than drift: vendor documents must not be tracked, and the
-  required status disclosure must be identical in the root README, the packaged
-  crate README, and the crate documentation.
+- Three claim checks in that gate, so the repository's load-bearing promises fail
+  loudly rather than drift: vendor documents must not be tracked; the required
+  status disclosure must be identical in the root README, the packaged crate
+  README, and the crate documentation; and every statement about what the vendor
+  sources do not say must cite a contract claim identifier.
 - One version across both workspace crates, `0.1.0-incubating.1`, with the gate
   failing on divergence and asserting the lifecycle-matching prerelease without
   storing a second copy of the literal.
@@ -766,6 +767,48 @@ than a change from a prior version.
   cover; the model's behavior is unchanged pending #78, because narrowing it
   would withdraw the modeled monitor surface entirely.
 
+- **Gave every source claim one edit point and a gate that enforces it** (#75).
+  `docs/HARDWARE_CONTRACT.md` is now a registry: all 43 rows carry a stable
+  `S-nn`, in the same convention as `D-nn` and `I-nn`. Everything else cites the
+  identifier. Recorded as D-033.
+- `scripts/ci.sh` gains a third claim check — identifiers are unique, every
+  cited identifier resolves, and any assertion outside the registry about what
+  the sources do not say must cite one. It reads paragraphs with whitespace
+  collapsed rather than lines, because every tracked document here is
+  hard-wrapped and a line-oriented search cannot see a phrase that spans a break.
+  That is not hypothetical: it is how the packaged README kept a disproven claim
+  through an audit that believed itself exhaustive.
+- Retargeted all eleven cross-references from section numbers to identifiers.
+  Two of them had already rotted, citing §8 for a row that moved to §9. Section
+  numbers are positions; identifiers are names.
+- Turning the check on found **seven** uncited absence claims that no hand grep
+  had reported, in `DRIVER_CONTRACT.md`, `driver.rs`, both crate READMEs, and the
+  model's `Unsupported` documentation. Each now cites the row it depends on.
+- **Interpretation is centralized; implementation is not**, and D-033 records
+  them as opposite requirements. Driver and model keep their own constants and
+  code for the same device fact, because sharing those collapses conformance
+  into a tautology — two expressions of one derivation agreeing because they are
+  one derivation. The *interpretation of record* is the opposite case: two
+  copies of a claim cannot catch each other being wrong, they can only diverge,
+  and nine simultaneously wrong restatements of the persistence rule are what
+  that looks like. One record, two derivations, both citing it.
+
+- Review of the check found three ways it could pass while leaving a claim
+  unmoored: a contract row added without an identifier is invisible to every
+  other check here; a whole Markdown table or Rust enum counted as one block, so
+  one identifier vouched for every claim in it; and two citations resolved to
+  the wrong row. All three are fixed — rows must be numbered, blocks end at a
+  table row or the code line a doc comment documents, and `S-44` now records the
+  25/50 ms refresh omission that the packaged README had been attributing to
+  `S-21`. Counts move to **41 verified, 3 open**.
+- **The detector is recorded as provisional.** It matches phrasings, and that
+  list is unbounded by construction — three holes surfaced within a day, two
+  from review and one from its author. A clean run is not proof there are no
+  uncited claims. D-033 records the replacement shape: detect *references to the
+  sources*, which is a closed vocabulary of names, numbers, and documentary
+  verbs, rather than *descriptions of them*, which is open. That rule subsumes
+  the proposed direct-citation check instead of adding a second list.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -773,7 +816,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **40 rows verified,
+- Vendor owner-verification has been walked end to end: **41 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which

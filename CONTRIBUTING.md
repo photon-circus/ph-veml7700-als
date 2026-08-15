@@ -125,7 +125,37 @@ Two rules follow from the table and are enforced in review:
   purpose of having an independent one.
 - **The model is derived from `docs/HARDWARE_CONTRACT.md`, not from driver
   code.** It must not import driver codecs, constants, or state machines. If the
-  driver and the model share a mistake, neither can catch it.
+  driver and the model share a mistake, neither can catch it — conformance
+  collapses into a tautology, where two expressions of one derivation agree
+  because they *are* one derivation.
+- **That applies to implementations, not to the evidence record.**
+  `docs/HARDWARE_CONTRACT.md` is the single, global, descriptive record of what
+  the sources establish, and both sides cite it rather than restating it.
+  Duplicating a *quotation* has no oracle value — two copies cannot disagree
+  usefully, only diverge. Duplicating a *derivation* is the point, because two
+  derivations can disagree and their disagreement is information. See D-033.
+
+## Correcting a source claim
+
+Every row in `docs/HARDWARE_CONTRACT.md` has a stable `S-nn`, and everything that
+depends on it cites that identifier. So the first step of a correction is not a
+search — it is a listing:
+
+```sh
+git grep -ln '`S-40`' -- '*.md' '*.rs'
+```
+
+That is the complete set of places the correction has to sweep. Before
+identifiers existed this was a grep somebody had to get right, and the copy that
+was missed in #73 was the one published to docs.rs.
+
+Cross-links are what make a divergence findable at all. A claim restated in nine
+places has nine chances to drift and no way to notice; a claim cited from nine
+places can be enumerated, opened, and compared in one pass. Keep the links dense
+for that reason, not for tidiness.
+
+The gate reports the size of that surface on every run, so a growing coupling is
+visible rather than discovered during the next correction.
 
 ## Evidence language
 
@@ -153,6 +183,13 @@ A claim that a source is **silent** on something needs a located negative —
 which document, revision, and sections were read — not an argument that the
 figure is the kind of thing vendors do not publish. See D-032.
 
+**Cite claims, do not restate them.** Every row in `docs/HARDWARE_CONTRACT.md`
+carries a stable identifier, `S-nn`. Anywhere else — rustdoc, crate READMEs,
+tests — say what the code does and cite the identifier for what the sources say.
+Never cite a section number: sections move and citations to them rot silently.
+`scripts/ci.sh` fails on a dangling identifier and on any assertion of source
+silence that cites none. See D-033.
+
 Related wording rules:
 
 - Never call a snapshot fresh. Snapshot methods state that data may be retained
@@ -174,7 +211,7 @@ Files under `docs/` do not share one status. Treat them as follows:
 
 | Document | Authority |
 | --- | --- |
-| `docs/HARDWARE_CONTRACT.md` | **Normative** — interpreted device behavior |
+| `docs/HARDWARE_CONTRACT.md` | **Evidence record** — agreed device facts and the evidence for them; descriptive, never prescriptive |
 | `docs/vendor/README.md` | **Evidence record** — source provenance and digests |
 | `docs/DRIVER_CONTRACT.md` | **Normative** — driver semantics, ownership, dependency direction |
 | `docs/INVARIANTS.md` | **Normative** — review-blocking truths |

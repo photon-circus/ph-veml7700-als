@@ -183,7 +183,7 @@ fn shutdown_before_the_first_bound_completes_no_conversion() {
 fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
     // The source calls this Auto-Memorization: the part memorizes the last
     // ambient data before shutdown and the host may read it while shut down.
-    // `docs/HARDWARE_CONTRACT.md` §7 records it as verified.
+    // `docs/HARDWARE_CONTRACT.md` `S-25` records it as verified.
     let mut model = Veml7700Model::new(RetainedInputs::new(3, 4));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));
@@ -582,7 +582,7 @@ fn a_large_advance_processes_multiple_autonomous_refreshes() {
 /// the value it is asked about most.
 ///
 /// The words are `ALS_SD = 0` with gain ×1/8 and the integration field from
-/// `docs/HARDWARE_CONTRACT.md` §5. Note again that the encoding order is not the
+/// `docs/HARDWARE_CONTRACT.md` `S-15`. Note again that the encoding order is not the
 /// magnitude order: `1100` is the *shortest* time.
 #[test]
 fn every_integration_time_latches_exactly_at_its_conservative_bound() {

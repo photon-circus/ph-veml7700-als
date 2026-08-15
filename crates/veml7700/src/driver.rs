@@ -187,7 +187,7 @@ where
     /// originally active device shut down, with the measurement domain either
     /// old or new. Read the configuration back to establish which. This is the
     /// cost of following the required sequence: the alternative is a write the
-    /// sources do not sanction.
+    /// sources do not sanction — `docs/HARDWARE_CONTRACT.md` `S-19`.
     ///
     /// A returned error also does **not** establish that the failing write was
     /// rejected. An I²C error can mean the byte never arrived, or that it

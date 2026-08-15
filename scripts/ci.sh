@@ -332,6 +332,145 @@ fi
 printf '        %s conformance tests, all disclosed\n' \
     "$(printf '%s\n' "$actual_tests" | wc -l | tr -d ' ')"
 
+# Source claims used to be restated wherever they mattered, so correcting one
+# meant finding every copy by hand. Four corrections in a row (#65, #67, #71,
+# #73) touched four to nine files each, and a ninth site was missed entirely
+# because the phrase wrapped across a line and the search was line-oriented.
+#
+# `docs/HARDWARE_CONTRACT.md` is the registry: every row carries a stable `S-nn`.
+# Everything else cites. This check enforces both directions, and the second is
+# the one that pays for itself -- it turns "find every copy" from a grep someone
+# has to get right into a mechanical list.
+#
+# The phrase list below is PROVISIONAL and its failure mode is silent
+# under-reporting. Matching ways of saying "the source is silent" is an unbounded
+# problem: three holes were found within a day of writing it. Do not treat a
+# clean run as proof there are no uncited claims, and do not respond to a new
+# hole by appending a pattern -- D-033 records the replacement, which detects
+# references to the sources (a closed vocabulary) rather than descriptions of
+# them (an open one). See #75.
+#
+# `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss claims historically,
+# including claims that have since been corrected, and rewriting history to
+# satisfy a citation rule would defeat the point of keeping it.
+step "source claims cite the contract registry"
+claim_registry=docs/HARDWARE_CONTRACT.md
+claim_ids=$(grep -oE '^- \[[x ]\] `S-[0-9]+`' "$claim_registry" | grep -oE 'S-[0-9]+' | sort)
+if [ -z "$claim_ids" ]; then
+    echo "no S-nn claim identifiers found in $claim_registry" >&2
+    exit 1
+fi
+# A row added without an identifier is invisible to every other check here: it
+# cannot be cited, and the uncited-claim scan skips the registry. It would sit
+# in the record uncitable while the gate stayed green, which is the one failure
+# this whole mechanism cannot tolerate.
+total_rows=$(grep -cE '^- \[[x ]\] ' "$claim_registry")
+numbered_rows=$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')
+if [ "$total_rows" -ne "$numbered_rows" ]; then
+    printf 'every contract row needs exactly one claim identifier: %s rows, %s numbered\n' \
+        "$total_rows" "$numbered_rows" >&2
+    grep -nE '^- \[[x ]\] ' "$claim_registry" | grep -vE '^\s*[0-9]+:- \[[x ]\] `S-[0-9]+`' >&2
+    exit 1
+fi
+duplicate_ids=$(printf '%s\n' "$claim_ids" | uniq -d)
+if [ -n "$duplicate_ids" ]; then
+    printf 'claim identifiers must be unique, but these repeat:\n%s\n' "$duplicate_ids" >&2
+    printf 'an identifier names one row for the life of the document.\n' >&2
+    exit 1
+fi
+# A citation to a retired or mistyped identifier resolves to nothing. That is the
+# intended failure -- loud beats quietly pointing at the wrong claim.
+claim_sources=$(git ls-files '*.md' '*.rs')
+dangling_ids=
+for cited_id in $(grep -ohE '`S-[0-9]+`' $claim_sources | tr -d '`' | sort -u); do
+    if ! printf '%s\n' "$claim_ids" | grep -qx "$cited_id"; then
+        dangling_ids="$dangling_ids $cited_id"
+    fi
+done
+if [ -n "$dangling_ids" ]; then
+    printf 'citations name claim identifiers that no contract row defines:%s\n' "$dangling_ids" >&2
+    printf 'a retired identifier is never reused, so this is a stale citation.\n' >&2
+    exit 1
+fi
+# Paragraph mode plus whitespace collapsing is the whole trick. Every tracked
+# document here is hard-wrapped, so a line-oriented search cannot see a phrase
+# that spans a line break -- which is exactly how the packaged README kept a
+# disproven claim through an audit that believed it was exhaustive.
+#
+# Blocks are finer than paragraphs on purpose. A Markdown table and a Rust enum
+# are each one paragraph, so a single identifier anywhere in one would vouch for
+# every claim in it -- a fidelity table citing `S-39` would satisfy an unrelated
+# assertion about reset values three rows away. Each table row is its own block,
+# and a Rust doc-comment run ends at the code line it documents, so an identifier
+# only ever vouches for the claim it sits with.
+uncited_claims=$(awk '
+function flush(   block, lower) {
+    if (buf == "") return
+    block = buf
+    gsub(/[ \t\r\n]+/, " ", block)
+    lower = tolower(block)
+    if (lower ~ /no reviewed passage/ ||
+        lower ~ /no passage (states|declares|describes|bears)/ ||
+        lower ~ /never state[sd]?[ ,.]/ ||
+        lower ~ /nowhere in the source/ ||
+        lower ~ /(source|sources|vendor|datasheet|document|documents) (do|does) not (state|states|declare|declares|establish|establishes|provide|provides|specify|specifies|sanction|sanctions)/ ||
+        lower ~ /not declared by (the )?sources?/ ||
+        lower ~ /no source (says|states|establishes)/ ||
+        lower ~ /not source-backed/ ||
+        lower ~ /the sources are silent/ ||
+        lower ~ /no vendor document (states|declares|gives|specifies)/ ||
+        lower ~ /states no / ||
+        lower ~ /(is|are) not documented/ ||
+        lower ~ /no (vendor-)?documented/) {
+        if (block !~ /S-[0-9][0-9]/) {
+            if (length(block) > 140) block = substr(block, 1, 140) "..."
+            printf "  %s:%d\n    %s\n", buffile, bufline, block
+        }
+    }
+    buf = ""
+}
+FNR == 1 { flush() }
+{
+    buf_is_empty = (buf == "")
+    if (buf_is_empty) { buffile = FILENAME; bufline = FNR }
+    if ($0 ~ /^[ \t]*$/) { flush(); next }
+    # A table row stands alone: one row, one claim, one citation.
+    if ($0 ~ /^[ \t]*\|/) {
+        flush()
+        buf = $0; buffile = FILENAME; bufline = FNR
+        flush()
+        next
+    }
+    if (FILENAME ~ /\.rs$/ && $0 !~ /^[ \t]*(\/\/|\*|\/\*)/) {
+        # Code ends the doc-comment run it follows, so each item is separate.
+        flush()
+        next
+    }
+    if (buf == "") { buffile = FILENAME; bufline = FNR }
+    buf = buf " " $0
+}
+END { flush() }
+' $(printf '%s\n' $claim_sources | grep -v -E '^(docs/HARDWARE_CONTRACT\.md|docs/DECISIONS\.md|CHANGELOG\.md)$'))
+if [ -n "$uncited_claims" ]; then
+    printf 'these say what a source does not state, without citing a claim identifier:\n%s\n' \
+        "$uncited_claims" >&2
+    printf 'record the claim as a row in %s and cite its `S-nn`, or drop the assertion.\n' \
+        "$claim_registry" >&2
+    exit 1
+fi
+# The reverse direction is not a pass/fail condition -- most rows are evidence
+# nothing needs to cite -- but its size is worth reporting, because it is the
+# surface a claim correction has to sweep. Before #73, finding that surface was a
+# grep somebody had to get right, and the one they missed was the copy that
+# shipped. CONTRIBUTING records the one-liner that enumerates it per claim.
+citing_sources=$(printf '%s\n' $claim_sources | grep -vx "$claim_registry")
+cited_count=$(grep -ohE '`S-[0-9]+`' $citing_sources | tr -d '`' | sort -u | wc -l | tr -d ' ')
+citing_files=$(grep -lE '`S-[0-9]+`' $citing_sources | wc -l | tr -d ' ')
+printf '        %s claim identifiers, every outside assertion cited\n' \
+    "$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')"
+printf '        %s cited from %s files -- the surface a correction must sweep\n' \
+    "$cited_count" "$citing_files"
+
 # Rustdoc validates intra-doc links but never looks at repository Markdown, so
 # a renamed or deleted document breaks its inbound links silently. That matters
 # most at release: the packaged README and the contract documents it points at
