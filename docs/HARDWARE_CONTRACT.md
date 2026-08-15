@@ -119,10 +119,18 @@ silently normalized.
       passed over because the search stopped at the passage the dispute quoted.
       See #67 and D-032.
 - [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
-      10 kHz to 400 kHz in fast mode. The two modes have different maxima; a
-      single 10–400 kHz range would wrongly permit standard mode at 400 kHz.
-      The source marks these values as based on the standard I²C protocol
-      requirement and **not tested in production**.
+      10 kHz to 400 kHz in fast mode (*I²C Timing Characteristics*). The two
+      modes have different maxima; a single 10–400 kHz range would wrongly
+      permit standard mode at 400 kHz. The source marks these values as based on
+      the standard I²C protocol requirement and **not tested in production**.
+
+      One table-versus-table discrepancy is recorded rather than normalized:
+      *Basic Characteristics* separately gives `f(SCL)` as a flat 10 kHz to
+      400 kHz with no mode split, which is the value that would permit standard
+      mode at 400 kHz. The dedicated timing table governs, being the more
+      specific statement of the same quantity — consistent with §1, where the
+      explicit tables govern loose prose. Nothing in this driver selects or
+      constrains a bus mode; the bus is the caller's.
 - [x] The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in 8-bit form).
 - [x] Pull-ups are external; the vendor suggests values above 1 kΩ, commonly
       2.2 kΩ to 4.7 kΩ.
@@ -177,6 +185,21 @@ No public raw-register accessor exists in v0.1.
       `00` for bits 2:1 — a statement about the `PSM` field only, leaving
       `PSM_EN` and therefore the word undeclared. See the Assumption row below
       and #71.
+
+      **Located negative (D-032)** for the "not declared by sources" cells in the
+      table above. Read: datasheet 84286 Rev. 1.8 — the COMMAND REGISTER FORMAT
+      overview, the per-register Command Code #0 through #7 sections, and
+      Tables 1, 4, 7 and 8; application note 84323 Rev. 06-Mar-2025 — every
+      COMMAND REGISTER FORMAT block it repeats. Across both documents the word
+      *reset* does not appear in any register context, and exactly **two**
+      default statements exist: the register-format note for command code 0, and
+      the application note's `PSM` mode-1 sentence recorded above. Neither
+      document gives a power-on value for `0x01`, `0x02`, `0x04`, `0x05`, or
+      `0x06`.
+
+      Absence outside those sections is not claimed. What is claimed is that the
+      places a reset value would be stated — a register's own definition — were
+      read and do not state one.
 
 - [ ] **Assumption: register `0x03` reads `0x0000` before it is written.**
       *Requires physical validation.*
@@ -241,6 +264,14 @@ values to preserve as ordinary typed state.
       value. `0x0001` is consistent with every field zero except `ALS_SD`, but
       consistency is not a source: the claim is about what the device powers up
       in, and that needs a passage that says so.
+
+      **Located negative (D-032)** for that sentence. Read: datasheet 84286
+      Rev. 1.8, Table 1 *ALS_CONF_0 #0* in full — every row is a bit range, a
+      field name, and its encodings, with no reset or default column — and the
+      Command Code #0 section around it. The default is stated in the adjacent
+      register-format note, not in Table 1, which is the whole point of
+      separating them here: a reader who cites "Table 1" for the reset word is
+      citing the wrong object.
 - [x] Reserved bits 15:13, stated by the source as `000b`.
 - [x] Gain encodings: `00` ×1, `01` ×2, `10` ×1/8, `11` ×1/4. Note that the
       encoding order is not the magnitude order — `10` is ×1/8 and `11` is ×1/4,
@@ -296,6 +327,13 @@ The vendor explicitly documents refresh times for 100, 200, 400, and 800 ms:
 The driver does not extrapolate a documented refresh interval for 25 or 50 ms.
 The source table has no rows for those integration times, which is why they are
 unsupported rather than computed.
+
+**Located negative (D-032)** for that absence. Read: the *Refresh Time, I_DD,
+and Resolution Relation* table in datasheet 84286 Rev. 1.8 and its identical
+copy in application note 84323 Rev. 06-Mar-2025, plus the app note's separate
+`PSM` / `ALS_IT` → refresh-time table. All three are indexed by `ALS_IT` ∈
+{100, 200, 400, 800} ms; neither 25 ms nor 50 ms appears as a row in any of
+them, in either document.
 
 The source records this relation at ALS gain ×2 only. The driver treats refresh
 time as independent of gain — `nominal_refresh_time_ms` takes an integration
@@ -496,6 +534,17 @@ the work belongs if it is done.
       all sixteen bits carrying data. No sign bit is defined for it or for ALS,
       and no passage describes either as signed.
 
+      **Located negative (D-032)** for that last sentence. Read: datasheet 84286
+      Rev. 1.8 — the COMMAND REGISTER FORMAT entries for `04` (ALS) and `05`
+      (WHITE), the Command Code #4 and #5 sections, and Basic Characteristics;
+      application note 84323 Rev. 06-Mar-2025 — *Read-Out of ALS Measurement
+      Results*, *Transferring ALS Measurement Results into a Decimal Value*, and
+      its COMMAND REGISTER FORMAT blocks for the same two registers. Both
+      registers are described only as MSB and LSB halves of a whole 16-bit
+      value; neither document uses *sign*, *signed*, or *two's complement* of
+      either channel anywhere. The app note's own worked example decodes a raw
+      word as an unsigned decimal count.
+
 ### Starting configuration and ranging
 
 The source gives explicit application guidance, and it decides what a first-use
@@ -521,7 +570,8 @@ under §11, and this is the source's own framing rather than a driver limitation
 - [x] Linear behavior spans 0.0042 lx to about 1 klx.
 - [x] Auto-ranging is application-software responsibility in the source.
 
-Two prose-versus-table discrepancies are recorded rather than normalized:
+Two prose-versus-table discrepancies in this section are recorded rather than
+normalized:
 
 1. The narrative calls 0.0042 lx/count a range of "approximately 0 lx to 230 lx",
    while the table gives 275 lx for that pair.
@@ -564,6 +614,15 @@ write-to-clear, or latched GPIO behavior.
       states is the qualification rule itself — whether the count is over
       consecutive refreshes and whether a non-qualifying refresh resets it.
 
+      > **Partly superseded — see #73.** The audit that produced the located
+      > negatives elsewhere in this document found that application note 84323
+      > Rev. 06-Mar-2025, printed page 16, `INTERRUPT HANDLING`, does state the
+      > counting condition: a flag is set only when the threshold is exceeded and
+      > a programmed number of measurements (`ALS_PERS`) *stay above / below* it.
+      > The reset behavior remains unstated. This row is corrected in #73 rather
+      > than here, because changing its subject is a contract-state change; the
+      > paragraph above is left in place so the two can be compared.
+
       This row is **not** an Assumption in the D-029 sense. A qualification rule
       is functional behavior a datasheet can state in prose, unlike an
       oscillator tolerance, so further reading could still close it.
@@ -596,11 +655,23 @@ write-to-clear, or latched GPIO behavior.
       register format table, which is why this contract treats `0x06` as a
       polled status word and the API owns no GPIO.
 - [x] The sources state no flag-clearing behavior. **The absence is the
-      finding.** Table 7 is the register's own definition — the place a
-      read-to-clear or write-to-clear rule would be stated — and it defines the
-      two flag bits, marks them read-only, reserves the rest, and says nothing
-      about how either is cleared. The v0.1 API therefore promises observation
-      only, which is D-010.
+      finding.**
+
+      **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8 — Table 7
+      *Interrupt Status #6*, the Command Code #6 section, and the `ALS_INT_EN`
+      row of Table 1; application note 84323 Rev. 06-Mar-2025 — its
+      `INTERRUPT HANDLING` section and its COMMAND REGISTER FORMAT block for
+      `06`. Table 7 defines the two flag bits, marks them read-only, and
+      reserves bits 13:0. Command Code #6 says each bit "defines interrupt flag
+      while trigger occurred due to data crossing" its threshold window. The app
+      note's `INTERRUPT HANDLING` section states the condition under which a bit
+      is **set** and says nothing about when or how one is cleared. Nothing in
+      those sections describes read-to-clear, write-to-clear, or any other
+      deassertion.
+
+      Those are the places such a rule would be stated — a register's own
+      definition and the section devoted to using the feature. The v0.1 API
+      therefore promises observation only, which is D-010.
 
 ## 10. Identity and support claim
 

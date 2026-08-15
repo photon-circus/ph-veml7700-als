@@ -643,6 +643,31 @@ outcomes — the correct one. It was passed over because the search stopped at t
 passage the dispute quoted, and the resulting absence claim then read as settled.
 A dispute about one passage is not a review of the document.
 
+### What the audit found
+
+Three instances in quick succession made the rate the point, so every absence
+claim in `HARDWARE_CONTRACT.md` was audited against both pinned documents rather
+than waiting for a fourth to surface on its own.
+
+One more was false: §9 said no reviewed passage states the persistence
+qualification rule, and application note 84323 printed page 16,
+`INTERRUPT HANDLING`, states the counting condition. That is #73, and it matters
+beyond the row — this is D-030's worked example, so a decision illustrated by
+"the sources are silent here" rests on a premise that was not checked.
+
+The rest held: the clock-mode split, the undeclared reset values, Table 1's
+silence on the power-on word, the missing 25/50 ms refresh rows, the absent sign
+bit, and the absent flag-clearing rule are all confirmed. They now carry located
+negatives naming the sections read.
+
+Two limits of that exercise are worth recording, because a future reader will
+otherwise over-trust it. Presence is provable and absence is not: every positive
+finding here quotes text, while every negative is a search over sections that
+were read, which is why the rule asks for sections rather than for a global
+negative — and why each backfilled row says that absence outside those sections
+is not claimed. And the searches ran over machine-extracted PDF text, which can
+drop glyphs set in figures.
+
 The physics argument here was, in fact, still correct about the thing it
 described — Vishay publishes no oscillator accuracy, and the datasheet shows the
 oscillator only in the block diagram. What it was wrong about is that this

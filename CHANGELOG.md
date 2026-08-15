@@ -691,6 +691,34 @@ than a change from a prior version.
   fact it recorded.
 - Counts recomputed to **39 verified, 3 open**.
 
+- **Audited every absence claim in `HARDWARE_CONTRACT.md` against both pinned
+  documents** and backfilled located negatives, rather than waiting for a fourth
+  false negative to surface after #65, #67, and #71. Each backfilled row names
+  the sections read in each document, what they were found to contain, and that
+  absence outside those sections is not claimed.
+- Rows given located negatives: the §4 "not declared by sources" reset cells
+  (the word *reset* appears in no register context in either document, and
+  exactly two default statements exist); §5's "Table 1 does not establish this";
+  §6's missing 25/50 ms refresh rows; §8's sign-bit absence; and §9's
+  flag-clearing row, which now also names the application note's
+  `INTERRUPT HANDLING` section — the other place such a rule would be stated.
+- The audit found one false claim: §9 says no reviewed passage states the
+  persistence qualification rule, and application note 84323 printed page 16,
+  `INTERRUPT HANDLING`, states the counting condition — a flag is set only when
+  the threshold is exceeded and a programmed number of measurements (`ALS_PERS`)
+  *stay above / below* it. The reset behavior is still unstated. Correcting the
+  row is a contract-state change, so it is #73; the row carries a pointer
+  meanwhile rather than standing unqualified.
+- Recorded a third vendor discrepancy in the standard place — beside the row it
+  affects, counted in `docs/vendor/README.md`: *Basic Characteristics* gives
+  `f(SCL)` as a flat 10 kHz to 400 kHz where *I²C Timing Characteristics* splits
+  standard mode at 100 kHz from fast mode at 400 kHz. The first two recorded
+  discrepancies are prose against a table; this one is table against table, and
+  the more specific table governs. Nothing in this driver selects a bus mode.
+- D-032 records what the audit found and two limits of it: presence is provable
+  and absence is not, and the searches ran over machine-extracted PDF text that
+  can drop glyphs set in figures.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
