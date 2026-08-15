@@ -69,15 +69,41 @@ silently normalized.
 
 ## 2. Electrical and bus boundary
 
-- [x] VDD operating range is 2.5 V to 3.6 V.
+- [x] Sensor supply `V_DD` operating range is 2.5 V to 3.6 V. The Product
+      Summary names this `OPERATING VOLTAGE RANGE`; Basic Characteristics gives
+      `V_DD` as MIN 2.5 V, TYP 3.3 V, MAX 3.6 V.
+- [x] **`I²C BUS VOLTAGE RANGE` is 1.7 V to 3.6 V.** Datasheet 84286 Rev. 1.8,
+      page 1, `PRODUCT SUMMARY`, where it is a column of its own beside
+      `OPERATING VOLTAGE RANGE`. The same 1.7 V to 3.6 V rail is labelled in the
+      datasheet's own application circuit (*Application*, section *2. I²C
+      Interface*), and application note 84323 Rev. 06-Mar-2025, page 2,
+      *Application Circuitry for the VEML7700*, states it in prose: the sensor
+      connects to a 2.5 V to 3.6 V supply, and "the pull-up resistors at the I²C
+      bus lines may also be connected to a power supply between 1.7 V to 3.6 V".
+
+      Recorded under the source's own parameter name and nothing further. Vishay
+      gives the range and the pull-up connection; it does not characterize level
+      shifting, a minimum bus voltage for any clock rate, or any relationship
+      between this rail and `V_ih`. This row supplies none of those.
 - [x] I²C bus **input** H-level range `V_ih` is 1.3 V to 3.6 V, and input L-level
       range `V_il` is −0.3 V to 0.4 V, both specified at `V_DD` = 3.3 V (Basic
       Characteristics). These are signal thresholds on `SCL`/`SDA`, **not** a
-      supply: the supply is `V_DD`, recorded above as 2.5 V to 3.6 V.
+      supply. The datasheet's I²C Interface section restates the first as
+      "I²C H-level range = 1.3 V to 3.6 V".
 
-      Corrected from a previously recorded "high-level supply … 1.7 V to 3.6 V".
-      1.7 V appears nowhere in the source, and calling a threshold a supply
-      invited exactly that confusion. See #54.
+      **Three distinctly named quantities meet here and must not be merged:** the
+      sensor supply (2.5 V to 3.6 V), the bus rail the pull-ups may use (1.7 V to
+      3.6 V), and the input thresholds (1.3 V to 3.6 V, −0.3 V to 0.4 V, both at
+      `V_DD` = 3.3 V).
+
+      History, because the row has been wrong in both directions. It once
+      recorded a "high-level supply … 1.7 V to 3.6 V", merging the second and
+      third. #54 correctly separated them and then overcorrected, concluding that
+      1.7 V appears nowhere in the source; it appears in the three places listed
+      in the row above. #54 had itself enumerated "1.7 V is from a different
+      parameter" as a possible outcome — that was the right one, and it was
+      passed over because the search stopped at the passage the dispute quoted.
+      See #67 and D-032.
 - [x] Clock frequency `f(SMBCLK)` is 10 kHz to 100 kHz in standard mode and
       10 kHz to 400 kHz in fast mode. The two modes have different maxima; a
       single 10–400 kHz range would wrongly permit standard mode at 400 kHz.

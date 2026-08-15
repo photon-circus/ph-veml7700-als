@@ -623,6 +623,26 @@ time the rule was exercised rather than several revisions later. The row's
 supporting sentence is corrected here; narrowing its subject is a contract-state
 change, so it is #71.
 
+### The rule is about absence claims, not about Assumption rows
+
+A third instance widened it. §2 recorded, inside a **verified** row, that "1.7 V
+appears nowhere in the source". It appears in three places, including a column
+of the datasheet's page-one Product Summary named `I²C BUS VOLTAGE RANGE` (#67).
+No Assumption was involved, so the rule as first written would not have reached
+it.
+
+It is therefore stated generally: **any claim that a source does not say
+something needs a located negative**, wherever it appears and whatever the row's
+checkbox state. A checked row is not a safer place to assert absence; it is a
+more dangerous one, because the checkmark reads as confirmation of everything in
+the row rather than of the fact it records.
+
+That instance also shows how the error propagates. #67's predecessor #54 had
+enumerated "1.7 V is from a different parameter" as one of three possible
+outcomes — the correct one. It was passed over because the search stopped at the
+passage the dispute quoted, and the resulting absence claim then read as settled.
+A dispute about one passage is not a review of the document.
+
 The physics argument here was, in fact, still correct about the thing it
 described — Vishay publishes no oscillator accuracy, and the datasheet shows the
 oscillator only in the block diagram. What it was wrong about is that this
