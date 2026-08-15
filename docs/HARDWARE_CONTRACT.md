@@ -81,10 +81,24 @@ silently normalized.
       connects to a 2.5 V to 3.6 V supply, and "the pull-up resistors at the I²C
       bus lines may also be connected to a power supply between 1.7 V to 3.6 V".
 
-      Recorded under the source's own parameter name and nothing further. Vishay
-      gives the range and the pull-up connection; it does not characterize level
-      shifting, a minimum bus voltage for any clock rate, or any relationship
-      between this rail and `V_ih`. This row supplies none of those.
+      Recorded under the source's own parameter name and nothing further.
+
+      **Located negative (D-032)** for what this row declines to supply. Read:
+      datasheet 84286 Rev. 1.8 — `PRODUCT SUMMARY`, *Basic Characteristics*,
+      *I²C Timing Characteristics* and its Note (1), and *Application* section
+      *2. I²C Interface* with its circuit figure; application note 84323
+      Rev. 06-Mar-2025 — *Application Circuitry for the VEML7700*. In those
+      sections:
+
+      - level shifting is not discussed at all, and the term does not appear;
+      - the timing table is indexed by standard and fast mode only, with no
+        voltage term, and Basic Characteristics gives `f(SCL)` with no voltage
+        condition, so neither states a minimum bus voltage for any clock rate;
+      - `V_ih` is given under the condition `V_DD` = 3.3 V, which is the sensor
+        supply and not this rail, and no passage in the sections above relates
+        the two.
+
+      Absence outside those sections is not claimed.
 - [x] I²C bus **input** H-level range `V_ih` is 1.3 V to 3.6 V, and input L-level
       range `V_il` is −0.3 V to 0.4 V, both specified at `V_DD` = 3.3 V (Basic
       Characteristics). These are signal thresholds on `SCL`/`SDA`, **not** a
