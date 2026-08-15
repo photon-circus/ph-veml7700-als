@@ -150,7 +150,7 @@ physical-evidence plans.
 
 | Assumption | Where the model relies on it | Contract state | Observable consequence |
 | --- | --- | --- | --- |
-| `PSM_EN` reads `0` before it is written, so the `0x03` word reads `0x0000` | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (`S-11`, D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. The `PSM` half of that word is vendor-stated (`S-48`); one undeclared bit still makes the word an assumption. The **driver** has no such assumption — it reads the register before acting on it. |
+| Reserved bits 15:3 and `PSM_EN` all read `0`, so the `0x03` word reads `0x0000` | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (`S-11`, D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. Only bits 2:1 are vendor-stated (`S-48`). The **driver** does not depend on the mode or enable value — it reads before acting — but its strict decoder rejects a non-zero reserved bit, so that half is load-bearing for both. |
 | Refresh time does not depend on ALS gain | `refresh_interval_ns`, which takes no gain argument | **Assumption** (D-029) | Every cadence the model predicts is gain-independent. If silicon disagreed, model and driver would agree with each other and both diverge from the part. |
 
 The 130 % conversion boundary is **not** in this table. It is not a

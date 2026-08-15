@@ -20,15 +20,15 @@ pub(crate) const POINTER_ID: u8 = 0x07;
 
 /// Source-declared: the register-format note states `0x0001` for `0x00`.
 pub(crate) const RESET_CONFIGURATION: u16 = 0x0001;
-/// **Half declared, half assumed.** The `PSM` field's power-on content is
-/// vendor-stated (`S-48`): the application note says the default it comes up
-/// with is mode 1 = `00` for bits 2:1. `PSM_EN` is not stated (`S-11`), and
-/// Table 4 constrains bits 15:3 to zero only as a write-validity rule rather
-/// than a reset value.
+/// **Partly declared, mostly assumed.** Only bits 2:1 are vendor-stated
+/// (`S-48`): the application note says the default the `PSM` field comes up
+/// with is mode 1 = `00`. `PSM_EN` and the thirteen reserved bits are not
+/// (`S-11`) — Table 4 constrains bits 15:3 to zero as a *write*-validity rule,
+/// which says nothing about what they read at power-on.
 ///
-/// One undeclared bit is enough to make this whole word an assumption, since a
-/// word is what the model needs to represent a device that has never had power
-/// saving written. `0x0000` is the value every defined field takes at zero.
+/// The model needs a whole word to represent a device that has never had power
+/// saving written, so the undeclared bits make the constant an assumption.
+/// `0x0000` is the value every defined field takes at zero.
 ///
 /// The naming deliberately matches `RESET_CONFIGURATION` above, which is why
 /// this comment exists: the two constants look like peers and are not. See

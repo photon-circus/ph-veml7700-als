@@ -265,8 +265,9 @@ No public raw-register accessor exists in v0.1.
       Vendor-stated in an application note rather than specified in a
       characteristic table, so it carries the strength `CONTRIBUTING.md` calls
       **vendor-stated guidance**.
-- [ ] `S-11` **Assumption: `PSM_EN` reads `0` before it is written**, and with it
-      the full `0x03` word reads `0x0000`. *Requires physical validation.*
+- [ ] `S-11` **Assumption: reserved bits 15:3 and `PSM_EN` all read `0` before
+      `0x03` is written**, and with them the full word reads `0x0000`.
+      *Requires physical validation.*
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, the
       command-register overview table, Table 4 *Power Saving Modes*, and the
@@ -275,31 +276,42 @@ No public raw-register accessor exists in v0.1.
       register-format table and the power-saving discussion preceding it. The
       datasheet declares a power-on default exactly once, for `0x00`, and gives
       `0x03` only `Set (15 : 3) 0000 0000 0000 0b` — a write validity rule for
-      reserved bits, not a power-on value. Table 4 gives field encodings with no
-      reset column. Nothing in those sections states `PSM_EN`'s power-on value.
+      reserved bits, not a power-on value — `S-10` records that distinction, and
+      it applies to bits 15:3 here for the same reason. Table 4 gives field
+      encodings with no reset column. Nothing in those sections states a power-on
+      value for `PSM_EN` or for any reserved bit.
 
       **An implication is not a declaration.** The application note instructs the
       reader to set `PSM_EN = 1` to activate the feature, which implies it is not
       already 1. That is exactly the substitution D-032 exists to refuse, so this
       row does not rest on it either.
 
-      This row was once the whole word. `S-48` records the half the sources do
-      state; what remains undeclared is one bit, and one bit is enough — the
-      model's `RESET_POWER_SAVING` is a whole-word constant, so a narrower
-      assumption is still an assumption. `0x0000` is the value every defined
+      This row was once the whole word. `S-48` records the part the sources do
+      state — bits 2:1 — and everything else stays assumed: thirteen reserved
+      bits and `PSM_EN`. A write-validity rule constrains what may be *written*
+      to bits 15:3 and says nothing about what they *read* at power-on, which is
+      the distinction this row turns on. `0x0000` is the value every defined
       field takes at zero, and a device that has never had power saving written
       is expected to read it.
 
-      **The driver does not rely on this.** Every path reads register `0x03`
-      before acting on it, so a different power-on value changes nothing the
-      driver does. The dependency is confined to the model, whose construction
-      uses `RESET_POWER_SAVING` to represent a device in its power-on state, and
-      it is declared as an abstraction in the model README rather than presented
-      as derived behavior.
+      **The driver does not depend on the *value*, but it is not indifferent to
+      it.** Every path reads `0x03` before acting, so whichever mode or enable
+      state the device powers up in changes nothing the driver decides. Reserved
+      bits are different: `decode_power_saving` rejects any non-zero bit 15:3 as
+      `PowerSavingDecodeError::ReservedBits`, so a part powering up with one set
+      would fail every read of that register rather than being handled
+      transparently. That is the strict-decoding policy working as intended — it
+      refuses to invent meaning for an undeclared bit — but it means this row's
+      reserved half is load-bearing for the driver too, not only for the model.
+
+      The model's dependency is the whole word: construction uses
+      `RESET_POWER_SAVING` to represent a device in its power-on state, declared
+      as an abstraction in the model README rather than presented as derived
+      behavior.
 
       **What would settle it:** reading `0x03` on a device that has not been
-      written since power-on — now confirming one bit rather than a word.
-      See #58.
+      written since power-on — now confirming bits 15:3 and bit 0, with bits 2:1
+      already stated. See #58.
 
 ## 5. Configuration register `0x00`
 

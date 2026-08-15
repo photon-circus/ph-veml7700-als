@@ -816,11 +816,17 @@ than a change from a prior version.
   own arithmetic. They were the last datasheet-derived findings with no way to
   reference them. Counts move to **44 verified, 3 open**.
 
-- **Narrowed the `0x03` power-on assumption to `PSM_EN` alone** (#71). The row
-  had assumed the whole word while the application note states half of it: the
-  `PSM` field comes up as mode 1 = `00`, now recorded as `S-48`. What remains
-  undeclared is one bit, and one bit is enough — `RESET_POWER_SAVING` is a
-  whole-word constant, so a narrower assumption is still an assumption.
+- **Narrowed the `0x03` power-on assumption** (#71). The row had assumed the
+  whole word while the application note states part of it: the `PSM` field comes
+  up as mode 1 = `00`, now recorded as `S-48`. What stays assumed is `PSM_EN`
+  **and the thirteen reserved bits** — Table 4 constrains bits 15:3 to zero as a
+  *write*-validity rule, which says nothing about what they read at power-on.
+- That reserved half is load-bearing for the driver, not only the model, which
+  the row had denied. `decode_power_saving` rejects any non-zero bit 15:3 as
+  `ReservedBits`, so a part powering up with one set would fail every read of
+  `0x03` rather than being handled transparently. The driver is indifferent to
+  the mode and enable *value* — it reads before acting — but not to the reserved
+  bits being clear.
 - The assumption does **not** rest on the app note's instruction to set
   `PSM_EN = 1` in order to activate the feature. That implies the bit is not
   already set, and an implication is not a declaration — the substitution D-032
