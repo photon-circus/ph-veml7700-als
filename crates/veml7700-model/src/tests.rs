@@ -512,9 +512,12 @@ fn protect_number_one_qualifies_both_threshold_directions() {
 #[test]
 fn protect_numbers_above_one_declare_the_qualification_rule_undefined() {
     // Table 1 establishes these encodings, so the model accepts the *write*.
-    // What no reviewed passage states is the qualification rule, so the model
-    // refuses to produce a status rather than inventing a counting rule that
-    // would agree with a driver that has no rule of its own. See D-030.
+    // The app note states the counting condition only in necessary form -- a
+    // flag is set *only when* ALS_PERS measurements stay above or below the
+    // threshold -- and states neither that meeting it is sufficient nor what a
+    // non-qualifying measurement does to a partial run. Counting needs both, so
+    // the model refuses to produce a status rather than completing the rule
+    // itself and agreeing with a driver that has no rule of its own. See D-030.
     for persistence_field in [1_u16, 2, 3] {
         let mut model = Veml7700Model::new(RetainedInputs::new(0, 0));
         write_word(&mut model, LOW_THRESHOLD, 100);

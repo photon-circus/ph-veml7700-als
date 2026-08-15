@@ -508,6 +508,20 @@ driver only programs the field, so the trace confirmed a register write while
 reading like a behavioral result. Nothing about the model requires a
 qualification rule, so it declares undefined instead.
 
+**That row's premise was later corrected, and the outcome held** (#73). This
+decision originally rested on the sources stating no qualification rule at all.
+They state part of one: application note 84323 gives the counting condition in
+necessary form — a flag is set *only when* `ALS_PERS` measurements stay above or
+below the threshold. What remains unstated is whether meeting that condition is
+sufficient, and what a non-qualifying measurement does to a partial run.
+
+The allocation is unchanged, because predicting an assertion needs both of those
+and the model still has neither. It is a better example for having survived the
+correction: the rule allocates whatever silence remains, and it does not depend
+on the silence being total. A decision whose worked example turned out to be
+half wrong, and whose outcome did not move, is worth more than one that was
+never tested.
+
 A consequence worth stating plainly: this makes the model's covered surface
 smaller. That is the correct direction. A narrower oracle that is sound beats a
 broader one that manufactures agreement.
@@ -660,13 +674,21 @@ silence on the power-on word, the missing 25/50 ms refresh rows, the absent sign
 bit, and the absent flag-clearing rule are all confirmed. They now carry located
 negatives naming the sections read.
 
-Two limits of that exercise are worth recording, because a future reader will
+Three limits of that exercise are worth recording, because a future reader will
 otherwise over-trust it. Presence is provable and absence is not: every positive
 finding here quotes text, while every negative is a search over sections that
 were read, which is why the rule asks for sections rather than for a global
 negative — and why each backfilled row says that absence outside those sections
-is not claimed. And the searches ran over machine-extracted PDF text, which can
-drop glyphs set in figures.
+is not claimed. The searches ran over machine-extracted PDF text, which can drop
+glyphs set in figures.
+
+The third limit was found the hard way, and it applies to searching *this
+repository* rather than the vendor documents. The first sweep for a false claim
+missed the packaged crate README, because the phrase wrapped across a line and
+the search was line-oriented. Every tracked document here is hard-wrapped, so a
+grep for any phrase longer than a few words is unreliable by construction —
+**normalize whitespace before matching.** The missed copy was crate
+documentation, so it was the one site that reached consumers.
 
 The physics argument here was, in fact, still correct about the thing it
 described — Vishay publishes no oscillator accuracy, and the datasheet shows the

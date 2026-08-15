@@ -97,11 +97,14 @@ threshold direction outside this table has no conformance evidence behind it.
 
 The persistence row is the one exception worth reading twice, because it is not
 a coverage gap that more traces would close. The sources establish the four
-`ALS_PERS` encodings but never state the qualification rule — whether the count
-runs over consecutive refreshes, or whether a non-qualifying one resets it. This
-driver therefore programs the field and promises nothing about *when* a flag
-asserts above protect number one, and the model declares that rule undefined
-rather than inventing one. See `docs/DECISIONS.md` D-030.
+`ALS_PERS` encodings, and the vendor's application note states the counting
+condition — a flag is set *only when* the threshold is exceeded and `ALS_PERS`
+measurements stay above or below it. That form is **necessary, not stated to be
+sufficient**, and nothing states what a measurement that fails to qualify does
+to a partial run. Predicting an assertion needs both. This driver therefore
+programs the field and promises nothing about *when* a flag asserts above
+protect number one, and the model declares that rule undefined rather than
+completing it. See `docs/DECISIONS.md` D-030.
 
 Threshold traces deliberately use 100 ms rather than the
 [`maximum_range_start`] preset: 25 ms has no vendor-documented power-saving
