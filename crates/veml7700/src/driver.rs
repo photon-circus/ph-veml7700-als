@@ -355,13 +355,13 @@ where
     /// Capture one fresh measurement using the default conservative timing.
     ///
     /// The wait is the vendor's 2.5 ms wake delay plus 130 % of the selected
-    /// integration time plus a 1 ms software margin. **Only the wake delay is
-    /// vendor-specified.** The 130 % rests on
+    /// integration time plus a 1 ms software margin. The wake delay is
+    /// specified; the 130 % applies
     /// [`INTEGRATION_TOLERANCE_PERCENT`](crate::INTEGRATION_TOLERANCE_PERCENT),
-    /// an assumption about the part's internal oscillator that no source states,
-    /// and the margin is driver policy. If the real spread exceeds ±30 %, this
-    /// can return a value from the previous conversion, indistinguishable from a
-    /// new one.
+    /// which the vendor's application note states as assumable rather than
+    /// specifies as a characterized worst case; the margin is driver policy. If
+    /// the real spread exceeds ±30 %, this can return a value from the previous
+    /// conversion, indistinguishable from a new one.
     pub async fn measure_once<D>(
         &mut self,
         delay: &mut D,
@@ -381,8 +381,9 @@ where
     /// Capture one fresh measurement using explicit conservative-or-longer timing.
     ///
     /// [`MeasurementTiming`] cannot represent a wait shorter than the
-    /// conservative minimum for its selected integration time. That minimum is
-    /// partly assumed rather than vendor-specified — see [`measure_once`] and
+    /// conservative minimum for its selected integration time. That minimum
+    /// rests on a vendor-stated tolerance the vendor does not characterize —
+    /// see [`measure_once`] and
     /// [`INTEGRATION_TOLERANCE_PERCENT`](crate::INTEGRATION_TOLERANCE_PERCENT).
     ///
     /// [`measure_once`]: Self::measure_once

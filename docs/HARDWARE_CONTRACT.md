@@ -130,16 +130,39 @@ No public raw-register accessor exists in v0.1.
       defines it as power saving.
 - [x] Which registers have a source-declared reset value, and which do not.
       `0x00` is declared (`0x0001`, register-format note) and `0x07` carries a
-      declared fixed identity (Table 8). Every other register is **not declared**,
-      including `0x03` — Table 4 constrains bits 15:3 to zero, which is a write
-      validity rule rather than a power-on value.
+      declared fixed identity (Table 8). No other register has a declared reset
+      **word**. `0x03` is the partial case: Table 4 constrains bits 15:3 to zero,
+      which is a write validity rule rather than a power-on value, while the
+      application note's power-saving discussion says the default is mode 1 =
+      `00` for bits 2:1 — a statement about the `PSM` field only, leaving
+      `PSM_EN` and therefore the word undeclared. See the Assumption row below
+      and #71.
 
 - [ ] **Assumption: register `0x03` reads `0x0000` before it is written.**
       *Requires physical validation.*
 
-      No passage declares it. It is the value every defined field takes at zero —
-      `PSM_EN` disabled, `PSM` mode 1, reserved bits clear — so a device that has
-      never had power saving written is expected to read it.
+      **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, the
+      command-register overview table, Table 4 *Power Saving Modes*, and the
+      register-format note that declares a power-on default for command code 0;
+      application note 84323 Rev. 06-Mar-2025, the *Command Code PSM / PSM_EN*
+      register-format table and the power-saving discussion preceding it. The
+      datasheet declares a power-on default exactly once, for `0x00`, and gives
+      `0x03` only `Set (15 : 3) 0000 0000 0000 0b` — a write validity rule for
+      reserved bits, not a power-on value. Table 4 gives field encodings with no
+      reset column.
+
+      **One passage bears on part of it.** The application note, describing how
+      to enable power saving, says the default it comes up with is mode 1 = `00`
+      for bits 2 and 1. That speaks to the `PSM` field reading `00` before it is
+      written. It says nothing about `PSM_EN`; that bit's power-on state is only
+      implied by the instruction to set it to 1 in order to activate the feature,
+      and an implication is not a declaration.
+
+      So the undeclared part is `PSM_EN`, and with it the full word. `0x0000` is
+      the value every defined field takes at zero — `PSM_EN` disabled, `PSM`
+      mode 1, reserved bits clear — so a device that has never had power saving
+      written is expected to read it. Narrowing this row to `PSM_EN` alone is a
+      contract-state change and belongs to #71, not to an in-place edit here.
 
       **The driver does not rely on this.** Every path reads register `0x03`
       before acting on it, so a different power-on value changes nothing the
@@ -248,10 +271,20 @@ statement, so the inference is recorded here rather than left implicit in code.
 - [ ] **Assumption: refresh time is independent of ALS gain.**
       *Requires physical validation. Further reading cannot close this row.*
 
-      The pinned sources publish the refresh relation at gain ×2 only and state
-      no gain dependence either way. The relation carries no gain term
-      (`integration + 500, 1000, 2000 or 4000 ms`), and independence is the
-      common understanding in third-party libraries, but neither is a source
+      **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, section
+      *Refresh Time Determination of PSM* and the *Refresh Time, I_DD, and
+      Resolution Relation* table; application note 84323 Rev. 06-Mar-2025, the
+      power-saving discussion at *Command Code PSM / PSM_EN* and its own copy of
+      the *Refresh Time, I_DD, and Resolution Relation* table. Every one of the
+      sixteen rows in that table, in **both** documents, is `ALS_GAIN = x2`; no
+      other gain appears anywhere in it. The app note's separate
+      `PSM` / `ALS_IT` → refresh-time table is indexed without a gain term at
+      all. Neither document states a gain dependence, and neither states
+      independence.
+
+      An unindexed table is not a claim of independence. The relation carries no
+      gain term (`integration + 500, 1000, 2000 or 4000 ms`), and independence is
+      the common understanding in third-party libraries, but neither is a source
       statement and this row does not accept one as a substitute.
 
       **This driver assumes it.** `nominal_refresh_time_ms` takes an integration
@@ -269,7 +302,8 @@ statement, so the inference is recorded here rather than left implicit in code.
 
 - after changing shutdown bit from 1 to 0, wait at least 2.5 ms before the first
   measurement;
-- integration time has an assumed ±30 % tolerance;
+- the vendor states that a ±30 % integration-time tolerance can be assumed, and
+  that it should be considered when reading measurement results;
 - data registers retain the last ambient result during shutdown;
 - waking causes later refresh by a new detection;
 - a plain register read therefore cannot prove freshness.
@@ -286,39 +320,42 @@ coherence policy, not a vendor-stated atomic pair primitive.
 
 - [x] The 2.5 ms minimum wake-up delay after clearing the shutdown bit. The
       source's flow chart states `ALS_SD = 0`, then wait ≥ 2.5 ms.
-- [ ] **Assumption: integration time is within ±30 % of nominal.**
-      *Requires physical validation. Further reading cannot close this row.*
+- [x] **The vendor states that a ±30 % integration-time tolerance can be
+      assumed, and that it should be considered when reading measurement
+      results.** Application note 84323, Revision 06-Mar-2025, page 4, section
+      *Command Code ALS_IT*, `Remark`:
 
-      Neither source states it. It appears in neither Absolute Maximum Ratings
-      nor Basic Characteristics, and the reviewed timing material specifies the
-      I²C bus but not the conversion clock.
+      > For the integration time a tolerance of ± 30 % can be assumed. This
+      > tolerance should also be considered during the read out of the
+      > measurement results.
 
-      This row was briefly recorded as waiting on a passage. That was wrong
-      about the kind of fact it is. Integration intervals are counted off the
-      part's **internal oscillator**, so their spread is that oscillator's
-      tolerance — a process-dependent silicon characteristic, not a separately
-      specified timing parameter that a further page would list. Vishay
-      publishes no oscillator accuracy for this part, and an untrimmed
-      integrated RC oscillator drifting tens of percent over process, voltage
-      and temperature is ordinary. Waiting for a passage here is waiting for a
-      document that was never going to exist.
+      **This is application guidance, not a characterized guarantee**, and the
+      two must not be conflated. The figure appears in the application note
+      only. The datasheet gives no integration-time tolerance in Absolute
+      Maximum Ratings or Basic Characteristics, and publishes no oscillator
+      accuracy for this part — the oscillator appears in the block diagram and
+      nowhere in the electrical tables. The vendor's own wording is *can be
+      assumed*, which is a design allowance, not a specified min/max.
 
-      The ±30 % figure itself is third-party in origin and is **not** adopted as
-      a source-backed value. What the sources do support is that the timing is
-      oscillator-derived and unspecified; ±30 % is this repository's
-      conservative stand-in for an unpublished tolerance.
+      So this row records that ±30 % is **vendor-stated**. It does not record a
+      worst case guaranteed across process, voltage, and temperature. Integration
+      intervals are counted off the part's internal oscillator, and nothing in
+      either source bounds that oscillator's spread over PVT.
 
-      **This driver assumes it.** `INTEGRATION_TOLERANCE_PERCENT` is why the
-      conservative wait is 130 % of the selected integration time, so the margin
-      is conservative *given the assumption* rather than in general. A real
-      spread wider than ±30 % would make the driver read a register before the
-      conversion behind it completed — the freshness guarantee fails silently,
-      returning a stale value that is indistinguishable from a new one.
+      **This driver applies it.** `INTEGRATION_TOLERANCE_PERCENT` is why the
+      conservative wait is 130 % of the selected integration time, which is this
+      driver acting on the Remark's second sentence. The margin is therefore
+      conservative *given the vendor's stated tolerance* rather than in general:
+      a real spread wider than ±30 % would make the driver read a register before
+      the conversion behind it completed — the freshness guarantee fails
+      silently, returning a stale value that is indistinguishable from a new one.
 
-      **What would settle it:** clocking actual conversion completion against
-      the shutdown-to-active wake edge. Procedure and sampling considerations
-      are in #58, not here — this document names the observation; it does not
-      carry a physical-evidence plan.
+      **What measurement would add:** clocking actual conversion completion
+      against the shutdown-to-active wake edge would turn vendor guidance into
+      characterization evidence for the parts measured. That is optional
+      compliance work, not the discovery of a missing figure, and no row depends
+      on it. Sampling considerations are in #58, not here — this document does
+      not carry a physical-evidence plan.
 - [x] Data registers retain the last result while shut down. The source calls
       this *Auto-Memorization*: the part memorizes the last ambient data before
       shutdown, the host may read it directly while shut down, and on wake the

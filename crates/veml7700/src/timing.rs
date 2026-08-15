@@ -4,27 +4,32 @@ use crate::config::IntegrationTime;
 
 /// Minimum wake-up delay before measurement timing begins.
 pub const WAKE_UP_DELAY_US: u32 = 2_500;
-/// Assumed maximum integration-time tolerance magnitude.
+/// Vendor-stated integration-time tolerance magnitude.
 ///
-/// # This is an assumption about silicon, not a documented figure
+/// # This is design guidance, not a characterized guarantee
 ///
-/// No vendor document states an integration-time tolerance, and none is
-/// expected to. Integration intervals are counted off the part's internal
-/// oscillator, so their spread is that oscillator's tolerance — a
-/// process-dependent silicon characteristic rather than a specified timing
-/// parameter. Vishay publishes no oscillator accuracy for this part.
+/// Vishay application note 84323 (*Designing the VEML7700 Into an Application*,
+/// Revision 06-Mar-2025), page 4, section *Command Code ALS_IT*, `Remark`,
+/// states that a ±30 % integration-time tolerance can be assumed and that it
+/// should also be considered when reading measurement results. This constant is
+/// that figure, and the conservative 130 % wait is this driver doing what the
+/// second sentence asks.
 ///
-/// 30 % is a conservative stand-in for that unpublished tolerance, third-party
-/// in origin and not adopted as source-backed. It is why a conservative wait is
-/// 130 % of the selected integration time, which makes that margin conservative
-/// *given this assumption* rather than in general.
+/// What the sources do **not** provide is a worst case guaranteed across
+/// process, voltage, and temperature. The figure is in the application note
+/// only: the datasheet specifies no integration-time tolerance and publishes no
+/// accuracy for the internal oscillator the integration intervals are counted
+/// off. The vendor's wording is *can be assumed* — a design allowance rather
+/// than a min/max specification.
 ///
-/// If the real spread is wider, the driver can read an output register before
-/// the conversion behind it has completed, and the freshness guarantee fails
-/// silently — a stale value is indistinguishable from a new one.
+/// So the resulting margin is conservative *given the vendor's stated
+/// tolerance*, not in general. If the real spread is wider, the driver can read
+/// an output register before the conversion behind it has completed, and the
+/// freshness guarantee fails silently — a stale value is indistinguishable from
+/// a new one.
 ///
-/// `docs/HARDWARE_CONTRACT.md` §7 records this as an **Assumption** under D-029,
-/// with the measurement that would settle it.
+/// `docs/HARDWARE_CONTRACT.md` §7 records the source location, and #58 carries
+/// the optional characterization that would measure the spread directly.
 pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 /// Additional software margin beyond wake-up and maximum integration time.
 ///
@@ -43,14 +48,14 @@ pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 ///
 /// It does **not** cover, and must not be relied on for:
 ///
-/// - integration-time error beyond the assumed ±30 %, which is what
+/// - integration-time error beyond the vendor-stated ±30 %, which is what
 ///   [`INTEGRATION_TOLERANCE_PERCENT`] is for;
 /// - I²C transaction time, which is the caller's bus speed and is unbounded from
 ///   this driver's perspective;
 /// - executor scheduling latency, which
 ///   `embedded_hal_async::delay::DelayNs` may add without limit; or
-/// - any silicon behavior. Waiting longer cannot make an undocumented
-///   conversion time documented.
+/// - any silicon behavior. Waiting longer cannot turn a stated design tolerance
+///   into a characterized one.
 ///
 /// The wait is a lower bound on request, never a guarantee about elapsed time —
 /// see
@@ -84,10 +89,11 @@ impl MeasurementTiming {
     /// The resulting timing can only be equal to or longer than the conservative
     /// minimum; this type cannot represent a shortened fresh wait.
     ///
-    /// Lengthening does not convert an assumption into a guarantee. The minimum
-    /// is partly built on [`INTEGRATION_TOLERANCE_PERCENT`], so a caller who
-    /// suspects a wider real spread can add margin here — but no margin makes
-    /// the conversion time source-specified.
+    /// Lengthening does not convert design guidance into a guarantee. The
+    /// minimum is partly built on [`INTEGRATION_TOLERANCE_PERCENT`], which the
+    /// vendor states as assumable rather than specifies as a worst case, so a
+    /// caller who suspects a wider real spread can add margin here — but no
+    /// margin makes the conversion time characterized.
     pub const fn with_additional_margin_us(
         integration_time: IntegrationTime,
         additional_margin_us: u32,
