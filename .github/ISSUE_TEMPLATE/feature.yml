@@ -1,109 +1,57 @@
 name: Feature proposal
-description: Propose a bounded capability with an explicit contract, value, and acceptance evidence.
+description: Propose one bounded capability and its observable acceptance test.
 title: "[Proposal]: "
 body:
   - type: markdown
     attributes:
       value: |
-        A proposal is a decision record, not authorization to implement or
-        release.
-
-        This driver claims deliberately little, and several directions are
-        already settled as out of scope: raw-register APIs, cached device state,
-        automatic optical correction, calibrated lux, MCU examples, board
-        support, and physical-evidence infrastructure. See
-        [`CONTRIBUTING.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/CONTRIBUTING.md)
-        and [`docs/DECISIONS.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/DECISIONS.md)
-        before proposing one of those; a proposal that reopens a recorded
-        decision needs to address the rationale that closed it.
-
-        Keep the capability at the lowest layer able to own its invariants.
+        Describe one concrete capability. This form is an intake record, not a
+        decision log and not authorization to implement, publish, or release.
+        Device evidence is identified only through stable `S-nn` propositions
+        in the shared registry; do not copy their prose here.
 
   - type: textarea
     id: problem-value
     attributes:
       label: Problem and user value
-      description: What concrete problem exists, for whom, and what becomes possible if it is solved?
+      description: What concrete problem exists, for whom, and what would become possible?
     validations:
       required: true
 
   - type: textarea
-    id: scope-fit
+    id: behavior
     attributes:
-      label: Repository fit and invariant ownership
+      label: Observable behavior and boundary
       description: >
-        Why is this driver the correct layer, and which invariants would it own?
-        If a consuming application, integration layer, or a different crate
-        should own them, say so.
+        State the public behavior, failures, and the lowest layer that can own
+        it. Include timing, cancellation, or restoration only when relevant.
+    validations:
+      required: true
+
+  - type: input
+    id: shared-evidence
+    attributes:
+      label: Shared evidence propositions
+      description: >
+        Applicable stable `S-nn` IDs; `missing proposition` when no exact atomic
+        row exists; or `no new device behavior` for a pure software capability.
+        Do not quote or paraphrase a registry row or vendor passage.
+      placeholder: "S-nn, missing proposition, or no new device behavior"
     validations:
       required: true
 
   - type: textarea
-    id: contract
+    id: acceptance
     attributes:
-      label: Proposed behavioral contract
+      label: Acceptance evidence
       description: >
-        Observable behavior, inputs and outputs, failure behavior, and — where
-        relevant — timing, cancellation, restoration, and partial-commit
-        semantics. Multi-step operations must state what a caller can rely on
-        after a failure.
-    validations:
-      required: true
-
-  - type: textarea
-    id: source-basis
-    attributes:
-      label: Source basis
-      description: >
-        Which rows of `docs/HARDWARE_CONTRACT.md`, or which passages of the
-        pinned Vishay documents, establish the device behavior this depends on?
-        Write "no new device behavior" for a pure software capability. Do not
-        infer device behavior the sources do not state.
+        Name the observable test at the appropriate layer. Keep scripted
+        transport, model behavior, conformance, and physical evidence distinct.
     validations:
       required: true
 
   - type: textarea
     id: non-goals
     attributes:
-      label: Non-goals and boundaries
-      description: Adjacent problems, hardware responsibilities, or configurations this would not claim to solve.
-    validations:
-      required: true
-
-  - type: textarea
-    id: compatibility
-    attributes:
-      label: Compatibility and release impact
-      description: >
-        API, behavior, feature, target, memory, timing, package, and versioning
-        consequences. Note whether it can be added after the public API becomes
-        immutable, or must land before. State when unknown.
-    validations:
-      required: true
-
-  - type: textarea
-    id: evidence
-    attributes:
-      label: Acceptance evidence
-      description: >
-        Which tests would establish the claims, and at which layer — pure/unit,
-        scripted I²C, model-only, or driver-versus-model? Name the layer for
-        each claim; model agreement is not a hardware claim.
-    validations:
-      required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives and open decisions
-      description: Competing approaches, rejected directions, unresolved questions, and the bar for promotion to implementation.
-
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Submission checks
-      options:
-        - label: This capability is not already excluded by the scope boundaries in `CONTRIBUTING.md`, or I have addressed the decision that excluded it.
-          required: true
-        - label: I understand that opening this proposal does not authorize implementation, publication, or any other irreversible action.
-          required: true
+      label: Non-goals
+      description: Only the adjacent boundary needed to keep this proposal finite.

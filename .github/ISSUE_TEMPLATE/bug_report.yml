@@ -1,35 +1,35 @@
-name: Bug report
-description: Report driver behavior that contradicts the documented contract.
+name: Bug or evidence discrepancy
+description: Report a component mismatch or evidence that may change a shared proposition.
 title: "bug: "
 body:
   - type: markdown
     attributes:
       value: |
-        This driver makes deliberately narrow claims. Before filing, check
-        whether the behavior you saw is already excluded by
+        For suspected device behavior, cite the applicable stable `S-nn` from
         [`docs/HARDWARE_CONTRACT.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/HARDWARE_CONTRACT.md)
-        §11 or the status disclosure in the README. Nominal lux is not
-        calibrated lux, snapshots make no freshness claim, and there is no
-        interrupt pin.
-
-        For a suspected vulnerability, follow
-        [`SECURITY.md`](https://github.com/photon-circus/ph-veml7700-als/blob/main/SECURITY.md)
-        instead of opening an issue.
+        without copying its proposition. Use `missing proposition` only when no
+        exact referent exists, or `no device proposition` for a pure software or
+        API defect. Report vulnerabilities through `SECURITY.md` instead.
 
   - type: dropdown
     id: evidence-source
     attributes:
-      label: Evidence source
-      description: >
-        Where did the observed behavior come from? This is the most important
-        field in the form. Mock, model, or simulated behavior must never
-        silently become a hardware claim, so reports are read differently
-        depending on this answer.
+      label: Observation source
       options:
         - Physical hardware
+        - Pinned documentary source
         - Behavioral model or simulation
-        - Mock or scripted transport
-        - Code reading only; not executed
+        - Scripted transport or mock
+        - Code reading only
+    validations:
+      required: true
+
+  - type: input
+    id: shared-proposition
+    attributes:
+      label: Stable proposition
+      description: Existing `S-nn`, `missing proposition`, or `no device proposition`.
+      placeholder: "S-nn, missing proposition, or no device proposition"
     validations:
       required: true
 
@@ -37,58 +37,25 @@ body:
     id: expected-observed
     attributes:
       label: Expected and observed behavior
-      description: State both, and cite the contract line the expectation comes from.
+      description: State the component-level mismatch without restating registry prose.
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Minimal reproduction
-      description: The smallest sequence of driver calls that shows the problem.
-      render: rust
+      label: Minimal reproduction or evidence procedure
+      description: The smallest sequence or source review that produces the observation.
+      render: text
     validations:
       required: true
-
-  - type: input
-    id: package-version
-    attributes:
-      label: Package version and toolchain
-      description: Crate version or commit, plus `rustc --version`.
-      placeholder: "0.1.0-incubating.1, rustc 1.92.0"
-    validations:
-      required: true
-
-  - type: input
-    id: target
-    attributes:
-      label: MCU and target triple
-      placeholder: "STM32L476, thumbv7em-none-eabihf"
-
-  - type: input
-    id: board
-    attributes:
-      label: Device and board revision
-      description: Sensor module or breakout, and board revision if applicable.
-
-  - type: input
-    id: bus
-    attributes:
-      label: Bus mode
-      description: Clock speed, standard or fast mode, and pull-up values if known.
-      placeholder: "400 kHz fast mode, 4.7 kΩ pull-ups"
-
-  - type: input
-    id: features
-    attributes:
-      label: Enabled features
-      placeholder: "default (none), or defmt"
 
   - type: textarea
-    id: observations
+    id: context
     attributes:
-      label: Logs, traces, or register observations
+      label: Relevant context and raw artifacts
       description: >
-        Raw register words and I²C transaction traces are far more useful than
-        decoded values. Include byte order as observed on the wire.
+        Include commit/version and target when relevant. For physical evidence,
+        include unit or lot, revision, reset history, voltage, temperature,
+        procedure/tool commit, and a durable raw-artifact link or digest.
       render: text

@@ -11,12 +11,12 @@
 
 use futures::executor::block_on;
 use ph_veml7700_als::{
-    AlsCounts, ConfigurationSnapshot, Gain, IntegrationTime, MeasurementConfig, Persistence,
-    PowerSavingConfig, PowerSavingMode, PowerState, ThresholdMonitorConfig, ThresholdMonitorState,
-    Thresholds, WhiteCounts,
+    AlsCounts, BusContext, ConfigurationSnapshot, Error, Gain, IntegrationTime, MeasurementConfig,
+    Operation, Persistence, PowerSavingConfig, PowerSavingMode, PowerState, ThresholdMonitorConfig,
+    ThresholdMonitorState, Thresholds, WhiteCounts,
 };
-use ph_veml7700_als_conformance::connected_model;
-use ph_veml7700_als_model::RelativeDuration;
+use ph_veml7700_als_conformance::{ModelBusError, connected_model};
+use ph_veml7700_als_model::{RelativeDuration, Unsupported};
 
 #[test]
 fn probe_accepts_the_fixed_address_little_endian_id() {
@@ -87,7 +87,7 @@ fn arming_the_monitor_from_an_active_start_agrees_with_the_model() {
     let thresholds =
         Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
     block_on(sensor.arm_threshold_monitor(ThresholdMonitorConfig::new(
-        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        MeasurementConfig::new(Gain::X2, IntegrationTime::Ms100),
         thresholds,
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -109,7 +109,7 @@ fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
     let thresholds =
         Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(1_000)).unwrap();
     let monitor = ThresholdMonitorConfig::new(
-        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        MeasurementConfig::new(Gain::X2, IntegrationTime::Ms100),
         thresholds,
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -121,7 +121,7 @@ fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
     // accepts either alone as a transition, and both together as
     // MidConversionReconfiguration.
     let retarget = ThresholdMonitorConfig::new(
-        MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100),
+        MeasurementConfig::new(Gain::X2, IntegrationTime::Ms100),
         Thresholds::new(AlsCounts::from_counts(200), AlsCounts::from_counts(2_000)).unwrap(),
         Persistence::Four,
         PowerSavingConfig::new(true, PowerSavingMode::Mode2),
@@ -136,10 +136,14 @@ fn re_arming_an_enabled_active_monitor_agrees_with_the_model() {
 #[test]
 fn public_power_operations_observe_the_documented_mode_2_refresh_boundary() {
     let (mut sensor, model) = connected_model(1, 1);
+    block_on(
+        sensor.set_measurement_config(MeasurementConfig::new(Gain::X2, IntegrationTime::Ms100)),
+    )
+    .expect("select the `S-21` gain domain");
     block_on(sensor.set_power_saving(PowerSavingConfig::new(true, PowerSavingMode::Mode2)))
         .expect("configure modeled cadence");
     block_on(sensor.set_power_state(PowerState::Active)).expect("wake modeled device");
-    model.advance(RelativeDuration::from_micros(132_500));
+    model.advance(RelativeDuration::from_micros(102_500));
     model.set_raw_sample(2, 2);
 
     model.advance(RelativeDuration::from_micros(1_099_999));
@@ -155,20 +159,11 @@ fn public_power_operations_observe_the_documented_mode_2_refresh_boundary() {
 }
 
 #[test]
-fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
-    // This trace previously ran at `Persistence::Four` and asserted the flag on
-    // the fourth consecutive qualifying refresh. It established less than it
-    // appeared to: the driver only *programs* `ALS_PERS` and reads `0x06`, so
-    // the sequence was confirming a register write while reading like
-    // confirmation of when the flag asserts. The counting rule came from the
-    // model alone, and the driver had no rule to disagree with.
-    //
-    // Protect number one needs no *counting* rule -- one refresh, no sequence,
-    // nothing to reset -- so this is the persistence value at which driver-model
-    // agreement means something. Whether the sources also license asserting the
-    // flag at all is a separate question, open as #78; it is not vacuous at one.
-    // See D-030 and `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
-    let (mut sensor, model) = connected_model(250, 0);
+fn threshold_monitor_public_operations_program_read_back_and_disable() {
+    // This trace covers the shared programming surface (`S-16`, `S-38`) without
+    // manufacturing qualification behavior from the undefined `S-49`/`S-50`
+    // device propositions.
+    let (mut sensor, _model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");
     let monitor = ThresholdMonitorConfig::new(
@@ -181,10 +176,6 @@ fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
 
     let observed = block_on(sensor.read_thresholds()).expect("threshold readback");
     assert_eq!(observed, thresholds);
-    model.advance(RelativeDuration::from_micros(132_500));
-    let status = block_on(sensor.read_threshold_status()).expect("qualified status");
-    assert!(!status.low);
-    assert!(status.high);
 
     block_on(sensor.disable_threshold_monitor()).expect("disable monitor");
     assert_eq!(
@@ -196,16 +187,14 @@ fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
 }
 
 #[test]
-fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_status() {
-    // The driver's side of D-030: it programs the protect number and promises
-    // nothing about assertion timing. The model's side: it declares the
-    // qualification rule undefined instead of inventing one.
+fn arming_programs_the_field_but_yields_no_modeled_status() {
+    // The driver programs the protect number and promises nothing about
+    // assertion timing. The model declares the qualification rule undefined
+    // instead of inventing one.
     //
     // What this trace establishes is exactly the intersection -- the write path
     // is unaffected -- and it deliberately establishes nothing about when a flag
-    // asserts. The sources give the counting condition in necessary form only,
-    // and say nothing about sufficiency or about partial runs, so an assertion
-    // time cannot be derived from them.
+    // asserts. `S-39`, `S-49`, and `S-50` do not support deriving one.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");
@@ -217,7 +206,7 @@ fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_stat
     );
     block_on(sensor.arm_threshold_monitor(monitor)).expect("arm against the model");
 
-    // Programming is source-backed (Table 1) and must keep working.
+    // Programming the `S-16` encoding must keep working.
     assert_eq!(
         block_on(sensor.read_configuration())
             .expect("armed configuration")
@@ -229,13 +218,17 @@ fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_stat
         thresholds
     );
 
-    // Qualification is not. Sixteen refreshes is twice the largest protect
-    // number, so any streak rule would have asserted long before here.
-    model.advance(RelativeDuration::from_micros(132_500 + 16 * 130_000));
-    assert!(
-        block_on(sensor.read_threshold_status()).is_err(),
-        "the model must not answer with a status it derived from a half-stated rule"
-    );
+    // Qualification is not. Advancing repeatedly does not turn the model's
+    // undefined reaction to `S-39`, `S-49`, and `S-50` into one it can support.
+    model.advance(RelativeDuration::from_micros(102_500 + 16 * 100_000));
+    assert!(matches!(
+        block_on(sensor.read_threshold_status()),
+        Err(Error::Bus {
+            operation: Operation::Inspect,
+            context: BusContext::ReadThresholdStatus,
+            source: ModelBusError::Unsupported(Unsupported::UndefinedQualificationRule { .. }),
+        })
+    ));
 }
 
 #[test]
@@ -243,7 +236,7 @@ fn public_channel_reads_can_observe_independently_refreshed_generations() {
     let (mut sensor, model) = connected_model(10, 20);
     model.set_white_phase_offset(RelativeDuration::from_micros(10));
     block_on(sensor.set_power_state(PowerState::Active)).expect("wake modeled device");
-    model.advance(RelativeDuration::from_micros(132_510));
+    model.advance(RelativeDuration::from_micros(102_510));
     assert_eq!(
         block_on(sensor.read_als_snapshot()).expect("initial ALS"),
         AlsCounts::from_counts(10)
@@ -254,7 +247,7 @@ fn public_channel_reads_can_observe_independently_refreshed_generations() {
     );
 
     model.set_raw_sample(30, 40);
-    model.advance(RelativeDuration::from_micros(129_990));
+    model.advance(RelativeDuration::from_micros(99_990));
     assert_eq!(
         block_on(sensor.read_als_snapshot()).expect("refreshed ALS"),
         AlsCounts::from_counts(30)

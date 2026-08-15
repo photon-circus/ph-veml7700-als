@@ -1,11 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Report a vulnerability privately
     url: https://github.com/photon-circus/ph-veml7700-als/blob/main/SECURITY.md
     about: Private reporting route and scope. Do not open a public issue for a flaw that could corrupt measurements.
-  - name: What this driver claims
+  - name: Shared evidence registry
     url: https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/HARDWARE_CONTRACT.md
-    about: The interpreted device contract. Check whether the behavior you saw is already excluded before filing.
+    about: Stable device propositions and their provenance. Cite an S-nn rather than copying its prose.
   - name: What evidence exists
     url: https://github.com/photon-circus/ph-veml7700-als/blob/main/docs/VERIFICATION.md
     about: Which test layer establishes which claim, and what none of them establish about silicon.

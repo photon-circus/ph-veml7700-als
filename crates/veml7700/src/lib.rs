@@ -1,9 +1,3 @@
-//! Async `#![no_std]` driver for the Vishay VEML7700 ambient-light sensor.
-//!
-//! The crate documentation below is the packaged README, included verbatim.
-//! There is exactly one consumer-facing description of this crate, so docs.rs
-//! and crates.io cannot disagree about what it claims — which they did while
-//! the two were maintained as separate copies kept in step by the gate.
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![forbid(unsafe_code)]
@@ -67,7 +61,7 @@ pub use error::{
 pub use id::DeviceId;
 pub use illuminance::{MicroLux, NominalScale};
 pub use measurement::{
-    AlsCounts, DeviceSnapshot, FreshMeasurement, MeasurementPairCoherence, SnapshotMeasurement,
+    AlsCounts, DeviceSnapshot, MeasurementCapture, MeasurementPairCoherence, SnapshotMeasurement,
     WhiteCounts,
 };
 pub use power::{PowerSavingConfig, PowerSavingDecodeError, PowerSavingMode, PowerSavingSnapshot};

@@ -1,8 +1,8 @@
 //! Independent VEML7700 device behavioral model.
 //!
-//! This crate predicts the datasheet-derived slice used for probe, fresh
+//! This crate predicts the shared-evidence-derived slice used for probe, one-shot
 //! measurement, autonomous cadence, and threshold-monitor conformance traces.
-//! It does not depend on the production driver. The maintained claim, sources,
+//! It does not depend on the production driver. The maintained claim, evidence,
 //! fidelity table, and nonclaims live in the crate README.
 //!
 //! Passing tests establish agreement with this model only. They do not

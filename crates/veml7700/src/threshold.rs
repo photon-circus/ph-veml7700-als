@@ -39,7 +39,16 @@ impl Thresholds {
     }
 }
 
-/// Polled threshold flags.
+/// Raw decoded threshold-flag observation (`S-38`).
+///
+/// The driver performs no explicit read-to-clear, write-to-clear, arm-time, or
+/// disable-time clearing action and promises no flag history (`S-42`, `S-53`,
+/// `S-54`). A set or clear field reports only what that register read returned;
+/// it does not establish a reset point or a "since arming" interval. Reading and
+/// discarding one value does not make the next value fresh.
+///
+/// The driver also promises no flag-assertion time for any persistence setting
+/// (`S-39`, `S-49`, `S-50`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ThresholdStatus {
@@ -82,15 +91,23 @@ pub struct ThresholdMonitorConfig {
     pub measurement: MeasurementConfig,
     /// Raw low/high thresholds in that measurement domain.
     pub thresholds: Thresholds,
-    /// Persistence protect number. See [`Persistence`] for what selecting a
-    /// value above one does *not* promise about assertion timing.
+    /// Persistence protect number. See [`Persistence`] for the absence of an
+    /// assertion-timing promise at every value.
     pub persistence: Persistence,
-    /// Cadence that determines wall-clock qualification behavior.
+    /// Cadence selection owned by the monitored domain.
+    ///
+    /// The driver programs this value but makes no wall-clock qualification
+    /// promise. Enabled cadence at 25 ms or 50 ms also has no documented refresh
+    /// time (`S-44`).
     pub power_saving: PowerSavingConfig,
 }
 
 impl ThresholdMonitorConfig {
     /// Construct a complete monitored domain.
+    ///
+    /// Construction validates no cross-field timing semantics. Programming is
+    /// supported even where refresh or threshold qualification remains
+    /// undefined; the result carries no assertion-time promise.
     pub const fn new(
         measurement: MeasurementConfig,
         thresholds: Thresholds,

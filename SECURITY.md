@@ -32,7 +32,7 @@ concern the code in this repository:
 - evidence laundering — any path where model, mock, or simulated output can
   reach a caller labeled as hardware-derived or calibrated;
 - loss of an invariant the contract promises, such as threshold ordering or
-  restoration after a failed fresh capture;
+  restoration after a failed one-shot capture;
 - dependency or supply-chain problems reachable from this crate's dependency
   graph; and
 - defects in the verification gate that would let any of the above pass review.

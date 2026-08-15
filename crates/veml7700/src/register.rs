@@ -1,5 +1,7 @@
 //! Private register map.
 
+// Driver register-map reaction to `S-09`.
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Register {

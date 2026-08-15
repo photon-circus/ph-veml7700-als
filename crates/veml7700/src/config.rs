@@ -1,6 +1,6 @@
 //! Configuration-register value types and codec.
 
-/// Analog gain selection.
+/// Driver gain-codec reaction to `S-14`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Gain {
@@ -34,7 +34,7 @@ impl Gain {
     }
 }
 
-/// Integration-time selection.
+/// Driver integration-codec reaction to `S-15`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum IntegrationTime {
@@ -93,33 +93,20 @@ impl IntegrationTime {
 ///
 /// # What this selects, and what it does not promise
 ///
-/// The four values are source-backed: Table 1 defines `ALS_PERS` and its
-/// encodings as a *persistence protect number*, and that is what this driver
-/// programs.
-///
-/// **The counting condition is source-backed; assertion timing is not.** The
-/// vendor's application note states that a flag is set *only when* the threshold
-/// is exceeded and `ALS_PERS` measurements stay above or below it. That makes
-/// the condition **necessary**. It does not state that meeting it is
-/// sufficient, and it does not say what a measurement that fails to qualify does
-/// to a partial run.
+/// The driver programs the four persistence encodings recorded by `S-16`.
+/// `S-39`, `S-49`, and `S-50` leave the assertion rule incomplete.
 ///
 /// This driver therefore promises nothing about *when*
 /// [`read_threshold_status`](crate::Veml7700::read_threshold_status) will report
-/// a flag for any value above [`Persistence::One`].
+/// a flag for any persistence value.
 ///
 /// Poll the status. Do not compute an expected assertion time from the count and
-/// the refresh cadence — that calculation needs sufficiency and a reset rule,
-/// and the sources give neither.
-///
-/// `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40` record both halves; D-030 says why the
-/// driver stays silent here rather than assuming.
+/// refresh cadence. The driver stays silent rather than supplying the two
+/// missing propositions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Persistence {
-    /// Protect number 1 — one qualifying measurement.
-    ///
-    /// The only value with no rule ambiguity: there is no sequence to count.
+    /// Protect number 1 (encoded count 1).
     One,
     /// Protect number 2.
     Two,
@@ -162,13 +149,14 @@ impl Persistence {
     }
 }
 
-/// Sensor conversion power state.
+/// Driver power-state codec reaction to `S-17`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PowerState {
     /// Conversions are enabled.
     Active,
-    /// Conversion circuitry is shut down and the last data remains readable.
+    /// Conversion circuitry is shut down; the driver treats data retention as
+    /// the separate consequence of `S-25`.
     Shutdown,
 }
 
@@ -189,13 +177,14 @@ impl PowerState {
     }
 }
 
-/// Whether threshold monitoring is enabled in the configuration register.
+/// Driver monitor-enable codec reaction to `S-17`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ThresholdMonitorState {
     /// Threshold monitoring is disabled.
     Disabled,
-    /// Threshold monitoring is enabled; status is available only by polling.
+    /// Threshold monitoring is enabled; this driver exposes status only by
+    /// polling (`S-41`).
     Enabled,
 }
 
@@ -233,39 +222,13 @@ impl MeasurementConfig {
         }
     }
 
-    /// Vendor silicon reset-domain measurement fields: gain ×1 and 100 ms.
-    ///
-    /// This is what the device powers up in, not a recommendation. The sources
-    /// confine gain ×1 to illumination below 100 lx, so this domain saturates at
-    /// 4 404 lx — well under office daylight. It exists so a caller can name the
-    /// reset state, not so they can start from it.
+    /// Driver decoding of the reset-domain measurement fields (`S-12`, `S-14`,
+    /// `S-15`), not a recommendation.
     pub const fn silicon_reset_default() -> Self {
         Self::new(Gain::X1, IntegrationTime::Ms100)
     }
 
-    /// Widest range the part offers: gain ×1/8 and 25 ms, saturating at
-    /// ~140 926 lx.
-    ///
-    /// This is the starting point for unknown brightness. The sources say to
-    /// begin at the lowest gain — ×1/8 or ×1/4 — so strong sunlight cannot
-    /// overload the sensor, and that an integration time below 100 ms may be
-    /// needed to show such a value. Both are recorded in
-    /// `docs/HARDWARE_CONTRACT.md` `S-34`.
-    ///
-    /// The cost is resolution: 2.1504 lx per count, the coarsest the part
-    /// offers. Once the ambient range is known, a longer integration time or
-    /// higher gain gives a finer reading — see
-    /// [`NominalScale::full_scale_micro_lux`](crate::NominalScale::full_scale_micro_lux)
-    /// for what each pair reaches.
-    ///
-    /// # Not usable with power-saving cadence
-    ///
-    /// The vendor publishes refresh times for 100, 200, 400 and 800 ms only, so
-    /// 25 ms has no documented cadence. Pairing this preset with an enabled
-    /// [`PowerSavingConfig`](crate::PowerSavingConfig) in
-    /// [`arm_threshold_monitor`](crate::Veml7700::arm_threshold_monitor) asks for
-    /// behavior no source establishes. Use 100 ms or longer when monitoring with
-    /// cadence enabled.
+    /// Driver starting policy for unknown brightness (`S-28`, `S-34`).
     pub const fn maximum_range_start() -> Self {
         Self::new(Gain::Div8, IntegrationTime::Ms25)
     }
@@ -288,11 +251,10 @@ impl MeasurementConfig {
 impl Default for MeasurementConfig {
     /// This crate's software policy, **not** the device's reset state.
     ///
-    /// Returns [`maximum_range_start`](Self::maximum_range_start): the widest
-    /// range the part offers, so an unconfigured first measurement has the best
-    /// chance of landing on scale. It does **not** make saturation impossible —
-    /// light beyond ~140 926 lx still clips, still without an error — so
-    /// [`AlsCounts::is_saturated`](crate::AlsCounts::is_saturated) must be
+    /// Returns [`maximum_range_start`](Self::maximum_range_start), the driver's
+    /// `S-28`/`S-34` starting policy. A maximum raw code remains ambiguous
+    /// (`S-51`, `S-52`), so
+    /// [`AlsCounts::is_max_code`](crate::AlsCounts::is_max_code) must be
     /// checked regardless of configuration. The device's own reset domain is
     /// [`silicon_reset_default`](Self::silicon_reset_default) and is different —
     /// a caller who wants what the hardware powers up in must ask for it by
@@ -391,6 +353,7 @@ impl ConfigWord {
     }
 
     pub(crate) fn decode(self) -> Result<ConfigurationSnapshot, ConfigDecodeError> {
+        // Driver reserved-field reaction to `S-13` and `S-18`.
         let reserved = self.0 & 0b1110_0100_0000_1100;
         if reserved != 0 {
             return Err(ConfigDecodeError::ReservedBits { observed: reserved });

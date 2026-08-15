@@ -1,272 +1,159 @@
 # Contributing
 
-Everything you need to prepare and validate a change is on this page. You do not
-need to read `AGENTS.md`; that file holds operational notes for automated
-agents, not contributor policy.
+This page contains contributor policy. Automated agents use `AGENTS.md` for a
+short operational subset.
 
-## What this repository is
+## Scope before artifacts
 
-An async, allocation-free `no_std` VEML7700 ambient-light-sensor driver, plus an
-independent behavioral model used only as a test oracle. The driver talks to a
-caller-supplied `embedded-hal-async` I²C bus and owns nothing else — no board
-support, no MCU examples, no fixtures, no hardware runners.
+For a new driver/model pair, first read the pinned sources to identify the
+peripheral's externally observable capabilities. This is a short, disposable
+survey for selecting product scope. Do not infer a driver API, driver policy,
+model state machine, oracle result, conformance claim, or CI rule during that
+pass.
 
-The project's defining constraint is **evidence honesty**: it is always clear
-what established a claim, and model or simulated results never quietly become
-hardware claims. Most review feedback traces back to that.
+After the maintainer selects a product slice, add stable evidence propositions
+only when a concrete driver, model, conformance trace, approved hardware
+investigation, or reported bug needs them. An implementation roadblock is a
+valid demand signal. The maintained consumer precedes the maintained evidence
+artifact.
 
-## Setup
+The capability survey is not a maintained contract, completeness checklist, or
+backlog. Do not preload the registry with every source fact or absence and then
+invent consumers, tests, hardware work, issues, decisions, or CI to justify it.
 
-Prerequisites:
+This repository owns an async, allocation-free `no_std` VEML7700 driver and
+independent test model. MCU examples, board support, fixtures, and speculative
+hardware infrastructure are out of scope.
 
-| Tool | Version | How it is pinned |
-| --- | --- | --- |
-| Rust | 1.92.0, Edition 2024 | `rust-toolchain.toml` — rustup installs it automatically |
-| Clippy, rustfmt | bundled | `rust-toolchain.toml` components |
-| Bare-metal targets | five triples | `rust-toolchain.toml` targets |
-| `cargo-deny` | 0.20.2 | asserted by the gate; `cargo install cargo-deny --version 0.20.2 --locked` |
-| POSIX shell | any | Git Bash is fine on Windows |
+## Setup and verification
+
+| Tool | Version source |
+| --- | --- |
+| Rust 1.92.0, clippy, rustfmt, five targets | `rust-toolchain.toml` |
+| `cargo-deny` 0.20.2 | asserted by the gate |
+| POSIX shell | Git Bash is supported on Windows |
 
 ```sh
 git clone https://github.com/photon-circus/ph-veml7700-als
 cd ph-veml7700-als
 cargo fetch --locked
-```
-
-The toolchain file does the work: `cargo` commands inside the repository use
-1.92.0 and the five reference targets without further setup.
-
-`cargo-deny` is the exception: `deny.toml` configures the dependency and licence
-policy but pins no binary version, so the gate asserts the version itself and
-fails on a mismatch. That is deliberate — `cargo-deny` changes its own lint set
-between releases, and an unpinned advisory tool makes the authoritative gate
-non-reproducible.
-
-## Verification profiles
-
-| Profile | Command | Purpose |
-| --- | --- | --- |
-| `full` | `CI_PROFILE=full sh scripts/ci.sh` | Authoritative. Run before opening a PR. |
-| `bounded` | `CI_PROFILE=bounded sh scripts/ci.sh` | The subset hosted CI runs. Never authoritative. |
-| `release` | `CI_PROFILE=release sh scripts/ci.sh` | `full` plus artifact identity. Maintainer use at release. |
-
-`release` refuses a dirty worktree, packages without `--allow-dirty`, and writes
-`target/release-evidence/evidence.md` recording the commit, archive name and
-SHA-256, file inventory, normalized manifest, and VCS metadata. It performs no
-registry action — no publish, no tag, no release, no credentials.
-
-## Changing the candidate version
-
-Both product crates inherit `version` from `[workspace.package]` in the root
-`Cargo.toml`, so a bump edits **one line**. The gate reads the resolved value
-back through Cargo, so the check survives that inheritance.
-
-What the gate cannot see is the copies of the literal in tracked prose. Grep
-before and after any bump:
-
-```sh
-grep -rn '0\.1\.0-incubating\.1' --exclude-dir=.git --exclude-dir=target .
-```
-
-At the time of writing it appears in the root `Cargo.toml`, `Cargo.lock`, the
-root and packaged READMEs, `AGENTS.md`, `CHANGELOG.md`, `RELEASING.md`,
-`docs/DECISIONS.md`, and the bug-report form. A green gate does not mean you
-found them all — and neither does this list, which is a copy of a grep result
-and can be wrong. Run the grep.
-
-`crates/veml7700/src/lib.rs` is deliberately absent: it includes the packaged
-README with `#![doc = include_str!]` and holds no copy of its own.
-
-## Verifying a change
-
-There is exactly one implementation of the verification policy, `scripts/ci.sh`.
-Add checks to that script, never to the workflow.
-
-**Full — authoritative.** Run this before opening a pull request:
-
-```sh
 CI_PROFILE=full sh scripts/ci.sh
 ```
 
-`./tools/check.ps1` is a thin PowerShell launcher that finds Git Bash and runs
-the same script with the same arguments.
+`full` is the authoritative pre-PR gate. `bounded` is hosted feedback and names
+every skipped step; a skip is not a pass. `release` adds clean-tree and artifact
+identity checks but performs no publishing action. `tools/check.ps1` is a thin
+Windows launcher for the same script.
 
-It ends with a line like `[ci] PASS (full): 14 steps, 0 skipped.` Paste that
-line into your pull request — it is the evidence a reviewer has.
+[`docs/VERIFICATION.md`](docs/VERIFICATION.md) owns the test-layer boundaries,
+exact driver-versus-model inventory, and profile details. A
+maintainer-authorized check belongs in `scripts/ci.sh`, not a second workflow
+implementation. Do not widen CI with prose classifiers or evidence-sufficiency
+heuristics.
 
-**Bounded — fast feedback only.** `CI_PROFILE=bounded` is the subset hosted CI
-runs. It skips dependency policy, four of the five bare-metal targets, and
-packaging, and prints each skip. **A skipped check is not a passed check**, so a
-green bounded run never substitutes for a green full run.
+## Updating shared evidence
 
-While iterating, `cargo test` and `cargo clippy --all-targets` are quicker still,
-but neither is evidence.
+[`docs/HARDWARE_CONTRACT.md`](docs/HARDWARE_CONTRACT.md) is the only prose
+authority for device and documentary propositions. Every `S-nn` permanently
+names one atomic, scoped proposition. Evidence may be appended as supporting,
+refuting, conflicting, or not resolving it; the proposition itself is never
+rewritten. A changed or split proposition receives a new ID and leaves the old
+one as a resolvable tombstone.
 
-## Which layer owns your test
+The registry grows on demand. A retained legacy row marked **not currently
+relevant** has no current driver, model, conformance, approved-hardware, or
+reported-bug consumer. It is not a backlog or coverage gap. Never add a new row
+already known to lack such a consumer.
 
-Putting a test in the wrong layer is the most common structural review problem.
-Each layer may establish only what it is capable of establishing:
+One evidence correction is one bounded transaction, even when several layers
+must change:
 
-| Layer | Where | Owns | Must not be used to claim |
-| --- | --- | --- | --- |
-| Pure/unit | `crates/veml7700/src/*.rs` | codecs, finite domains, validation, units, timing construction | autonomous device behavior |
-| Scripted I²C | `crates/veml7700/src/testing/` | exact address, pointer, byte order, payload, transaction count, injected transport failures | an independent device state machine |
-| Model-only | `crates/veml7700-model/` | independent source interpretation, explicit time and stimuli, unsupported boundaries | agreement with the public driver |
-| Driver-versus-model | `tests/conformance/` | public driver traces compared through the I²C boundary | operations or initial states it does not exercise |
-| Doctests | `crates/veml7700/src/lib.rs`, READMEs | consumer syntax and compilation | runtime sequencing or hardware behavior |
-| Target builds | gate | that the `no_std` surface compiles on five triples | wiring, timing, or silicon |
+1. update the proposition's evidence and state once;
+2. enumerate every citation to its ID;
+3. record the driver outcome: change or no change;
+4. independently record the model outcome: change, no change, or unsupported;
+5. record any approved hardware outcome; and
+6. update conformance only where supported driver and model surfaces overlap.
 
-Two rules follow from the table and are enforced in review:
+The separate outcomes are reviews within the transaction, not automatic
+follow-up issues. Create an issue, decision entry, audit, hardware task, or CI
+rule only when the maintainer explicitly requests that artifact. Unrelated
+observations stay in the handoff and are not blockers by default.
 
-- **Autonomous device behavior belongs in the independent model, never in the
-  driver's scripted transport tests.** A scripted test asserts transactions and
-  injected failures. The moment it starts modeling what the device would do next
-  on its own, it has become a second, coupled device model — which defeats the
-  purpose of having an independent one.
-- **The model is derived from `docs/HARDWARE_CONTRACT.md`, not from driver
-  code.** It must not import driver codecs, constants, or state machines. If the
-  driver and the model share a mistake, neither can catch it — conformance
-  collapses into a tautology, where two expressions of one derivation agree
-  because they *are* one derivation.
-- **That applies to implementations, not to the evidence record.**
-  `docs/HARDWARE_CONTRACT.md` is the single, global, descriptive record of what
-  the sources establish, and both sides cite it rather than restating it.
-  Duplicating a *quotation* has no oracle value — two copies cannot disagree
-  usefully, only diverge. Duplicating a *derivation* is the point, because two
-  derivations can disagree and their disagreement is information. See D-033.
+A suspected device-behavior bug starts by identifying the exact existing
+`S-nn`. If none exists, add the smallest truth-apt proposition rather than
+stretching an identifier or pasting a surrogate. Then assess driver, model, and
+hardware consequences independently. A pure software or API defect may have no
+device proposition.
 
-## Correcting a source claim
+## Evidence language and citations
 
-Every row in `docs/HARDWARE_CONTRACT.md` has a stable `S-nn`, and everything that
-depends on it cites that identifier. So the first step of a correction is not a
-search — it is a listing:
+Evidence polarity and knowledge state are separate:
 
-```sh
-git grep -ln '`S-40`' -- '*.md' '*.rs'
-```
+- **Positive evidence** supports the proposition.
+- **Negative evidence** refutes a device proposition or supports a located
+  documentary omission. Source silence says nothing by itself about silicon.
+- **Undefined** means accumulated evidence does not determine a device
+  proposition. It is not evidence and does not imply the opposite behavior.
 
-That is the complete set of places the correction has to sweep. Before
-identifiers existed this was a grep somebody had to get right, and the copy that
-was missed in #73 was the one published to docs.rs.
+Physical observations record units or lots, revision, reset history, voltage,
+temperature, procedure and tool commit, plus a durable raw-artifact citation or
+digest. Conflicting observations remain visible with their scopes. Model,
+scripted-transport, and code-reading results are labelled as such and never
+promoted to physical evidence.
 
-Cross-links are what make a divergence findable at all. A claim restated in nine
-places has nine chances to drift and no way to notice; a claim cited from nine
-places can be enumerated, opened, and compared in one pass. Keep the links dense
-for that reason, not for tidiness.
+A source statement may be a characterized limit or vendor guidance; a citation
+does not upgrade one into the other. A silence claim requires a located
+negative: pinned document revisions and the exact sections searched. See
+[`D-032`](docs/DECISIONS.md#d-032-a-silence-claim-needs-a-located-negative).
 
-The gate reports the size of that surface on every run, so a growing coupling is
-visible rather than discovered during the next correction.
-
-## Evidence language
-
-Say exactly what produced a result. These distinctions are not stylistic:
-
-- **Physical hardware** — observed on silicon. Nothing in this repository
-  currently establishes this, and no document may imply otherwise.
-- **Behavioral model** — predicted by `ph-veml7700-als-model`. Model agreement
-  is evidence about interpretation, not about silicon.
-- **Scripted transport / mock** — asserts what went over the bus, nothing about
-  what a device would do with it.
-- **Code reading** — an unexecuted claim.
-
-Vendor sources carry two strengths, and a citation establishes which one:
-
-- **Specified** — a characterized limit in the datasheet's rating or
-  characteristic tables.
-- **Vendor-stated guidance** — a design allowance in the application note, such
-  as the ±30 % integration-time tolerance that document 84323 says "can be
-  assumed". Cite it with document, revision, page, and section. It is not a
-  worst case across process, voltage, and temperature, and no amount of citation
-  makes it one.
-
-A claim that a source is **silent** on something needs a located negative —
-which document, revision, and sections were read — not an argument that the
-figure is the kind of thing vendors do not publish. See D-032.
-
-**Cite claims, do not restate them.** Every row in `docs/HARDWARE_CONTRACT.md`
-carries a stable identifier, `S-nn`. Anywhere else — rustdoc, crate READMEs,
-tests — say what the code does and cite the identifier for what the sources say.
-Never cite a section number: sections move and citations to them rot silently.
-`scripts/ci.sh` fails on a dangling identifier and on any assertion of source
-silence that cites none. See D-033.
-
-Related wording rules:
-
-- Never call a snapshot fresh. Snapshot methods state that data may be retained
-  and that ALS and white are sequential reads.
-- Nominal illuminance is never calibrated system lux, and every method that
-  returns it says so.
-- Register `0x06` is not a physical interrupt pin. There is no interrupt pin.
-- Avoid unsupported superlatives — "accurate lux", "atomic pair",
-  "interrupt-driven".
-- Every complete multi-step operation documents its restoration and uncertainty
-  behavior.
-
-Use `VEML7700`, `I²C`, `ALS`, `white channel`, `gain ×1/8`, `integration time`,
-`power saving`, `threshold monitor`, and `micro-lux` consistently.
+Outside the registry, do not quote or paraphrase a proposition, vendor
+coordinate, or hardware observation. State only the local component consequence
+and cite every applicable `S-nn` in that paragraph, table row, or code comment.
+The stable ID is the shared meaning; each registry row is directly linkable as
+`#s-nn`. `scripts/ci.sh` checks only that IDs are unique and references resolve;
+review owns semantic correctness.
 
 ## Document authority
 
-Files under `docs/` do not share one status. Treat them as follows:
-
 | Document | Authority |
 | --- | --- |
-| `docs/HARDWARE_CONTRACT.md` | **Evidence record** — agreed device facts and the evidence for them; descriptive, never prescriptive |
-| `docs/vendor/README.md` | **Evidence record** — source provenance and digests |
-| `docs/DRIVER_CONTRACT.md` | **Normative** — driver semantics, ownership, dependency direction |
-| `docs/INVARIANTS.md` | **Normative** — review-blocking truths |
-| `docs/VERIFICATION.md` | Contributor procedure — which test layer establishes what |
-| `docs/DECISIONS.md` | Non-normative — durable rationale, including superseded entries |
-| `crates/veml7700-model/README.md` | **Normative** — the model's maintained claim |
+| `docs/HARDWARE_CONTRACT.md` | descriptive shared propositions, evidence, and evidence state |
+| `docs/vendor/README.md` | vendor source identity, retrieval facts, and digests |
+| `docs/DRIVER_CONTRACT.md` | normative cross-cutting driver ownership and guarantees |
+| generated Rustdoc | exact public API behavior, errors, timing, and cancellation |
+| `crates/veml7700-model/README.md` | normative model scope and behavior |
+| `docs/VERIFICATION.md` | contributor procedure and exact conformance inventory |
+| `docs/DECISIONS.md` | non-normative durable rationale only |
+| `RELEASING.md` | release procedure and reserved decisions |
+| `CHANGELOG.md` | current unreleased user-visible surface |
 
-A change that contradicts a normative document must change that document first,
-in the same pull request, with rationale in `docs/DECISIONS.md`.
-
-Note that every device fact in `docs/HARDWARE_CONTRACT.md` is currently marked
-provisional pending owner verification of the vendor sources. Do not treat an
-unchecked row as settled.
-
-## What a reviewable contribution looks like
-
-1. Behavioral claims trace to `docs/HARDWARE_CONTRACT.md`.
-2. The public surface matches `docs/DRIVER_CONTRACT.md`, or that contract and
-   `docs/DECISIONS.md` change first.
-3. Every touched invariant has a protecting test.
-4. Exact I²C address, pointer, byte order, payload, and transaction count are
-   asserted where transport behavior matters.
-5. Autonomous behavior is tested in the independent model. Conformance tests use
-   the model crate and public driver APIs, not driver codecs.
-6. `CHANGELOG.md` is updated beneath `Unreleased` for any user-visible change.
-7. The full local gate passes.
+Other documents give only the minimum audience-specific summary and link to the
+authority. A behavior change updates its protecting tests and authority in the
+same pull request. An evidence correction does not require new durable rationale.
 
 ## Pull request workflow
 
-1. Open an issue first for anything beyond an obvious fix. Use the bug form for
-   contract deviations and the feature proposal form for new capability. A
-   proposal is a decision record, not authorization to implement.
-2. Branch from `main`. One reviewable concern per pull request.
-3. Fill in the pull request template. The evidence table and the evidence-source
-   selection are the parts reviewers read first.
-4. Run the full gate and paste its final line.
-5. Expect review to focus on evidence provenance, layer ownership, and contract
-   coupling at least as much as on the code.
-
-Out of scope, and rejected on sight: raw-register APIs, cached device state,
-automatic optical correction, calibration, MCU examples, board support, and
-speculative physical-evidence infrastructure.
+1. Keep one bounded concern per pull request. One evidence correction remains
+   one concern across every directly affected layer.
+2. Use a governing issue or decision record only when the maintainer requested
+   it.
+3. Name affected `S-nn` IDs without reproducing their propositions, and record
+   driver, model, and approved-hardware outcomes separately.
+4. Put tests in the layer that can establish the claim; follow
+   `docs/VERIFICATION.md` and keep the model independent of driver internals.
+5. Update `CHANGELOG.md` only for user-visible behavior.
+6. Run the full gate and paste its final line.
 
 Do not change repository visibility or registry publication state, add
-credentials, or create tags or releases. Those are maintainer-controlled steps
-with recorded decisions; see `RELEASING.md`.
+credentials, publish packages, or create tags or releases. Those remain
+separate maintainer decisions in `RELEASING.md`.
 
-Do not commit the vendor PDFs. They are not redistributable, and the gate fails
-if they become tracked; `docs/vendor/README.md` records how to retrieve them and
-the digests to verify.
+Do not commit vendor PDFs. Redistribution permission has not been established;
+`docs/vendor/README.md` records source identity and digests.
 
 ## Licensing
 
-The project is MIT licensed. By contributing, you agree that your contributions
-are licensed under the [MIT License](LICENSE). There is no separate contributor
-licence agreement. Contribute only work you have the right to license this way —
-in particular, do not paste vendor document text or code from an incompatible
-licence.
+The project is MIT licensed. By contributing, you agree that your contribution
+is licensed under the [MIT License](LICENSE). Contribute only material you have
+the right to license; do not paste vendor source text or incompatible code.

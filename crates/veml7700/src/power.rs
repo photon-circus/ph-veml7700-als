@@ -1,18 +1,18 @@
 //! Power-saving configuration and codec.
 
-use crate::config::IntegrationTime;
+use crate::config::{Gain, IntegrationTime, MeasurementConfig};
 
-/// Power-saving cadence selection.
+/// Driver power-saving codec reaction to `S-20`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PowerSavingMode {
-    /// Mode 1, the shortest documented sleep interval.
+    /// Mode 1.
     Mode1,
     /// Mode 2.
     Mode2,
     /// Mode 3.
     Mode3,
-    /// Mode 4, the longest documented sleep interval.
+    /// Mode 4.
     Mode4,
 }
 
@@ -35,12 +35,16 @@ impl PowerSavingMode {
         }
     }
 
-    /// Return the vendor's nominal refresh time for documented 100–800 ms modes.
+    /// Return the nominal refresh time in the exact `S-21` cadence domain.
     ///
-    /// The vendor table does not define 25 ms or 50 ms power-saving cadence, so
-    /// those combinations return `None` rather than extrapolating.
-    pub const fn nominal_refresh_time_ms(self, integration: IntegrationTime) -> Option<u32> {
-        let base = match integration {
+    /// Gain other than ×2 returns `None` because gain independence is undefined
+    /// (`S-22`). The undocumented 25 ms and 50 ms combinations also return
+    /// `None` (`S-44`).
+    pub const fn nominal_refresh_time_ms(self, measurement: MeasurementConfig) -> Option<u32> {
+        if !matches!(measurement.gain(), Gain::X2) {
+            return None;
+        }
+        let base = match measurement.integration_time() {
             IntegrationTime::Ms100 => 100,
             IntegrationTime::Ms200 => 200,
             IntegrationTime::Ms400 => 400,
@@ -120,6 +124,7 @@ pub enum PowerSavingDecodeError {
 pub(crate) const fn decode_power_saving(
     word: u16,
 ) -> Result<PowerSavingSnapshot, PowerSavingDecodeError> {
+    // Driver reserved-field reaction to `S-20`.
     let reserved = word & !0b111;
     if reserved != 0 {
         return Err(PowerSavingDecodeError::ReservedBits { observed: reserved });
@@ -146,8 +151,7 @@ impl core::error::Error for PowerSavingDecodeError {}
 mod tests {
     use super::*;
 
-    /// Literal words from `docs/HARDWARE_CONTRACT.md` `S-20` (Table 4), not round
-    /// trips.
+    /// Literal driver test vectors for `S-20`, not round trips.
     ///
     /// Same reasoning as the configuration vectors: the exhaustive round trip
     /// below proves encoder and decoder agree, which they would continue to do
@@ -234,10 +238,34 @@ mod tests {
         ];
         for (mode, expected) in rows {
             for (integration, expected_ms) in integrations.into_iter().zip(expected) {
-                assert_eq!(mode.nominal_refresh_time_ms(integration), Some(expected_ms));
+                assert_eq!(
+                    mode.nominal_refresh_time_ms(MeasurementConfig::new(Gain::X2, integration)),
+                    Some(expected_ms)
+                );
             }
-            assert_eq!(mode.nominal_refresh_time_ms(IntegrationTime::Ms25), None);
-            assert_eq!(mode.nominal_refresh_time_ms(IntegrationTime::Ms50), None);
+            assert_eq!(
+                mode.nominal_refresh_time_ms(MeasurementConfig::new(
+                    Gain::X2,
+                    IntegrationTime::Ms25
+                )),
+                None
+            );
+            assert_eq!(
+                mode.nominal_refresh_time_ms(MeasurementConfig::new(
+                    Gain::X2,
+                    IntegrationTime::Ms50
+                )),
+                None
+            );
+            for gain in [Gain::X1, Gain::Div4, Gain::Div8] {
+                assert_eq!(
+                    mode.nominal_refresh_time_ms(MeasurementConfig::new(
+                        gain,
+                        IntegrationTime::Ms100
+                    )),
+                    None
+                );
+            }
         }
     }
 }

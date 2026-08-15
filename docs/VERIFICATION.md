@@ -1,84 +1,87 @@
 # Verification
 
-> **Authority: contributor procedure.** Which test layer establishes what.
-> Exact conformance coverage lives in the packaged README, not here.
+> **Authority: contributor procedure and exact conformance inventory.** This
+> file records what each test layer can establish and the maintained
+> driver-versus-model trace matrix. Consumer-facing consequences stay in the
+> crate README and Rustdoc.
 
-Each level below establishes something different, and the differences are the
-point. A test at one level must never be cited as evidence for another.
+## Evidence boundaries
 
-| Level | Establishes | Must not be cited for |
+| Layer | Establishes | Does not establish |
 | --- | --- | --- |
-| 1 — pure/codec | encodings, domains, units, validation | device behavior |
-| 2 — scripted I²C | exact transactions, sequencing, injected failures | autonomous device behavior, or model conformance |
-| 3 — model-only | the model's own declared behavior | agreement with the driver |
-| 4 — driver-versus-model | that the public driver and an independent derivation agree, for named traces | operations, configurations, or initial states it does not exercise |
+| Pure/codec | encodings, domains, units, validation | autonomous device behavior |
+| Scripted I²C | exact transactions, sequencing, injected failures | an independent device state machine |
+| Model-only | the model's declared behavior and unsupported boundaries | agreement with the driver or silicon |
+| Driver-versus-model | agreement between independent derivations for named traces | untraced operations, configurations, initial states, or hardware behavior |
 
-**The exact level-4 coverage is the packaged matrix in
-[`crates/veml7700/README.md`](../crates/veml7700/README.md), not this file.** It
-names every covered operation with its initial state and configuration, every
-public operation with no conformance trace, and the configuration domain that is
-never exercised. The canonical gate fails if it drifts from the test inventory in
-either direction.
+The model and conformance packages are repository-only and unpublished. The
+driver package has no model dependency, so its standalone tests cannot be
+presented as model conformance. Package-archive tests likewise establish only
+that the distributable driver builds and passes its own tests.
 
-Two further boundaries that are easy to blur:
+## Model conformance coverage
 
-- `ph-veml7700-als-model` is repository-only and unpublished, as is
-  `ph-veml7700-als-conformance`.
-- Tests run against the unpacked package establish that the published crate
-  builds and passes its own tests standalone. Conformance lives in a separate
-  workspace package that is never published and never enters the archive, so
-  those runs establish **no** model conformance.
-- The separation is now structural rather than a manifest exclusion. The driver
-  package does not depend on the model at all, so `cargo test -p ph-veml7700-als`
-  cannot build it. A driver test therefore cannot reach the model even by
-  accident, which is what makes the independence claim checkable instead of
-  merely stated.
+Every test named below drives the public driver through the abstract I²C adapter
+against the independent model. The gate checks the set of test names in both
+directions; review owns the operation, state, and configuration columns. Passing
+establishes agreement only within the stated trace.
 
-## Level 1 — Pure value and codec tests
+### Covered
 
-Cover every documented gain, integration time, persistence, power-saving mode,
-configuration field combination, reserved encoding, nominal scale, threshold
-ordering rule, identity value, and conservative timing bound.
+| Public operation | Accepted initial state | Configuration exercised | Conformance test |
+| --- | --- | --- | --- |
+| `probe` | reset / shut down | — | `probe_accepts_the_fixed_address_little_endian_id` |
+| `measure_once` | reset / shut down | ×1/8, 25 ms, cadence disabled | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state` |
+| `measure_once` | active | ×1/8, 25 ms, cadence disabled | `measure_once_from_an_active_start_agrees_with_the_model` |
+| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 1, cadence disabled; programming only | `threshold_monitor_public_operations_program_read_back_and_disable` |
+| `arm_threshold_monitor` | reset / shut down | ×1/8, 100 ms, persistence 4, cadence disabled; programming only | `arming_programs_the_field_but_yields_no_modeled_status` |
+| `arm_threshold_monitor` | active, monitor disabled | ×2, 100 ms, persistence 4, Mode 2 | `arming_the_monitor_from_an_active_start_agrees_with_the_model` |
+| `arm_threshold_monitor` | active, monitor enabled | ×2, 100 ms, persistence 4, Mode 2 | `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
+| `read_thresholds` | armed | programming/readback only | `threshold_monitor_public_operations_program_read_back_and_disable`, `arming_programs_the_field_but_yields_no_modeled_status`, `re_arming_an_enabled_active_monitor_agrees_with_the_model` |
+| `disable_threshold_monitor` | armed, active | no status-history claim | `threshold_monitor_public_operations_program_read_back_and_disable` |
+| `set_measurement_config` | shut down | ×2, 100 ms | `public_power_operations_observe_the_documented_mode_2_refresh_boundary` |
+| `set_power_saving` | shut down | ×2, 100 ms, Mode 2 enabled | `public_power_operations_observe_the_documented_mode_2_refresh_boundary` |
+| `set_power_state` | reset / shut down or active | requests active only | `measure_once_from_an_active_start_agrees_with_the_model`, `arming_the_monitor_from_an_active_start_agrees_with_the_model`, `public_power_operations_observe_the_documented_mode_2_refresh_boundary`, `public_channel_reads_can_observe_independently_refreshed_generations` |
+| `read_als_snapshot` | active | — | `public_power_operations_observe_the_documented_mode_2_refresh_boundary`, `public_channel_reads_can_observe_independently_refreshed_generations` |
+| `read_white_snapshot` | active | — | `public_channel_reads_can_observe_independently_refreshed_generations` |
+| `read_configuration` | various | — | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state`, `measure_once_from_an_active_start_agrees_with_the_model`, `arming_the_monitor_from_an_active_start_agrees_with_the_model`, `threshold_monitor_public_operations_program_read_back_and_disable`, `arming_programs_the_field_but_yields_no_modeled_status` |
+| `read_power_saving` | after restoration | — | `measure_once_returns_the_injected_pair_after_the_driver_delay_and_restores_state` |
 
-## Level 2 — Strict protocol and failure tests
+### Untraced public operations
 
-The scripted I²C transport asserts exact address, pointer, little-endian word
-order, payload, transfer count, sequence, and complete script consumption.
+| Public operation | Boundary |
+| --- | --- |
+| `read_device_id` | `probe` exercises the register and codec, but no trace calls this operation. |
+| `inspect` | Never called. |
+| `snapshot` | Never called; component reads are covered separately. |
+| `measure_once_with_timing` | No trace supplies caller-selected timing. |
 
-Cover probe, observation, snapshot ordering, state-preserving updates,
-threshold-monitor conflicts and arming, every fresh-measurement stage, primary
-failure, cleanup failure, and post-capture restoration failure.
+### Negative boundary trace
 
-## Level 3 — Independent autonomous-state model
+`read_threshold_status` is called only to assert the model's exact
+`UndefinedQualificationRule` error. No successful status semantics are claimed.
 
-Model-only tests cover reset, including undeclared `0x06` remaining unavailable,
-wake and recurring conversion, shutdown retention, duration partitions, the
-documented power-saving cadence table, independently scheduled ALS/white
-refreshes, threshold registers, persistence, and stable polled status.
-White-channel phase skew is an injected test input, not a claim about silicon
-timing.
+### Configuration domain
 
-## Level 4 — Driver-versus-model I²C conformance
+| Domain | Exercised | Not exercised or unsupported |
+| --- | --- | --- |
+| Gain | ×1, ×2, ×1/8 | ×1/4 |
+| Integration time | 25 ms, 100 ms | 50, 200, 400, 800 ms |
+| Persistence | 1 and 4 programming | 2 and 8; qualification at every value is unsupported |
+| Power-saving mode | Mode 1, Mode 2 | Mode 3, Mode 4 |
+| Threshold qualification | none | low and high status semantics |
 
-Driver-versus-model tests cover `probe`, successful `measure_once`, public
-power/cadence configuration, threshold arming and observation, monitor disable,
-and sequential channel reads across independently scheduled refreshes. Driver
-configuration and observations cross the model's I²C boundary; explicit
-relative duration and raw optical samples remain harness inputs.
-
-The maintained declaration, including unimplemented traces, is
-[`crates/veml7700-model/README.md`](../crates/veml7700-model/README.md).
+Threshold qualification is an evidence boundary, not a missing test. `S-39`,
+`S-49`, and `S-50` do not support a complete oracle, so the model returns
+`Unsupported` rather than manufacturing coverage.
 
 ## Canonical gate
 
-`scripts/ci.sh` runs claim checks, formatting, host tests/checks, clippy,
-rustdoc, doctests, five bare-metal targets, dependency policy, package
-verification, and tests against the unpacked distributable package. Each step is
-announced, and the run ends with an explicit pass or failing-step line.
+Run `CI_PROFILE=full sh scripts/ci.sh` before a pull request. The script performs
+the structural claim checks, formatting, host tests/checks, clippy, Rustdoc,
+doctests, five bare-metal builds, dependency policy, package verification, and
+tests against the unpacked driver package.
 
-`CI_PROFILE=bounded` selects the subset GitHub Actions runs. It skips dependency
-policy, four of the five targets, and packaging, naming each skip, and its
-summary states that it covers only part of the release gate. A skipped check is
-not a passed check.
-
-A green gate proves only the implemented host boundary.
+`CI_PROFILE=bounded` is a hosted-feedback subset. It names every skipped step; a
+skip is not a pass. `CI_PROFILE=release` adds artifact identity and is reserved
+for a separately authorized release workflow.

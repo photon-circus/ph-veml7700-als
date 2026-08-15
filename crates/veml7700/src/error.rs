@@ -1,7 +1,7 @@
 //! Public error taxonomy.
 
 use crate::config::{ConfigDecodeError, IntegrationTime};
-use crate::measurement::FreshMeasurement;
+use crate::measurement::MeasurementCapture;
 use crate::power::PowerSavingDecodeError;
 use crate::threshold::ThresholdStatusDecodeError;
 
@@ -14,7 +14,7 @@ pub enum Operation {
     Inspect,
     /// Snapshot measurement.
     Snapshot,
-    /// Fresh one-shot-style measurement sequence.
+    /// Controlled one-shot measurement sequence.
     MeasureOnce,
     /// Ordinary configuration change.
     Configure,
@@ -64,7 +64,7 @@ pub enum ConfigurationError {
     PowerSavingDecode(PowerSavingDecodeError),
     /// Threshold-status register contained reserved bits.
     ThresholdStatusDecode(ThresholdStatusDecodeError),
-    /// Requested thresholds were reversed.
+    /// Observed threshold registers were reversed.
     ReversedThresholds,
     /// An enabled threshold monitor would be silently retargeted.
     ThresholdMonitorOwnsDomain,
@@ -100,10 +100,10 @@ pub enum ConfigurationError {
 /// }
 /// ```
 ///
-/// Applied to a failed fresh measurement, that produces something like:
+/// Applied to a failed one-shot measurement, that produces something like:
 ///
 /// ```text
-/// fresh measurement failed at activating: fresh measurement failed during a
+/// one-shot measurement failed at activating: one-shot measurement failed during a
 /// configuration write: arbitration lost
 /// ```
 ///
@@ -145,14 +145,14 @@ pub enum ProbeError<E> {
     NotPresent,
     /// A non-address-NACK bus failure occurred.
     Bus(E),
-    /// ID register did not match the supported VEML7700 address option.
+    /// Full ID register did not match the supported VEML7700 identity word.
     WrongDevice {
         /// Raw unexpected ID register value.
         observed: u16,
     },
 }
 
-/// Stage of a complete fresh measurement.
+/// Stage of a complete one-shot measurement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
@@ -165,9 +165,8 @@ pub enum MeasureStage {
     ObservePowerSaving,
     /// Enter shutdown in the original domain before reconfiguring.
     ///
-    /// Only reached when the operation started from an active device. The
-    /// sources require shutdown before any reconfiguration, so this write
-    /// changes nothing but the shutdown bit.
+    /// Only reached when the operation started from an active device. Under the
+    /// driver reaction to `S-19`, this write changes only the shutdown bit.
     EnterShutdown,
     /// Disable autonomous power-saving cadence.
     DisablePowerSaving,
@@ -187,12 +186,12 @@ pub enum MeasureStage {
     RestorePowerSaving,
 }
 
-/// Complete fresh-measurement failure.
+/// Complete one-shot-measurement failure.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum MeasureOnceError<E> {
-    /// Failure before a fresh pair was captured.
+    /// Failure before a pair was captured.
     Operation {
         /// Failing stage.
         stage: MeasureStage,
@@ -210,10 +209,10 @@ pub enum MeasureOnceError<E> {
         /// Restoration failure.
         recovery_source: Error<E>,
     },
-    /// A fresh pair was captured, but restoration failed and hardware state is uncertain.
+    /// A pair was captured, but restoration failed and hardware state is uncertain.
     RestoreFailed {
         /// Captured sample remains useful with explicit qualification.
-        sample: FreshMeasurement,
+        sample: MeasurementCapture,
         /// Failing restoration stage.
         stage: MeasureStage,
         /// Underlying driver failure.
@@ -232,7 +231,7 @@ pub enum ThresholdMonitorStage {
     ///
     /// Only reached when re-arming an enabled monitor on an active device. The
     /// shutdown and monitor bits cannot move in one write there, so shutdown
-    /// goes first and the monitor is disabled while shut down.
+    /// goes first while the monitor bit remains enabled.
     EnterShutdown,
     /// Disable the threshold monitor before changing its domain.
     DisableMonitor,
@@ -248,25 +247,20 @@ pub enum ThresholdMonitorStage {
 
 /// Threshold-monitor programming failure.
 ///
-/// Programming is a sequence of writes, so a failure part way through leaves a
-/// device that is neither in its old domain nor the requested one. The two
-/// stage fields separate what a caller may rely on from what nobody can know.
+/// Programming begins with one configuration read and then follows a
+/// start-state-dependent write sequence. The fields distinguish confirmed
+/// writes from the step that failed.
 ///
 /// # What each field establishes
 ///
-/// - [`confirmed`](Self::confirmed) is the last stage that returned success.
-///   Everything up to and including it **did** reach the device. `None` means no
-///   write was confirmed.
-/// - [`stage`](Self::stage) is the write that failed. **Its commit status is
-///   unknown.** An I²C error can mean the byte never arrived, or that it arrived
-///   and the acknowledgement was lost. The transport cannot tell them apart, and
-///   this type does not pretend otherwise.
-/// - Every stage after [`stage`](Self::stage) was not attempted.
-///
-/// So the device is in one of exactly two states: the one implied by
-/// `confirmed`, or that state plus the effect of `stage`. There is no third
-/// possibility, and no rollback was attempted — the driver does not claim a
-/// physical commit state it cannot establish.
+/// - [`stage`](Self::stage) identifies the read or write that failed.
+///   [`ThresholdMonitorStage::ObserveConfiguration`] means no device-state write
+///   was attempted.
+/// - [`confirmed`](Self::confirmed) is the most recent write in the actual
+///   branch that returned success. `None` means no write was confirmed.
+/// - When `stage` is a write, its commit status is unknown: the device may remain
+///   at `confirmed`, or may also contain that write's effect. Later stages were
+///   not attempted. No rollback is claimed.
 ///
 /// # Recovering
 ///
@@ -274,15 +268,10 @@ pub enum ThresholdMonitorStage {
 /// [`read_thresholds`] and [`read_power_saving`] together establish the actual
 /// state, and re-arming from there installs a known domain.
 ///
-/// Once [`ThresholdMonitorStage::DisableMonitor`] appears in
-/// [`confirmed`](Self::confirmed), the monitor is disabled and the device is
-/// shut down, so it is not qualifying against a half-programmed domain while a
-/// caller decides what to do.
-///
-/// That guarantee needs the write *confirmed*, not merely reached. A failure of
-/// the disable write itself leaves it unknown: from an active monitor-disabled
-/// start the device may still be active, and while re-arming an enabled monitor
-/// it may still be enabled. Neither state is safe to assume — read back.
+/// A confirmed [`ThresholdMonitorStage::DisableMonitor`] establishes disabled
+/// and shut down until a later confirmed write. Before that point, the original
+/// active/enabled state may remain. A failed final enable may leave the device
+/// disabled and shut down or fully active in the requested domain.
 ///
 /// [`read_configuration`]: crate::Veml7700::read_configuration
 /// [`read_thresholds`]: crate::Veml7700::read_thresholds
@@ -291,11 +280,10 @@ pub enum ThresholdMonitorStage {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub struct ThresholdMonitorError<E> {
-    /// Stage that failed. Its commit status is unknown.
+    /// Stage that failed. A write stage has unknown commit status; an observation
+    /// stage made no device-state write.
     pub stage: ThresholdMonitorStage,
-    /// Last stage that completed successfully, or `None` if none did.
-    ///
-    /// Everything up to and including this stage reached the device.
+    /// Most recent write that completed successfully, or `None` if none did.
     pub confirmed: Option<ThresholdMonitorStage>,
     /// Underlying driver failure.
     pub source: Error<E>,
@@ -326,7 +314,7 @@ impl core::fmt::Display for Operation {
         f.write_str(match self {
             Self::Inspect => "inspection",
             Self::Snapshot => "snapshot",
-            Self::MeasureOnce => "fresh measurement",
+            Self::MeasureOnce => "one-shot measurement",
             Self::Configure => "configuration change",
             Self::ThresholdMonitor => "threshold-monitor programming",
         })
@@ -471,14 +459,14 @@ impl<E: core::error::Error + 'static> core::error::Error for ProbeError<E> {
 impl<E> core::fmt::Display for MeasureOnceError<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Operation { stage, .. } => write!(f, "fresh measurement failed at {stage}"),
+            Self::Operation { stage, .. } => write!(f, "one-shot measurement failed at {stage}"),
             Self::RecoveryFailed {
                 failed_stage,
                 recovery_stage,
                 ..
             } => write!(
                 f,
-                "fresh measurement failed at {failed_stage} and restoration failed at \
+                "one-shot measurement failed at {failed_stage} and restoration failed at \
                  {recovery_stage}; device state is uncertain"
             ),
             Self::RestoreFailed { stage, .. } => write!(
@@ -612,7 +600,7 @@ mod standard_error_tests {
         let error = bus_failure(ReportableBusFault);
         assert_eq!(
             report(&error).as_str(),
-            "fresh measurement failed during a configuration write: arbitration lost"
+            "one-shot measurement failed during a configuration write: arbitration lost"
         );
     }
 
@@ -626,7 +614,7 @@ mod standard_error_tests {
         write!(sink, "{error}").expect("fits");
         assert_eq!(
             sink.as_str(),
-            "fresh measurement failed during a configuration write"
+            "one-shot measurement failed during a configuration write"
         );
     }
 
@@ -672,8 +660,8 @@ mod standard_error_tests {
         // chain follows the primary one: it is why the operation stopped.
         assert_eq!(
             report(&error).as_str(),
-            "fresh measurement failed at activating and restoration failed at restoring \
-             configuration; device state is uncertain: fresh measurement failed during a \
+            "one-shot measurement failed at activating and restoration failed at restoring \
+             configuration; device state is uncertain: one-shot measurement failed during a \
              configuration write: arbitration lost"
         );
         let MeasureOnceError::RecoveryFailed {
@@ -689,14 +677,14 @@ mod standard_error_tests {
     fn a_captured_sample_survives_a_reported_restoration_failure() {
         let configuration = MeasurementConfig::new(Gain::Div8, IntegrationTime::Ms100);
         let error = MeasureOnceError::RestoreFailed {
-            sample: FreshMeasurement {
+            sample: MeasurementCapture {
                 als: AlsCounts::from_counts(0x1234),
                 white: WhiteCounts::from_counts(0x5678),
                 configuration,
                 nominal_illuminance: AlsCounts::from_counts(0x1234)
                     .nominal_micro_lux(configuration),
                 requested_wait_us: 133_500,
-                coherence: MeasurementPairCoherence::FrozenAfterFreshWait,
+                coherence: MeasurementPairCoherence::FrozenAfterRequestedWait,
             },
             stage: MeasureStage::RestorePowerSaving,
             source: bus_failure(ReportableBusFault),
@@ -722,7 +710,7 @@ mod standard_error_tests {
         assert_eq!(
             report(&unconfirmed).as_str(),
             "threshold programming failed at disabling the monitor; no write was confirmed: \
-             fresh measurement failed during a configuration write: arbitration lost"
+             one-shot measurement failed during a configuration write: arbitration lost"
         );
 
         let partial = ThresholdMonitorError {

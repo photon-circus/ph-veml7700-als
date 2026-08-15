@@ -1,6 +1,6 @@
 //! Device-identity decoding.
 
-/// Expected VEML7700 ID word at the fixed write-address option `0x20`.
+/// Driver-supported identity selected from `S-43`.
 pub(crate) const EXPECTED_DEVICE_ID: u16 = 0xC481;
 
 /// Decoded VEML7700 ID register.

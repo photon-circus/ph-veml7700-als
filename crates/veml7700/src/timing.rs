@@ -1,68 +1,29 @@
-//! Named timing policy derived from vendor documentation.
+//! Driver timing policy reacting to shared evidence `S-23`, `S-24`, and `S-55`.
 
 use crate::config::IntegrationTime;
 
-/// Minimum wake-up delay before measurement timing begins.
+/// Minimum wake-up delay before measurement timing begins (`S-23`).
 pub const WAKE_UP_DELAY_US: u32 = 2_500;
-/// Vendor-stated integration-time tolerance magnitude.
+/// Integration-time tolerance magnitude used by this driver's policy (`S-24`,
+/// `S-55`).
 ///
 /// # This is design guidance, not a characterized guarantee
 ///
-/// Vishay application note 84323 (*Designing the VEML7700 Into an Application*,
-/// Revision 06-Mar-2025), page 4, section *Command Code ALS_IT*, `Remark`,
-/// states that a ±30 % integration-time tolerance can be assumed and that it
-/// should also be considered when reading measurement results. This constant is
-/// that figure, and the conservative 130 % wait is this driver doing what the
-/// second sentence asks.
-///
-/// What the sources do **not** provide is a worst case guaranteed across
-/// process, voltage, and temperature. The figure is in the application note
-/// only: the datasheet specifies no integration-time tolerance and publishes no
-/// accuracy for the internal oscillator the integration intervals are counted
-/// off. The vendor's wording is *can be assumed* — a design allowance rather
-/// than a min/max specification.
-///
-/// So the resulting margin is conservative *given the vendor's stated
-/// tolerance*, not in general. If the real spread is wider, the driver can read
-/// an output register before the conversion behind it has completed, and the
-/// freshness guarantee fails silently — a stale value is indistinguishable from
-/// a new one.
-///
-/// `docs/HARDWARE_CONTRACT.md` `S-24` records the source location, and #58 carries
-/// the optional characterization that would measure the spread directly.
+/// The 130% wait is this driver's reaction to the guidance in `S-24`; `S-55`
+/// keeps the corresponding silicon proposition explicitly undefined. This is
+/// not a characterized worst-case bound. If the real spread is wider, the
+/// driver can read a retained value before the new conversion completes.
 pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 /// Additional software margin beyond wake-up and maximum integration time.
 ///
-/// # Why 1 ms, and what it does not cover
-///
-/// This is a **driver policy value, not a source-derived one.** No vendor
-/// document specifies it. It exists so the total wait does not land exactly on
-/// the computed worst-case boundary, where a value equal to the bound is
-/// indistinguishable from one just past it.
-///
-/// 1 ms was chosen as the smallest round figure that is negligible against the
-/// shortest integration time — 4 % of 25 ms, and under 0.1 % of 800 ms — so it
-/// costs nothing measurable while removing exact-boundary equality. A larger
-/// margin would buy no additional correctness, because the real uncertainty is
-/// already carried by [`INTEGRATION_TOLERANCE_PERCENT`].
-///
-/// It does **not** cover, and must not be relied on for:
-///
-/// - integration-time error beyond the vendor-stated ±30 %, which is what
-///   [`INTEGRATION_TOLERANCE_PERCENT`] is for;
-/// - I²C transaction time, which is the caller's bus speed and is unbounded from
-///   this driver's perspective;
-/// - executor scheduling latency, which
-///   `embedded_hal_async::delay::DelayNs` may add without limit; or
-/// - any silicon behavior. Waiting longer cannot turn a stated design tolerance
-///   into a characterized one.
-///
-/// The wait is a lower bound on request, never a guarantee about elapsed time —
-/// see
-/// [`FreshMeasurement::requested_wait_us`](crate::FreshMeasurement::requested_wait_us).
+/// This is a **driver policy value**, not evidence recorded in the shared
+/// registry. It keeps the requested wait beyond the computed guidance boundary
+/// but does not turn that guidance into a characterized silicon bound. The wait
+/// is a lower-bound request, not measured elapsed time; see
+/// [`MeasurementCapture::requested_wait_us`](crate::MeasurementCapture::requested_wait_us).
 pub const MEASUREMENT_MARGIN_US: u32 = 1_000;
 
-/// Timing applied by a complete fresh measurement.
+/// Timing requested by a complete one-shot measurement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct MeasurementTiming {
@@ -87,13 +48,12 @@ impl MeasurementTiming {
     /// Construct conservative timing plus an additional caller-selected margin.
     ///
     /// The resulting timing can only be equal to or longer than the conservative
-    /// minimum; this type cannot represent a shortened fresh wait.
+    /// minimum; this type cannot represent a shortened policy wait.
     ///
-    /// Lengthening does not convert design guidance into a guarantee. The
-    /// minimum is partly built on [`INTEGRATION_TOLERANCE_PERCENT`], which the
-    /// vendor states as assumable rather than specifies as a worst case, so a
-    /// caller who suspects a wider real spread can add margin here — but no
-    /// margin makes the conversion time characterized.
+    /// Lengthening does not convert the `S-24` guidance or undefined `S-55`
+    /// device proposition into a guarantee. A
+    /// caller who expects a wider real spread can add margin here, but no margin
+    /// makes the conversion time characterized.
     pub const fn with_additional_margin_us(
         integration_time: IntegrationTime,
         additional_margin_us: u32,
