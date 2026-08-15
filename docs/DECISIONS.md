@@ -486,13 +486,20 @@ the sources never settled. Where the model genuinely cannot run without the fact
 — construction needs some register value to represent a power-on device — it
 assumes, and the assumption is tabulated in the model README with its code site.
 
-The open rows resolve differently under this rule, which is the point:
+The open rows resolve differently under this rule, which is the point. The left
+column cites the evidence record; the other two are this decision's own subject,
+and the record says nothing about them:
 
-| Row | Driver | Model |
+| Negative evidence | Driver reaction | Model reaction |
 | --- | --- | --- |
-| Register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
-| Refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
-| Persistence qualification rule | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+| `S-11` — register `0x03` reset value | Defensive — reads before acting, so it needs nothing | Assumes, to construct a power-on device |
+| `S-22` — refresh time ⊥ ALS gain | Assumes — a cadence must be computed | Assumes — inherited, same silent source |
+| `S-40` — persistence sufficiency and partial runs | Defensive — no driver logic depends on it | **Declares undefined** — nothing forces it to guess |
+
+Three rows of negative evidence, six reactions, and no two cells derived from
+each other. That is the shape the whole arrangement is for: one stable record
+both sides read, and independent answers to it. D-033 keeps the left column
+singular; this decision keeps the right two apart.
 
 The ±30 % integration tolerance was a fourth row here, allocated as *both
 assume*. It left the table under D-032: the sources do state the figure, so
