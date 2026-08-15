@@ -381,8 +381,9 @@ where
     /// Capture one fresh measurement using explicit conservative-or-longer timing.
     ///
     /// [`MeasurementTiming`] cannot represent a wait shorter than the
-    /// conservative minimum for its selected integration time. That minimum is
-    /// partly assumed rather than vendor-specified — see [`measure_once`] and
+    /// conservative minimum for its selected integration time. That minimum
+    /// rests on a vendor-stated tolerance the vendor does not characterize —
+    /// see [`measure_once`] and
     /// [`INTEGRATION_TOLERANCE_PERCENT`](crate::INTEGRATION_TOLERANCE_PERCENT).
     ///
     /// [`measure_once`]: Self::measure_once

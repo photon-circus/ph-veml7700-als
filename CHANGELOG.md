@@ -648,6 +648,23 @@ than a change from a prior version.
 - **No behavior changed.** The driver still waits 130 % of the selected
   integration time, the model still completes at 130 %, and no test moved. The
   repository had the right number and a false account of its provenance.
+- Applied D-032's located-negative rule to the two Assumptions that already
+  existed, so the rule is met on the day it is written rather than only by rows
+  added later. §6 now names the *Refresh Time, I_DD, and Resolution Relation*
+  table in both documents — all sixteen rows `ALS_GAIN = x2`, and the app note's
+  `PSM`/`ALS_IT` table carries no gain term at all. §4 now names the datasheet's
+  command-register overview, Table 4, and the register-format note that declares
+  a power-on default for `0x00` only.
+- That exercise immediately found a second overstatement: the `0x03` row said no
+  passage declares its power-on value, and the application note does state that
+  bits 2:1 come up as mode 1. Only `PSM_EN`, and with it the full word, is
+  undeclared. The row's supporting sentence is corrected here and the §4
+  reset-value row is made precise; narrowing the Assumption's subject is a
+  contract-state change and is #71.
+- `measure_once_with_timing` said the conservative minimum is "partly assumed
+  rather than vendor-specified", which contradicted its sibling `measure_once`
+  after the reclassification. Both entry points now classify the same 130 %
+  bound the same way.
 
 ### Known issues
 

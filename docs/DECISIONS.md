@@ -610,6 +610,19 @@ silent. A reader must be able to check the claim by opening the same pages. An
 argument from the nature of the quantity may accompany that record; it may not
 substitute for it.
 
+The rule applies to the rows that already exist, not only to future ones — a
+rule unmet on the day it is written is advice. Both surviving Assumptions carry
+located negatives as of this decision: refresh-gain independence in §6 and the
+`0x03` power-on word in §4.
+
+Applying it immediately earned its keep. The `0x03` row had said *no passage
+declares it*; the application note in fact states that bits 2:1 come up as mode
+1, which covers the `PSM` field and leaves only `PSM_EN` undeclared. That is the
+same shape of error as the one this decision was written for, found the first
+time the rule was exercised rather than several revisions later. The row's
+supporting sentence is corrected here; narrowing its subject is a contract-state
+change, so it is #71.
+
 The physics argument here was, in fact, still correct about the thing it
 described — Vishay publishes no oscillator accuracy, and the datasheet shows the
 oscillator only in the block diagram. What it was wrong about is that this
