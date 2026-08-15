@@ -719,6 +719,39 @@ than a change from a prior version.
   and absence is not, and the searches ran over machine-extracted PDF text that
   can drop glyphs set in figures.
 
+- **Corrected the persistence qualification claim across all eight sites that
+  carried it.** The repository said no reviewed passage states the rule.
+  Application note 84323 Rev. 06-Mar-2025, printed page 16, section
+  `INTERRUPT HANDLING`, states it: a flag is set *only when* the threshold is
+  exceeded and a programmed number of measurements (`ALS_PERS`) stay above or
+  below it. The datasheet does not carry it — Command Code #6 describes a flag
+  set by "data crossing" a threshold window, with no persistence condition —
+  which is why a search confined to the register definitions missed it. See #73.
+- The `HARDWARE_CONTRACT.md` §9 row splits, because it held two facts of
+  different strength. The counting condition is now a verified row with
+  document, revision, page, and section; what remains open is whether that
+  condition is **sufficient**, and what a non-qualifying measurement does to a
+  partial run. Counts move to **40 verified, 3 open**.
+- **No behavior changed, and that is the finding.** `update_threshold_status`
+  still qualifies at protect number one and still reports
+  `Unsupported::UndefinedQualificationRule` above it. Predicting an assertion
+  needs sufficiency and needs a reset rule for partial runs; the sources give
+  neither, and either gap alone stops a sound oracle. What moved is the account
+  of why the model is right to refuse, not the refusal.
+- The vendor states the condition in **necessary** form — "only when X will Y be
+  set" makes X necessary, not sufficient — and the corrected prose says so
+  everywhere rather than rounding it to a trigger rule. The narrower behavior
+  that form would license, reporting the flag clear *before* the count is
+  reached, is deliberately not adopted here; it is #76, filed with the argument
+  against it as well as for it.
+- D-030 keeps its worked example and gains the correction. A decision that
+  allocated undefined behavior on the premise of total silence now rests on
+  partial silence and reaches the same allocation, which is a better example for
+  having survived the correction.
+- Fixed two cross-references that pointed at the wrong contract section:
+  `config.rs` and the conformance trace both cited §8 for a row in §9. Section
+  numbers are not stable identifiers, which is #75.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -726,7 +759,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **39 rows verified,
+- Vendor owner-verification has been walked end to end: **40 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which

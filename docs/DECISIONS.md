@@ -508,6 +508,20 @@ driver only programs the field, so the trace confirmed a register write while
 reading like a behavioral result. Nothing about the model requires a
 qualification rule, so it declares undefined instead.
 
+**That row's premise was later corrected, and the outcome held** (#73). This
+decision originally rested on the sources stating no qualification rule at all.
+They state part of one: application note 84323 gives the counting condition in
+necessary form — a flag is set *only when* `ALS_PERS` measurements stay above or
+below the threshold. What remains unstated is whether meeting that condition is
+sufficient, and what a non-qualifying measurement does to a partial run.
+
+The allocation is unchanged, because predicting an assertion needs both of those
+and the model still has neither. It is a better example for having survived the
+correction: the rule allocates whatever silence remains, and it does not depend
+on the silence being total. A decision whose worked example turned out to be
+half wrong, and whose outcome did not move, is worth more than one that was
+never tested.
+
 A consequence worth stating plainly: this makes the model's covered surface
 smaller. That is the correct direction. A narrower oracle that is sound beats a
 broader one that manufactures agreement.

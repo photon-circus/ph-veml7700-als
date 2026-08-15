@@ -165,7 +165,7 @@ fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
     //
     // Protect number one needs no rule -- one refresh, no sequence -- so this is
     // the persistence value at which driver-model agreement means something.
-    // See D-030 and `docs/HARDWARE_CONTRACT.md` §8.
+    // See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");
@@ -201,7 +201,9 @@ fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_stat
     //
     // What this trace establishes is exactly the intersection -- the write path
     // is unaffected -- and it deliberately establishes nothing about when a flag
-    // asserts, because no source says.
+    // asserts. The sources give the counting condition in necessary form only,
+    // and say nothing about sufficiency or about partial runs, so an assertion
+    // time cannot be derived from them.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");
@@ -230,7 +232,7 @@ fn arming_above_protect_number_one_programs_the_field_but_yields_no_modeled_stat
     model.advance(RelativeDuration::from_micros(132_500 + 16 * 130_000));
     assert!(
         block_on(sensor.read_threshold_status()).is_err(),
-        "the model must not answer with a status it derived from an unstated rule"
+        "the model must not answer with a status it derived from a half-stated rule"
     );
 }
 

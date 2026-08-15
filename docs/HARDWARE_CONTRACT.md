@@ -607,25 +607,48 @@ write-to-clear, or latched GPIO behavior.
       read-only, bits 13:0 reserved (Table 7). The driver masks `0x3FFF` and
       rejects any reserved bit set, which this table makes source-backed rather
       than defensive.
-- [ ] Persistence requires 1, 2, 4, or 8 consecutive qualifying measurements.
-      **The counts are verified; the word *consecutive* is not.** Table 1
-      establishes `ALS_PERS` and its four values as a *persistence protect
-      number*, which is what the driver encodes. What no reviewed passage yet
-      states is the qualification rule itself — whether the count is over
-      consecutive refreshes and whether a non-qualifying refresh resets it.
+- [x] **The qualification condition is vendor-stated, in necessary form.**
+      Table 1 establishes `ALS_PERS` and its four values as a *persistence
+      protect number*, which is what the driver encodes. Application note 84323
+      Rev. 06-Mar-2025, printed page 16, section `INTERRUPT HANDLING`, states
+      the condition under which a flag is set:
 
-      > **Partly superseded — see #73.** The audit that produced the located
-      > negatives elsewhere in this document found that application note 84323
-      > Rev. 06-Mar-2025, printed page 16, `INTERRUPT HANDLING`, does state the
-      > counting condition: a flag is set only when the threshold is exceeded and
-      > a programmed number of measurements (`ALS_PERS`) *stay above / below* it.
-      > The reset behavior remains unstated. This row is corrected in #73 rather
-      > than here, because changing its subject is a contract-state change; the
-      > paragraph above is left in place so the two can be compared.
+      > Only when the programmed threshold is exceeded and a programmed number
+      > of measurements (`ALS_PERS`) stay above / below this threshold will the
+      > corresponding interrupt bit (`ALS_IF_L` or `ALS_IF_H`) be set.
+
+      So `ALS_PERS` counts **measurements that stay above or below the
+      threshold**, and *stay* is a continuity condition. That is the word
+      *consecutive* in this row's heading, and it is now source-backed rather
+      than assumed.
+
+      Note the logical form. "Only when X will Y be set" makes X **necessary**
+      for Y; it does not state that X is sufficient. What the passage licenses
+      directly is the negative — the flag is not set before the count is
+      reached. See #76.
+
+      The datasheet does not carry this. Its Command Code #6 describes a flag
+      set by "data crossing" a threshold window, with no persistence condition,
+      and Table 7 adds nothing. The rule is application-note-only, which is why
+      a search confined to the register definitions missed it for several
+      revisions. See #73 and D-032.
+- [ ] Whether the stated condition is **sufficient**, and what a non-qualifying
+      measurement does to a partial run.
+
+      **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8 — Table 1's
+      `ALS_PERS` row, Table 7 *Interrupt Status #6*, and the Command Code #6
+      section; application note 84323 Rev. 06-Mar-2025 — `INTERRUPT HANDLING`
+      in full and its COMMAND REGISTER FORMAT blocks for `00` and `06`. Those
+      sections give the necessary condition quoted above and nothing else about
+      qualification: no statement that meeting it always sets the flag, and no
+      statement of whether a measurement that fails to qualify resets the count,
+      holds it, or decrements it. Absence outside those sections is not claimed.
 
       This row is **not** an Assumption in the D-029 sense. A qualification rule
       is functional behavior a datasheet can state in prose, unlike an
-      oscillator tolerance, so further reading could still close it.
+      oscillator tolerance, so further reading could still close it — and this
+      row is the standing proof of that, since further reading closed half of
+      what used to be one row.
 
       Under D-030 it resolves without one. The driver acts **defensively**: it
       encodes the persistence protect number and promises nothing about when the
@@ -633,6 +656,15 @@ write-to-clear, or latched GPIO behavior.
       count — `Persistence::count()` is an accessor, not an input to any
       computation. The model **declares undefined** rather than assuming,
       because nothing in the model requires a qualification rule either.
+
+      **That allocation is unchanged by the row above, and the reason is worth
+      stating.** Predicting when a flag asserts needs the condition to be
+      sufficient and needs a reset rule for partial runs. Neither is stated, and
+      either gap alone is enough to stop a sound oracle: a model that counts to
+      `ALS_PERS` has to decide what a non-qualifying refresh does, and the
+      sources do not say. So what changed is the row's premise, not its outcome
+      — this is no longer "no rule is stated", it is "the counting condition is
+      stated and the rest is not".
 
       The model previously implemented consecutive counting with reset on any
       non-qualifying refresh, and that was the finding here: driver-model
@@ -644,7 +676,8 @@ write-to-clear, or latched GPIO behavior.
       and reports `Unsupported::UndefinedQualificationRule` above it, so the
       model no longer answers a question the sources never settled. Programming
       any protect number still works, because Table 1 is verified — only
-      qualification is withdrawn.
+      qualification is withdrawn. That behavior is unchanged by #73; only the
+      account of why it is correct has moved.
 
       Third-party libraries describe this register in terms of an INT pin that
       latches and clears on read. This part has neither — §9 records that the

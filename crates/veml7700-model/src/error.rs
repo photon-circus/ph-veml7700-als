@@ -43,15 +43,22 @@ pub enum Unsupported {
     /// Threshold status was read before a monitored ALS refresh established it.
     NoQualifiedStatus(u8),
     /// Threshold status was read while the selected persistence protect number
-    /// is above one, for which no qualification rule is declared by the sources.
+    /// is above one, for which the sources do not declare a complete
+    /// qualification rule.
     ///
     /// This is not "not yet" — waiting longer never resolves it. Table 1
-    /// establishes `ALS_PERS` and its four values, but no reviewed passage
-    /// states whether the count is over consecutive refreshes, nor whether a
-    /// non-qualifying refresh resets it. This model declares the rule undefined
-    /// rather than inventing one, because an invented rule still produces
-    /// driver-model agreement and that agreement would mean nothing while
-    /// looking exactly like evidence.
+    /// establishes `ALS_PERS` and its four values, and the vendor's application
+    /// note states the counting condition in **necessary** form: a flag is set
+    /// *only when* the threshold is exceeded and `ALS_PERS` measurements stay
+    /// above or below it. Predicting an assertion needs more than that. It needs
+    /// the condition to be sufficient, which is not stated, and it needs to know
+    /// what a non-qualifying measurement does to a partial run, which is not
+    /// stated either. Either gap alone is enough.
+    ///
+    /// This model therefore declares the rule undefined rather than completing
+    /// it, because an invented completion still produces driver-model agreement
+    /// and that agreement would mean nothing while looking exactly like
+    /// evidence.
     ///
     /// A protect number of one is unaffected: a single qualifying refresh has no
     /// sequence to count, so there is no rule to be missing.

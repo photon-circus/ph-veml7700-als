@@ -48,7 +48,7 @@ support for the rest of the driver API.
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 Vendor PDFs remain untracked. Owner verification of the hardware contract has
-been walked end to end: 39 rows are verified against the pinned sources,
+been walked end to end: 40 rows are verified against the pinned sources,
 including both §1 source-baseline entries, which the owner closed by recomputing
 both SHA-256 digests over the retrieved copies. Three rows remain open and each
 states its own obstacle in place.
@@ -133,7 +133,7 @@ provably non-overflowing because the offset is bounded where it enters.
 | Abstracted | **Two declared assumptions, tabulated below.** Refreshes deterministically latch held channel values at the vendor-stated conservative boundary, which is an abstraction of application-note guidance rather than an independently chosen number. Qualified threshold flags remain set within the slice; no silicon clearing behavior is claimed. Construction represents a device with no prior threshold qualification, so the first monitored ALS refresh establishes the whole `0x06` word and an unqualified flag then reads clear. |
 | Injected | Raw ALS/white pair and white-channel phase offset, both required at construction; relative elapsed duration, bounded per step. |
 | Excluded | Lux/environment generation, optical physics, noise, jitter, drift, electrical timing, transport faults/retries, MCU or post-construction device reset, HIL evidence, silicon calibration, and actual ALS/white phase behavior. |
-| Unsupported | Threshold qualification above protect number one, whose rule the sources never state (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
+| Unsupported | Threshold qualification above protect number one, for which the sources state the counting condition but neither its sufficiency nor what a non-qualifying measurement does to a partial run (`UndefinedQualificationRule`); enabled power saving at 25/50 ms; threshold, threshold-status (`0x06`), and output reset values not declared by sources; threshold-flag clearing/deassertion; threshold writes while monitoring; arbitrary active reconfiguration; source-undeclared or reserved interactions; and unexercised standalone sequences. |
 
 ### Declared assumptions
 
@@ -173,6 +173,13 @@ what it needs to run, and nothing here forced a rule: `update_threshold_status`
 now qualifies at protect number one and reports
 `Unsupported::UndefinedQualificationRule` above it. That is a model that stopped
 guessing.
+
+It stayed gone when the sources turned out to say more than this repository had
+found. The application note gives the counting condition — a flag is set *only
+when* `ALS_PERS` measurements stay above or below the threshold — but in
+necessary form, and with nothing about what a non-qualifying measurement does to
+a partial run. Counting needs both halves, so the model still declares the rule
+undefined rather than supplying the missing one. See #73.
 
 The ±30 % integration tolerance left for the opposite reason — nothing about the
 model changed. The source turned out to state the figure, so the row was

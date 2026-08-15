@@ -507,11 +507,14 @@ impl Veml7700Model {
 
     /// Qualify threshold status for a protect number of one only.
     ///
-    /// Above one, the sources declare no qualification rule — whether the count
-    /// runs over consecutive refreshes, and whether a non-qualifying refresh
-    /// resets it, is unstated. This model therefore establishes nothing, and
-    /// `read_status` reports `UndefinedQualificationRule` rather than a value
-    /// derived from a rule nobody wrote down. See D-030.
+    /// Above one, the sources give the counting condition but not a complete
+    /// rule. The application note says a flag is set *only when* `ALS_PERS`
+    /// measurements stay above or below the threshold — necessary, not stated
+    /// to be sufficient — and says nothing about what a non-qualifying
+    /// measurement does to a partial run. Counting requires both. This model
+    /// therefore establishes nothing above one, and `read_status` reports
+    /// `UndefinedQualificationRule` rather than a value derived from the half
+    /// nobody wrote down. See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
     const fn update_threshold_status(&mut self) {
         if !threshold_monitor_is_enabled(self.configuration) {
             return;
