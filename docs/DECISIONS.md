@@ -796,6 +796,11 @@ obligation. Several surfaces still restate today; converting them is the
 remaining work, and the check is what makes that work enumerable rather than a
 search.
 
+Direct source citation, by contrast, **is** mechanical — document numbers,
+revisions, and table names are literals. Twelve files currently carry them
+outside the record. A fourth check can enforce that, and should; it is the
+remaining part of #75 rather than of this decision.
+
 The check reads paragraphs with whitespace collapsed rather than lines. Every
 tracked document here is hard-wrapped, so a line-oriented search cannot see a
 phrase spanning a line break — which is exactly how the packaged README kept a
@@ -897,6 +902,21 @@ promises nothing about assertion timing, the other declares the rule undefined �
 and *why* they differ is D-030's subject, not this one. What matters here is the
 form: a consequence is a statement about this repository, so it cannot rot
 against Vishay. A restatement can, and did, nine times at once.
+
+**A reference to what a source establishes points at the record, not at the
+source.** Cite `S-24`, not "application note 84323, Revision 06-Mar-2025, page 4,
+section *Command Code ALS_IT*". The document coordinates are themselves evidence,
+so they belong in the row with everything else the row holds; repeating them
+elsewhere is the same defect one level down. A pinned revision changes exactly
+once in the record, or it changes in twelve places and eleven of them are wrong
+until somebody greps well.
+
+Two exceptions, both narrow and both about provenance rather than device facts.
+`docs/vendor/README.md` is the retrieval record and governs source identity, and
+the model's README repeats the digests as part of its own source declaration —
+a coupling AGENTS.md already documents. `CONTRIBUTING.md` may name a document
+when teaching the difference between specified and vendor-stated, because the
+example is about the *kind* of source, not about a device fact.
 
 A copy compared by the gate would be a worse version of the same idea: it keeps
 the duplication and adds machinery to tolerate it. The status disclosure is
