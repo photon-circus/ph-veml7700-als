@@ -57,7 +57,7 @@ are coupled and must change together.
 ## Owner record to complete
 
 - [x] local copy observed and its SHA-256 recorded;
-- [x] every hardware-contract verification box reviewed — 41 rows verified,
+- [x] every hardware-contract verification box reviewed — 44 rows verified,
       including both §1 source-baseline entries. Three rows remain open and each
       says why in place: two are declared **Assumptions** under D-029 that no
       further reading can close, and one is a provisional row still waiting on a
@@ -65,11 +65,12 @@ are coupled and must change together.
       its own obstacle is a completed review of that row;
 - [x] discrepancies within the vendor documents logged — recorded in
       `docs/HARDWARE_CONTRACT.md` beside the rows they affect rather than in
-      `DECISIONS.md`, so a reader meets the caveat with the fact. Three so far:
-      a stated range of "0 lx to 230 lx" where the table gives 275 lx; a ranging
-      example computing 46 lx where its own arithmetic gives 54 lx; and
-      *Basic Characteristics* giving `f(SCL)` as a flat 10 kHz to 400 kHz where
-      *I²C Timing Characteristics* splits standard mode at 100 kHz from fast
-      mode at 400 kHz. The first two are prose against a table; the third is
-      table against table, and the more specific table governs;
+      `DECISIONS.md`, so a reader meets the caveat with the fact, and each now
+      carries a claim identifier so it can be cited. Three so far: `S-46`, a
+      stated range of "0 lx to 230 lx" where the table gives 275 lx; `S-47`, a
+      ranging example computing 46 lx where its own arithmetic gives 54 lx; and
+      `S-45`, *Basic Characteristics* giving `f(SCL)` as a flat 10 kHz to
+      400 kHz where *I²C Timing Characteristics* splits standard mode at 100 kHz
+      from fast mode at 400 kHz. The first two are prose against a table; the
+      third is table against table, and the more specific table governs;
 - [ ] any later source revision reviewed before release.

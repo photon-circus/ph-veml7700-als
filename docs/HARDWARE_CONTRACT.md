@@ -172,13 +172,19 @@ silently normalized.
       on the standard I²C protocol requirement and **not tested in
       production**.
 
-      One table-versus-table discrepancy is recorded rather than normalized:
-      *Basic Characteristics* separately gives `f(SCL)` as a flat 10 kHz to
-      400 kHz with no mode split, which is the value that would permit standard
-      mode at 400 kHz. The dedicated timing table governs, being the more
-      specific statement of the same quantity — consistent with §1, where the
-      explicit tables govern loose prose. Nothing in this driver selects or
-      constrains a bus mode; the bus is the caller's.
+      Nothing in this driver selects or constrains a bus mode; the bus is the
+      caller's.
+- [x] `S-45` **Discrepancy: the sources give `f(SCL)` two different ways.**
+      *Basic Characteristics* states a flat 10 kHz to 400 kHz with no mode
+      split, while *I²C Timing Characteristics* splits standard mode at 100 kHz
+      from fast mode at 400 kHz (`S-04`). The flat figure is the one that would
+      permit standard mode at 400 kHz.
+
+      Table against table, unlike the two prose-against-table cases in §8. The
+      dedicated timing table governs, being the more specific statement of the
+      same quantity — consistent with §1, where the explicit tables govern loose
+      prose. Recorded rather than normalized, so a reader meets the
+      inconsistency instead of a silently chosen winner.
 - [x] `S-05` The fixed 7-bit address is `0x10` (`0x20` write / `0x21` read in
       8-bit form).
 - [x] `S-06` Pull-ups are external; the vendor suggests values above 1 kΩ,
@@ -622,17 +628,19 @@ under §11, and this is the source's own framing rather than a driver limitation
 - [x] `S-37` Auto-ranging is application-software responsibility in the source.
 
 Two prose-versus-table discrepancies in this section are recorded rather than
-normalized:
+normalized. The tables govern in both, consistent with §1.
 
-1. The narrative calls 0.0042 lx/count a range of "approximately 0 lx to 230 lx",
-   while the table gives 275 lx for that pair.
-2. The ranging example states that 100 counts at ×1/8 is 54 lx, then that after
-   switching to ×1/4 the same light gives 200 counts and "the same lux value of
-   46 lx". Both cannot hold: 200 × 0.2688 is 53.76 lx, so 54 lx is right and the
-   46 lx is a slip. The example's own logic — that the lux value is unchanged
-   across a gain switch — is correct.
-
-The tables govern in both cases, consistent with §1.
+- [x] `S-46` **Discrepancy: the narrative's range for 0.0042 lx/count disagrees
+      with the table.** The prose calls it "approximately 0 lx to 230 lx"; the
+      maximum-detection table gives 275 lx for that pair (`S-27`). The table
+      governs.
+- [x] `S-47` **Discrepancy: the ranging example contradicts its own
+      arithmetic.** It states that 100 counts at ×1/8 is 54 lx, then that after
+      switching to ×1/4 the same light gives 200 counts and "the same lux value
+      of 46 lx". Both cannot hold: 200 × 0.2688 is 53.76 lx, so 54 lx is right
+      and 46 lx is a slip. The example's own logic — that the lux value is
+      unchanged across a gain switch — is correct, and is what the resolution
+      table supports (`S-26`).
 
 ## 9. Threshold monitor
 

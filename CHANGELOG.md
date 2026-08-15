@@ -809,6 +809,13 @@ than a change from a prior version.
   verbs, rather than *descriptions of them*, which is open. That rule subsumes
   the proposed direct-citation check instead of adding a second list.
 
+- Gave the three recorded vendor discrepancies claim identifiers, so a finding
+  about the sources can be cited like any other: `S-45` for `f(SCL)` stated two
+  ways, `S-46` for the narrative range that disagrees with the
+  maximum-detection table, `S-47` for the ranging example that contradicts its
+  own arithmetic. They were the last datasheet-derived findings with no way to
+  reference them. Counts move to **44 verified, 3 open**.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -816,7 +823,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **41 rows verified,
+- Vendor owner-verification has been walked end to end: **44 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which
