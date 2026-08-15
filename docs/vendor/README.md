@@ -63,9 +63,13 @@ are coupled and must change together.
       further reading can close, and one is a provisional row still waiting on a
       passage. Reviewed is not the same as all-checked; an open row that states
       its own obstacle is a completed review of that row;
-- [x] discrepancies between vendor prose and the register tables logged —
-      recorded in `docs/HARDWARE_CONTRACT.md` beside the rows they affect rather
-      than in `DECISIONS.md`, so a reader meets the caveat with the fact. Two so
-      far: a stated range of "0 lx to 230 lx" where the table gives 275 lx, and
-      a ranging example computing 46 lx where its own arithmetic gives 54 lx;
+- [x] discrepancies within the vendor documents logged — recorded in
+      `docs/HARDWARE_CONTRACT.md` beside the rows they affect rather than in
+      `DECISIONS.md`, so a reader meets the caveat with the fact. Three so far:
+      a stated range of "0 lx to 230 lx" where the table gives 275 lx; a ranging
+      example computing 46 lx where its own arithmetic gives 54 lx; and
+      *Basic Characteristics* giving `f(SCL)` as a flat 10 kHz to 400 kHz where
+      *I²C Timing Characteristics* splits standard mode at 100 kHz from fast
+      mode at 400 kHz. The first two are prose against a table; the third is
+      table against table, and the more specific table governs;
 - [ ] any later source revision reviewed before release.
