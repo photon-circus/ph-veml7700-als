@@ -66,7 +66,7 @@ only nominal scaling.
 
 ## Cross-cutting guarantees
 
-Reconfiguration follows the shutdown-first source flow in `S-19`; threshold
+Reconfiguration follows the shutdown-first source flow in `S-56`; threshold
 arming is disable-first and enable-last and ends active as driver policy (`S-17`).
 Operations avoid writes when the requested state already matches.
 

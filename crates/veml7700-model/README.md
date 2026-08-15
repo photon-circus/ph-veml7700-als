@@ -83,7 +83,7 @@ consume no invented time, and a repeated supported read at an unchanged
 temporal frontier is stable.
 
 Active reconfiguration is rejected as the model's independent reaction to
-`S-19`. Setting shutdown without changing the remaining configuration and
+`S-56`. Setting shutdown without changing the remaining configuration and
 disabling an enabled monitor are supported transitions, not evidence about
 undefined status history.
 

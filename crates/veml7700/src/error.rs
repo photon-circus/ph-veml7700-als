@@ -166,7 +166,7 @@ pub enum MeasureStage {
     /// Enter shutdown in the original domain before reconfiguring.
     ///
     /// Only reached when the operation started from an active device. Under the
-    /// driver reaction to `S-19`, this write changes only the shutdown bit.
+    /// driver reaction to `S-56`, this write changes only the shutdown bit.
     EnterShutdown,
     /// Disable autonomous power-saving cadence.
     DisablePowerSaving,

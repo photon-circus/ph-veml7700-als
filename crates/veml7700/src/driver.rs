@@ -156,7 +156,7 @@ where
     ///
     /// # Sequence
     ///
-    /// In reaction to `S-19`, an active device is shut down first, reconfigured
+    /// In reaction to `S-56`, an active device is shut down first, reconfigured
     /// while shut down, and returned to active last — three writes rather than
     /// one. A device that is already shut down takes the single-write path and
     /// stays shut down.
@@ -166,7 +166,7 @@ where
     /// Because shutdown comes first, a failure part way through can leave an
     /// originally active device shut down, with the measurement domain either
     /// old or new. Read the configuration back to establish which. This is the
-    /// cost of following the shutdown-first sequence `S-19`.
+    /// cost of following the shutdown-first sequence `S-56`.
     ///
     /// A returned error also does **not** establish that the failing write was
     /// rejected; see the type-level write uncertainty on [`Veml7700`].
@@ -609,7 +609,7 @@ where
 
         // A single write may move the shutdown bit or the monitor bit, not both:
         // the device accepts either as a transition, but the two together are a
-        // reconfiguration, which the `S-19` driver reaction performs only in
+        // reconfiguration, which the `S-56` driver reaction performs only in
         // shutdown. That
         // only bites when re-arming an enabled monitor on an active device —
         // every other starting state needs one write.

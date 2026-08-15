@@ -37,7 +37,7 @@ fn monitor_blocks_power_and_cadence_changes_before_write() {
     cadence.release().done();
 }
 
-// The driver's `S-19` reaction enters shutdown before reconfiguration. Each test
+// The driver's `S-56` reaction enters shutdown before reconfiguration. Each test
 // below starts from an active device, which is the case every other test in
 // this module misses: from shutdown the sequencing writes collapse into
 // no-ops, so a shutdown-only suite passes whether or not the rule is

@@ -268,11 +268,25 @@ shutdown, bit 0 (`ALS_SD`: 0 power on, 1 shut down), from Table 1.
 
 ### S-19
 
+**Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
+
+**Former proposition:** Reconfiguration requires shutdown first.
+
+This identifier historically named the device proposition that reconfiguration
+requires shutdown first. The cited evidence establishes only the distinct
+documentary proposition now identified by `S-56`. The former referent remains
+resolvable and is not evidence for either component consequence.
+
+### S-56
+
 **Kind:** documentary. **State:** supported. **Evidence:** positive vendor guidance.
 
-**Proposition:** The vendor software flow sets
+**Proposition:** The vendor's example software flow sets
 `ALS_SD = 1` before changing gain or integration time, then clears
 `ALS_SD` afterward.
+
+**Provenance:** Application note 84323, revision 06-Mar-2025, printed page 21,
+Fig. 23, *Flow Chart with Correction Formula from at least 100 lx*.
 
 ## 6. Power-saving register `0x03`
 
