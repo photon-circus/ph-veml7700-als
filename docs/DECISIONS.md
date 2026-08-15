@@ -801,6 +801,13 @@ revisions, and table names are literals. Twelve files currently carry them
 outside the record. A fourth check can enforce that, and should; it is the
 remaining part of #75 rather than of this decision.
 
+Note what the two checks cover between them, because the asymmetry is an
+artifact of implementation and not of principle. The existing check catches
+uncited claims of **negative** evidence, which announce themselves in phrasing.
+The proposed one catches uncited claims of **positive** evidence, which announce
+themselves in document coordinates. Neither form is privileged; they are simply
+detectable by different means.
+
 The check reads paragraphs with whitespace collapsed rather than lines. Every
 tracked document here is hard-wrapped, so a line-oriented search cannot see a
 phrase spanning a line break — which is exactly how the packaged README kept a
@@ -851,10 +858,18 @@ The global artifact makes **no interpretation**. It records what has been
 fact rests on. A row is therefore two things and no more:
 
 - the agreed fact; and
-- its **evidence** — the source states it, quoted with document, revision, page,
-  and section — or its **negative evidence**, a located negative naming which
-  document, revision, and sections were read, and disclaiming absence outside
-  them.
+- its **evidence**, which takes one of two forms and is equally evidence in
+  either:
+  - **positive** — the source states it, quoted with document, revision, page,
+    and section;
+  - **negative** — a located negative naming which document, revision, and
+    sections were read, and disclaiming absence outside them.
+
+Throughout this repository, *evidence* means both. Nothing here treats a
+positive finding as evidence and an absence as its lesser cousin: a located
+negative is a finding, it is what four corrections turned on, and the row it
+supports carries it the same way. Where a distinction is needed, say **positive
+evidence** or **negative evidence** rather than narrowing the bare word.
 
 *Agreed* is doing real work in that sentence. A row is not one reader's reading;
 it is the settled position of this repository, which is why changing a row is a
@@ -903,13 +918,15 @@ and *why* they differ is D-030's subject, not this one. What matters here is the
 form: a consequence is a statement about this repository, so it cannot rot
 against Vishay. A restatement can, and did, nine times at once.
 
-**A reference to what a source establishes points at the record, not at the
-source.** Cite `S-24`, not "application note 84323, Revision 06-Mar-2025, page 4,
-section *Command Code ALS_IT*". The document coordinates are themselves evidence,
-so they belong in the row with everything else the row holds; repeating them
-elsewhere is the same defect one level down. A pinned revision changes exactly
-once in the record, or it changes in twelve places and eleven of them are wrong
-until somebody greps well.
+**A reference to what a source does or does not establish points at the record,
+not at the source.** Both directions, equally: cite `S-24` rather than
+"application note 84323, Revision 06-Mar-2025, page 4, section *Command Code
+ALS_IT*", and cite `S-40` rather than restating which sections were read and
+found silent. The document coordinates are themselves evidence in both cases, so
+they belong in the row with everything else it holds; repeating them elsewhere is
+the same defect one level down. A pinned revision changes exactly once in the
+record, or it changes in twelve places and eleven of them are wrong until
+somebody greps well.
 
 Two exceptions, both narrow and both about provenance rather than device facts.
 `docs/vendor/README.md` is the retrieval record and governs source identity, and
