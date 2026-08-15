@@ -471,6 +471,46 @@ fn enabled_power_saving_rejects_undocumented_25_and_50_ms_cadence() {
     }
 }
 
+/// Enabled cadence outside the `S-21` gain domain is unsupported.
+///
+/// The sibling test above holds gain at ×2 and varies integration time, so it
+/// cannot fail if the gain restriction is dropped. This one is the reverse: it
+/// holds integration time at 100 ms -- squarely inside the `S-21` table -- so
+/// the gain field is the only reason the write can be refused. Deleting the
+/// gain check in `refresh_interval_ns` must fail exactly here.
+///
+/// `S-22` is undefined, so the model declines rather than assuming the ×2
+/// refresh times carry to other gains.
+#[test]
+fn enabled_power_saving_rejects_gains_outside_the_documented_cadence_domain() {
+    // Gain fields ×1, ×1/8, ×1/4 -- every encoding except the ×2 the table covers.
+    for gain_field in [0b00_u16, 0b10, 0b11] {
+        let mut model = Veml7700Model::new(injected_inputs(0, 0));
+        write_word(&mut model, POWER_SAVING, 1);
+        // Integration field 0b0000 is 100 ms, a documented `S-21` column.
+        let active = gain_field << 11;
+        let [low, high] = active.to_le_bytes();
+        assert_eq!(
+            model.write(I2C_ADDRESS, &[CONFIG, low, high]),
+            Err(TransportError::Unsupported(
+                Unsupported::UnsupportedPowerSavingDomain {
+                    configuration: active,
+                    power_saving: 1,
+                }
+            ))
+        );
+        assert_eq!(model.inspect().configuration, 0x0001);
+    }
+
+    // Positive control: the same word at gain ×2 is accepted, so the rejections
+    // above are the gain domain and not the integration time or the power word.
+    let mut model = Veml7700Model::new(injected_inputs(0, 0));
+    write_word(&mut model, POWER_SAVING, 1);
+    let active = 0b01 << 11;
+    write_word(&mut model, CONFIG, active);
+    assert_eq!(model.inspect().configuration, active);
+}
+
 #[test]
 fn injected_channel_skew_preserves_independent_refresh_generations() {
     let mut model = Veml7700Model::new(injected_inputs(0, 0));

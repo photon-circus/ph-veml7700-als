@@ -30,15 +30,6 @@ impl AlsCounts {
         self.0 == u16::MAX
     }
 
-    /// Conservatively classify the maximum code for compatibility.
-    ///
-    /// This is an alias for [`is_max_code`](Self::is_max_code), not evidence that
-    /// the converter physically saturated (`S-51`). Prefer `is_max_code` when the
-    /// distinction matters.
-    pub const fn is_saturated(self) -> bool {
-        self.is_max_code()
-    }
-
     /// Convert with the nominal scale recorded by `S-26`.
     pub const fn nominal_micro_lux(self, config: MeasurementConfig) -> MicroLux {
         NominalScale::for_config(config).scale_counts(self.0)
@@ -155,10 +146,6 @@ mod tests {
             assert_eq!(WhiteCounts::from_counts(counts).counts(), counts);
             assert_eq!(
                 AlsCounts::from_counts(counts).is_max_code(),
-                counts == u16::MAX
-            );
-            assert_eq!(
-                AlsCounts::from_counts(counts).is_saturated(),
                 counts == u16::MAX
             );
         }
