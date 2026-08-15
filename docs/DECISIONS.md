@@ -759,52 +759,83 @@ mechanical list. `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss
 claims historically, including claims since corrected, and rewriting history to
 satisfy a citation rule would defeat the point of keeping it.
 
+**What the gate cannot check is restatement.** It can tell that a paragraph
+asserting source silence cites an identifier; it cannot tell whether the
+paragraph then goes on to repeat the rule's words instead of stating this
+repository's consequence. That distinction is semantic and stays a review
+obligation. Several surfaces still restate today; converting them is the
+remaining work, and the check is what makes that work enumerable rather than a
+search.
+
 The check reads paragraphs with whitespace collapsed rather than lines. Every
 tracked document here is hard-wrapped, so a line-oriented search cannot see a
 phrase spanning a line break — which is exactly how the packaged README kept a
 disproven claim through an audit that believed itself exhaustive.
 
-### Interpretation is centralized; implementation is not
+### Scope: this decision is about the record, not about reacting to it
 
-These are opposite requirements, and the line between them is the whole design.
+Three subjects are easy to run together, and this decision owns only the first.
 
-**Implementations must stay separate.** If the driver and the model share a
-constant, a codec, or a state machine for a device fact, they share its mistakes,
-and conformance stops being an oracle — it collapses into a tautology, where two
-expressions of one derivation agree because they are one derivation. That is what
-`CONTRIBUTING.md` protects when it forbids the model importing driver code, and
-it is why this repository accepts the cost of writing the same behavior twice.
+1. **Where the interpretation lives, and how it is named and cited.** This
+   decision.
+2. **How the driver and the model each decide what a rule means for them** —
+   whether to act defensively, assume, or declare undefined. That is D-030, and
+   nothing here changes it.
+3. **Whether a rule is established at all**, and what a claim of silence
+   requires. That is D-029 and D-032.
 
-**The interpretation of record must not be duplicated.** What the datasheet says
-is not an implementation and has no oracle value in duplicate: two copies of a
-claim cannot catch each other being wrong. They can only diverge, which is
-observed rather than theoretical — the persistence rule was restated nine times
-and all nine were wrong at once, and the copy that reached consumers was the one
-a hand search missed.
+The only thing this decision borrows from the others is a constraint it must not
+break: driver and model implementations stay separate. If they share a constant,
+a codec, or a state machine for a device fact, they share its mistakes and
+conformance collapses into a tautology — two expressions of one derivation
+agreeing because they *are* one derivation. `CONTRIBUTING.md` states that rule
+and D-030 works out its consequences; centralizing the *record* must not become
+an excuse to centralize implementations.
 
-So the rule is not "duplicate less" or "duplicate more". It is:
+**With that fixed, the record itself must not be duplicated.** What the datasheet
+says has no oracle value in duplicate: two copies of a claim cannot catch each
+other being wrong, only diverge. That is observed rather than theoretical — the
+persistence rule was restated nine times and all nine were wrong at once, and the
+copy that reached consumers was the one a hand search missed.
 
-| | Driver | Model | Why |
-| --- | --- | --- | --- |
-| Behavior expressing a fact | own constant, own code | own constant, own code | two derivations that can disagree |
-| The fact itself, as recorded | cites `S-nn` | cites `S-nn` | one record, so there is nothing to diverge |
+An earlier draft of this decision said prose fragments should be per crate. That
+was wrong, and it would have institutionalized exactly the rot this decision
+exists to remove. A shared *sentence about the datasheet* creates no shared
+behavior — prose does not execute — while a shared *constant* does.
 
-`docs/HARDWARE_CONTRACT.md` is that one record. Both sides derive from it and
-neither derives from the other. An earlier draft of this decision said prose
-fragments should also be per crate; that was wrong, and it would have
-institutionalized exactly the rot this decision exists to remove. A shared
-*sentence about the datasheet* creates no shared behavior — prose does not
-execute — while a shared *constant* does.
+### The extraction is global, and so are its citations
 
-One practical constraint shapes how far the sharing can go. `crates/veml7700` is
-published, so it cannot `include_str!` a file outside its own directory: the
-packaged crate would not contain it, and the gate tests the unpacked package
-(D-017), so the attempt fails loudly rather than shipping broken. Where the same
-interpretation genuinely must appear inside both crates, the answer is the one
-already used for the status disclosure — **the gate compares the copies after
-normalizing whitespace**, so they are one text in effect even though the file
-system holds two. Prefer citing an `S-nn` over restating; compare when restating
-is unavoidable.
+There is one datasheet. From it this repository extracts normative rules about
+operation, and **that extraction is a single global artifact** —
+`docs/HARDWARE_CONTRACT.md` — not a per-crate asset and not something a crate
+owns. `S-nn` is a global name, valid from anywhere: driver, model, conformance,
+prose, or a future sibling crate. Nothing scopes an identifier to a crate,
+because nothing scopes the datasheet to one.
+
+That settles a question this decision first got wrong twice. The answer is not
+per-crate fragments, and it is not copies compared by the gate either. **It is
+that no surface restates a rule.** Each states its own *consequence* and cites
+the rule.
+
+The driver and the model reach different consequences from the same row — one
+promises nothing about assertion timing, the other declares the rule undefined —
+and *why* they differ is D-030's subject, not this one. What matters here is the
+form: a consequence is a statement about this repository, so it cannot rot
+against Vishay. A restatement can, and did, nine times at once.
+
+A copy compared by the gate would be a worse version of the same idea: it keeps
+the duplication and adds machinery to tolerate it. The status disclosure is
+compared that way because two audiences genuinely need the same *disclosure* text
+in two packages. A device fact has one home and a name.
+
+**Known limit.** A citation is only as resolvable as the document it names, and
+`docs/HARDWARE_CONTRACT.md` does not ship in the package: `crates/veml7700` is
+published, and a published crate cannot `include_str!` or package a file outside
+its own directory. So a docs.rs reader today sees `S-40` and a consequence
+without a way to follow the identifier. That is acceptable and not permanent —
+it resolves when the repository becomes public (#6), which is what makes `S-nn`
+a citable global name rather than an internal one. It is recorded here so nobody
+"fixes" it by copying the contract into the crate.
 
 ### What it costs
 
