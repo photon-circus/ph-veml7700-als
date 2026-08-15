@@ -817,6 +817,42 @@ obligation. Several surfaces still restate today; converting them is the
 remaining work, and the check is what makes that work enumerable rather than a
 search.
 
+### The detector is provisional, and its shape is wrong
+
+This must be said plainly, because the check will otherwise be trusted for more
+than it is worth.
+
+It works by matching phrasings — *no reviewed passage*, *the sources do not
+state*, *is not documented*, and a dozen more. **That list is unbounded by
+construction.** Three holes were found within a day of writing it: two by review
+and one by its own author, each a way of saying "the source is silent" that
+nobody had enumerated. There will always be another. Patching each one is
+plugging a dyke, and a detector that needs continual patching is not a control —
+it is a habit that occasionally fires.
+
+The maintainable shape inverts the question. Instead of detecting *ways of
+describing a source*, which is an open set, detect *references to the sources at
+all*, which is a closed one: the documents have names, numbers, revisions, and
+table designations, and the acts a document performs — state, declare, specify,
+document, establish, publish — are a small fixed vocabulary. The rule then
+becomes one rule rather than a list:
+
+> Outside the record, the sources may not be referred to except by citing an
+> `S-nn`.
+
+That subsumes both halves — a claim of positive evidence and a claim of negative
+evidence both have to name a source or a documentary act to be about one — and
+it fails closed, because a novel phrasing still has to use the vocabulary. It
+also replaces the separate direct-citation check this decision proposes above
+with the same rule, rather than a second list.
+
+It is not built here. Designing the vocabulary and its exemptions properly is
+worth more than bolting another pattern onto the current list, and the current
+list is a strict improvement over nothing while that happens. What is recorded
+now is that the present detector is **provisional**, that its failure mode is
+silent under-reporting, and that no absence of findings from it should be read
+as absence of claims. See #75.
+
 Direct source citation, by contrast, **is** mechanical — document numbers,
 revisions, and table names are literals. Twelve files currently carry them
 outside the record. A fourth check can enforce that, and should; it is the

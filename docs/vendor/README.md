@@ -57,7 +57,7 @@ are coupled and must change together.
 ## Owner record to complete
 
 - [x] local copy observed and its SHA-256 recorded;
-- [x] every hardware-contract verification box reviewed — 40 rows verified,
+- [x] every hardware-contract verification box reviewed — 41 rows verified,
       including both §1 source-baseline entries. Three rows remain open and each
       says why in place: two are declared **Assumptions** under D-029 that no
       further reading can close, and one is a provisional row still waiting on a

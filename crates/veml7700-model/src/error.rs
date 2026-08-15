@@ -78,7 +78,8 @@ pub enum Unsupported {
     MidConversionReconfiguration,
     /// Integration-time field is a reserved encoding, so no bound exists.
     ReservedIntegrationTime(u16),
-    /// Power-saving cadence is not documented for the selected integration.
+    /// Power-saving cadence is not documented for the selected integration
+    /// (`S-44`).
     UndocumentedPowerSavingCadence {
         /// Complete configuration word selecting the integration time.
         configuration: u16,

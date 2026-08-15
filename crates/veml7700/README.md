@@ -108,7 +108,7 @@ completing it. See `docs/DECISIONS.md` D-030.
 
 Threshold traces deliberately use 100 ms rather than the
 [`maximum_range_start`] preset: 25 ms has no vendor-documented power-saving
-refresh time (`S-21`), so pairing it with an enabled cadence would ask for
+refresh time (`S-44`), so pairing it with an enabled cadence would ask for
 behavior no source establishes.
 
 [`maximum_range_start`]: https://docs.rs/ph-veml7700-als/latest/ph_veml7700_als/struct.MeasurementConfig.html#method.maximum_range_start

@@ -183,7 +183,7 @@ fn shutdown_before_the_first_bound_completes_no_conversion() {
 fn shutdown_before_the_bound_keeps_the_previous_completed_pair() {
     // The source calls this Auto-Memorization: the part memorizes the last
     // ambient data before shutdown and the host may read it while shut down.
-    // `docs/HARDWARE_CONTRACT.md` `S-23` records it as verified.
+    // `docs/HARDWARE_CONTRACT.md` `S-25` records it as verified.
     let mut model = Veml7700Model::new(RetainedInputs::new(3, 4));
     wake_100ms(&mut model);
     model.advance(RelativeDuration::from_micros(BOUND_100MS_US));

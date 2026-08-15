@@ -375,17 +375,6 @@ The vendor explicitly documents refresh times for 100, 200, 400, and 800 ms:
 | 3 | 2100 ms | 2200 ms | 2400 ms | 2800 ms |
 | 4 | 4100 ms | 4200 ms | 4400 ms | 4800 ms |
 
-The driver does not extrapolate a documented refresh interval for 25 or 50 ms.
-The source table has no rows for those integration times, which is why they are
-unsupported rather than computed.
-
-**Located negative (D-032)** for that absence. Read: the *Refresh Time, I_DD,
-and Resolution Relation* table in datasheet 84286 Rev. 1.8 and its identical
-copy in application note 84323 Rev. 06-Mar-2025, plus the app note's separate
-`PSM` / `ALS_IT` → refresh-time table. All three are indexed by `ALS_IT` ∈
-{100, 200, 400, 800} ms; neither 25 ms nor 50 ms appears as a row in any of
-them, in either document.
-
 The source records this relation at ALS gain ×2 only. The driver treats refresh
 time as independent of gain — `nominal_refresh_time_ms` takes an integration
 time and no gain. The pattern is exact (refresh = integration + 500, 1000, 2000,
@@ -397,6 +386,16 @@ statement, so the inference is recorded here rather than left implicit in code.
       disable, 1 enable).
 - [x] `S-21` The sixteen refresh times above match the vendor's refresh time /
       I_DD / resolution relation, at gain ×2.
+- [x] `S-44` **No refresh time is documented for 25 ms or 50 ms integration.**
+      The absence is the finding, which is why those pairings are unsupported
+      rather than computed.
+
+      **Located negative (D-032).** Read: the *Refresh Time, I_DD, and Resolution
+      Relation* table in datasheet 84286 Rev. 1.8 and its identical copy in
+      application note 84323 Rev. 06-Mar-2025, plus the app note's separate
+      `PSM` / `ALS_IT` → refresh-time table. All three are indexed by `ALS_IT` ∈
+      {100, 200, 400, 800} ms; neither 25 ms nor 50 ms appears as a row in any of
+      them, in either document. Absence outside those tables is not claimed.
 - [ ] `S-22` **Assumption: refresh time is independent of ALS gain.** *Requires
       physical validation. Further reading cannot close this row.*
 

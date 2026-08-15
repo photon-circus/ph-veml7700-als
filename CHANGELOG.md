@@ -793,6 +793,22 @@ than a change from a prior version.
   and nine simultaneously wrong restatements of the persistence rule are what
   that looks like. One record, two derivations, both citing it.
 
+- Review of the check found three ways it could pass while leaving a claim
+  unmoored: a contract row added without an identifier is invisible to every
+  other check here; a whole Markdown table or Rust enum counted as one block, so
+  one identifier vouched for every claim in it; and two citations resolved to
+  the wrong row. All three are fixed — rows must be numbered, blocks end at a
+  table row or the code line a doc comment documents, and `S-44` now records the
+  25/50 ms refresh omission that the packaged README had been attributing to
+  `S-21`. Counts move to **41 verified, 3 open**.
+- **The detector is recorded as provisional.** It matches phrasings, and that
+  list is unbounded by construction — three holes surfaced within a day, two
+  from review and one from its author. A clean run is not proof there are no
+  uncited claims. D-033 records the replacement shape: detect *references to the
+  sources*, which is a closed vocabulary of names, numbers, and documentary
+  verbs, rather than *descriptions of them*, which is open. That rule subsumes
+  the proposed direct-citation check instead of adding a second list.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -800,7 +816,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **40 rows verified,
+- Vendor owner-verification has been walked end to end: **41 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which

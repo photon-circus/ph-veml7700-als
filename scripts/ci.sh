@@ -342,6 +342,14 @@ printf '        %s conformance tests, all disclosed\n' \
 # the one that pays for itself -- it turns "find every copy" from a grep someone
 # has to get right into a mechanical list.
 #
+# The phrase list below is PROVISIONAL and its failure mode is silent
+# under-reporting. Matching ways of saying "the source is silent" is an unbounded
+# problem: three holes were found within a day of writing it. Do not treat a
+# clean run as proof there are no uncited claims, and do not respond to a new
+# hole by appending a pattern -- D-033 records the replacement, which detects
+# references to the sources (a closed vocabulary) rather than descriptions of
+# them (an open one). See #75.
+#
 # `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss claims historically,
 # including claims that have since been corrected, and rewriting history to
 # satisfy a citation rule would defeat the point of keeping it.
@@ -350,6 +358,18 @@ claim_registry=docs/HARDWARE_CONTRACT.md
 claim_ids=$(grep -oE '^- \[[x ]\] `S-[0-9]+`' "$claim_registry" | grep -oE 'S-[0-9]+' | sort)
 if [ -z "$claim_ids" ]; then
     echo "no S-nn claim identifiers found in $claim_registry" >&2
+    exit 1
+fi
+# A row added without an identifier is invisible to every other check here: it
+# cannot be cited, and the uncited-claim scan skips the registry. It would sit
+# in the record uncitable while the gate stayed green, which is the one failure
+# this whole mechanism cannot tolerate.
+total_rows=$(grep -cE '^- \[[x ]\] ' "$claim_registry")
+numbered_rows=$(printf '%s\n' "$claim_ids" | wc -l | tr -d ' ')
+if [ "$total_rows" -ne "$numbered_rows" ]; then
+    printf 'every contract row needs exactly one claim identifier: %s rows, %s numbered\n' \
+        "$total_rows" "$numbered_rows" >&2
+    grep -nE '^- \[[x ]\] ' "$claim_registry" | grep -vE '^\s*[0-9]+:- \[[x ]\] `S-[0-9]+`' >&2
     exit 1
 fi
 duplicate_ids=$(printf '%s\n' "$claim_ids" | uniq -d)
@@ -376,9 +396,17 @@ fi
 # document here is hard-wrapped, so a line-oriented search cannot see a phrase
 # that spans a line break -- which is exactly how the packaged README kept a
 # disproven claim through an audit that believed it was exhaustive.
-uncited_claims=$(awk 'BEGIN { RS = "" }
-{
-    block = $0
+#
+# Blocks are finer than paragraphs on purpose. A Markdown table and a Rust enum
+# are each one paragraph, so a single identifier anywhere in one would vouch for
+# every claim in it -- a fidelity table citing `S-39` would satisfy an unrelated
+# assertion about reset values three rows away. Each table row is its own block,
+# and a Rust doc-comment run ends at the code line it documents, so an identifier
+# only ever vouches for the claim it sits with.
+uncited_claims=$(awk '
+function flush(   block, lower) {
+    if (buf == "") return
+    block = buf
     gsub(/[ \t\r\n]+/, " ", block)
     lower = tolower(block)
     if (lower ~ /no reviewed passage/ ||
@@ -391,14 +419,38 @@ uncited_claims=$(awk 'BEGIN { RS = "" }
         lower ~ /not source-backed/ ||
         lower ~ /the sources are silent/ ||
         lower ~ /no vendor document (states|declares|gives|specifies)/ ||
-        lower ~ /states no /) {
+        lower ~ /states no / ||
+        lower ~ /(is|are) not documented/ ||
+        lower ~ /no (vendor-)?documented/) {
         if (block !~ /S-[0-9][0-9]/) {
-            snippet = block
-            if (length(snippet) > 140) snippet = substr(snippet, 1, 140) "..."
-            printf "  %s\n    %s\n", FILENAME, snippet
+            if (length(block) > 140) block = substr(block, 1, 140) "..."
+            printf "  %s:%d\n    %s\n", buffile, bufline, block
         }
     }
-}' $(printf '%s\n' $claim_sources | grep -v -E '^(docs/HARDWARE_CONTRACT\.md|docs/DECISIONS\.md|CHANGELOG\.md)$'))
+    buf = ""
+}
+FNR == 1 { flush() }
+{
+    buf_is_empty = (buf == "")
+    if (buf_is_empty) { buffile = FILENAME; bufline = FNR }
+    if ($0 ~ /^[ \t]*$/) { flush(); next }
+    # A table row stands alone: one row, one claim, one citation.
+    if ($0 ~ /^[ \t]*\|/) {
+        flush()
+        buf = $0; buffile = FILENAME; bufline = FNR
+        flush()
+        next
+    }
+    if (FILENAME ~ /\.rs$/ && $0 !~ /^[ \t]*(\/\/|\*|\/\*)/) {
+        # Code ends the doc-comment run it follows, so each item is separate.
+        flush()
+        next
+    }
+    if (buf == "") { buffile = FILENAME; bufline = FNR }
+    buf = buf " " $0
+}
+END { flush() }
+' $(printf '%s\n' $claim_sources | grep -v -E '^(docs/HARDWARE_CONTRACT\.md|docs/DECISIONS\.md|CHANGELOG\.md)$'))
 if [ -n "$uncited_claims" ]; then
     printf 'these say what a source does not state, without citing a claim identifier:\n%s\n' \
         "$uncited_claims" >&2
