@@ -816,6 +816,21 @@ than a change from a prior version.
   own arithmetic. They were the last datasheet-derived findings with no way to
   reference them. Counts move to **44 verified, 3 open**.
 
+- **Narrowed the `0x03` power-on assumption to `PSM_EN` alone** (#71). The row
+  had assumed the whole word while the application note states half of it: the
+  `PSM` field comes up as mode 1 = `00`, now recorded as `S-48`. What remains
+  undeclared is one bit, and one bit is enough — `RESET_POWER_SAVING` is a
+  whole-word constant, so a narrower assumption is still an assumption.
+- The assumption does **not** rest on the app note's instruction to set
+  `PSM_EN = 1` in order to activate the feature. That implies the bit is not
+  already set, and an implication is not a declaration — the substitution D-032
+  exists to refuse. The row says so rather than quietly leaning on it.
+- Corrected at all four sites: the contract's `S-10` and `S-11`, the model's
+  declared-assumption table, and the `RESET_POWER_SAVING` doc comment, which had
+  said no passage states a power-on value for `0x03`. Counts move to **45
+  verified, 3 open**. No behavior changed; `RESET_POWER_SAVING` is still
+  `0x0000`.
+
 ### Known issues
 
 - The independent model remains a bounded slice: transport faults, arbitrary
@@ -823,7 +838,7 @@ than a change from a prior version.
   values, and unexercised public operations remain outside its claim.
 - The hosted workflow has never executed a job, so it is unverified. It and
   default-branch protection both resolve at the visibility change. See issue #6.
-- Vendor owner-verification has been walked end to end: **44 rows verified,
+- Vendor owner-verification has been walked end to end: **45 rows verified,
   3 open.** The open rows are two D-029 Assumptions that only hardware can
   close (refresh independence from ALS gain, register `0x03` reset value) and
   the persistence qualification rule, which reading could still close and which

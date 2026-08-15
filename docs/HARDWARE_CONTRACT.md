@@ -236,10 +236,8 @@ No public raw-register accessor exists in v0.1.
       carries a declared fixed identity (Table 8). No other register has a
       declared reset **word**. `0x03` is the partial case: Table 4 constrains
       bits 15:3 to zero, which is a write validity rule rather than a power-on
-      value, while the application note's power-saving discussion says the
-      default is mode 1 = `00` for bits 2:1 — a statement about the `PSM` field
-      only, leaving `PSM_EN` and therefore the word undeclared. See the
-      Assumption row below and #71.
+      value, while the `PSM` field's power-on content **is** stated (`S-48`),
+      leaving `PSM_EN` and therefore the word undeclared (`S-11`).
 
       **Located negative (D-032)** for the "not declared by sources" cells in the
       table above. Read: datasheet 84286 Rev. 1.8 — the COMMAND REGISTER FORMAT
@@ -256,8 +254,19 @@ No public raw-register accessor exists in v0.1.
       places a reset value would be stated — a register's own definition — were
       read and do not state one.
 
-- [ ] `S-11` **Assumption: register `0x03` reads `0x0000` before it is
-      written.** *Requires physical validation.*
+- [x] `S-48` **The `PSM` field comes up as mode 1 (`00`) before it is written.**
+      Application note 84323 Rev. 06-Mar-2025, in the power-saving discussion
+      preceding its *Command Code PSM / PSM_EN* register-format table: describing
+      how to enable the feature, it states that the default it comes up with is
+      mode 1 = `00` for bits 2 and 1.
+
+      That is a statement about the content of bits 2:1 before they are written,
+      which is the `PSM` field. It says nothing about `PSM_EN` — see `S-11`.
+      Vendor-stated in an application note rather than specified in a
+      characteristic table, so it carries the strength `CONTRIBUTING.md` calls
+      **vendor-stated guidance**.
+- [ ] `S-11` **Assumption: `PSM_EN` reads `0` before it is written**, and with it
+      the full `0x03` word reads `0x0000`. *Requires physical validation.*
 
       **Located negative (D-032).** Read: datasheet 84286 Rev. 1.8, the
       command-register overview table, Table 4 *Power Saving Modes*, and the
@@ -267,20 +276,19 @@ No public raw-register accessor exists in v0.1.
       datasheet declares a power-on default exactly once, for `0x00`, and gives
       `0x03` only `Set (15 : 3) 0000 0000 0000 0b` — a write validity rule for
       reserved bits, not a power-on value. Table 4 gives field encodings with no
-      reset column.
+      reset column. Nothing in those sections states `PSM_EN`'s power-on value.
 
-      **One passage bears on part of it.** The application note, describing how
-      to enable power saving, says the default it comes up with is mode 1 = `00`
-      for bits 2 and 1. That speaks to the `PSM` field reading `00` before it is
-      written. It says nothing about `PSM_EN`; that bit's power-on state is only
-      implied by the instruction to set it to 1 in order to activate the feature,
-      and an implication is not a declaration.
+      **An implication is not a declaration.** The application note instructs the
+      reader to set `PSM_EN = 1` to activate the feature, which implies it is not
+      already 1. That is exactly the substitution D-032 exists to refuse, so this
+      row does not rest on it either.
 
-      So the undeclared part is `PSM_EN`, and with it the full word. `0x0000` is
-      the value every defined field takes at zero — `PSM_EN` disabled, `PSM`
-      mode 1, reserved bits clear — so a device that has never had power saving
-      written is expected to read it. Narrowing this row to `PSM_EN` alone is a
-      contract-state change and belongs to #71, not to an in-place edit here.
+      This row was once the whole word. `S-48` records the half the sources do
+      state; what remains undeclared is one bit, and one bit is enough — the
+      model's `RESET_POWER_SAVING` is a whole-word constant, so a narrower
+      assumption is still an assumption. `0x0000` is the value every defined
+      field takes at zero, and a device that has never had power saving written
+      is expected to read it.
 
       **The driver does not rely on this.** Every path reads register `0x03`
       before acting on it, so a different power-on value changes nothing the
@@ -290,7 +298,8 @@ No public raw-register accessor exists in v0.1.
       as derived behavior.
 
       **What would settle it:** reading `0x03` on a device that has not been
-      written since power-on. See #58.
+      written since power-on — now confirming one bit rather than a word.
+      See #58.
 
 ## 5. Configuration register `0x00`
 

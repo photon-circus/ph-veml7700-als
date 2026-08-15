@@ -48,7 +48,7 @@ support for the rest of the driver API.
   and [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 
 Vendor PDFs remain untracked. Owner verification of the hardware contract has
-been walked end to end: 44 rows are verified against the pinned sources,
+been walked end to end: 45 rows are verified against the pinned sources,
 including both §1 source-baseline entries, which the owner closed by recomputing
 both SHA-256 digests over the retrieved copies. Three rows remain open and each
 states its own obstacle in place.
@@ -150,7 +150,7 @@ physical-evidence plans.
 
 | Assumption | Where the model relies on it | Contract state | Observable consequence |
 | --- | --- | --- | --- |
-| Register `0x03` reads `0x0000` before it is written | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. The **driver** has no such assumption — it reads the register before acting on it. |
+| `PSM_EN` reads `0` before it is written, so the `0x03` word reads `0x0000` | `Veml7700Model::new` via `RESET_POWER_SAVING` | **Assumption** (`S-11`, D-029) | A harness that never writes `0x03` sees continuous-conversion cadence. The `PSM` half of that word is vendor-stated (`S-48`); one undeclared bit still makes the word an assumption. The **driver** has no such assumption — it reads the register before acting on it. |
 | Refresh time does not depend on ALS gain | `refresh_interval_ns`, which takes no gain argument | **Assumption** (D-029) | Every cadence the model predicts is gain-independent. If silicon disagreed, model and driver would agree with each other and both diverge from the part. |
 
 The 130 % conversion boundary is **not** in this table. It is not a
