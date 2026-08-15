@@ -34,11 +34,15 @@ those reactions.
   evidence. `Not currently relevant` preserves a pre-existing ID that has no
   current driver, model, conformance, scoped-hardware, or reported-bug
   consumer; it creates no work or coverage obligation.
+- A **registry tombstone** preserves an identifier after it stops naming a live
+  proposition. Its lifecycle state is `superseded` when named `S-nn` rows carry
+  the former referent and `retired` when none do. It records the exact former
+  proposition and `registry history only`; `Relevance` does not apply.
 
-Every row names its proposition kind, current knowledge state, and evidence
-polarity. `Supported` means the cited evidence supports that exact proposition;
-`undefined` means the cited evidence does not determine it. States report
-evidence, not approval or future work.
+Every live proposition row names its proposition kind, current knowledge state,
+and evidence relation. `Supported` means the cited evidence supports that exact
+proposition; `undefined` means the cited evidence does not determine it. States
+report evidence, not approval or future work.
 
 Rows contain propositions, evidence, and state only. Component consequences and
 work-item policy belong elsewhere. Cite an `S-nn`, never a movable section
@@ -132,11 +136,13 @@ commonly 2.2 kΩ to 4.7 kΩ.
 
 ### S-07
 
-**Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
+**Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
 
-This identifier historically named
-a component policy rule, not an evidence proposition. It remains
-resolvable and has no replacement `S-nn`.
+**Former proposition:** The driver never owns sensor power, board pull-ups,
+cover-window geometry, or an external optical source.
+
+No `S-nn` replaces this component-policy referent; the identifier remains
+resolvable but is not evidence.
 
 ## 3. Word transfer order
 
@@ -371,15 +377,16 @@ found no characterized integration-time or oscillator-accuracy limit.
 
 ### S-55
 
-**Kind:** device. **State:** undefined. **Evidence:** vendor guidance does not establish a characterized bound.
+**Kind:** device. **State:** undefined. **Evidence:** does not resolve.
 
 **Proposition:** With power saving disabled, a completed conversion is available
 no later than the `S-23` wake interval plus 130 % of the selected nominal
 integration time.
 
-**Documentary evidence: supports as vendor guidance, not as a characterized
-bound.** `S-23` and `S-24` are the applicable documentary propositions.
-**Physical evidence: none.**
+**Documentary evidence: does not resolve.** `S-24` states the ±30 % figure as an
+allowance that can be assumed, not as a characterized min/max, so it does not
+determine this bound. `S-23` supplies the wake interval only. **Physical
+evidence: none.**
 
 
 
@@ -529,19 +536,18 @@ integration time below 100 ms to cover the brightest conditions.
 
 **Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
 
-This identifier historically repeated
-the proposition now owned by `S-29`; its referent remains resolvable.
+**Former proposition:** Gain ×1 and ×2 are confined to illumination below 100 lx.
 
-**Relevance: retired.**
+`S-29` now carries this referent.
 
 ### S-36
 
 **Kind:** registry tombstone. **State:** retired. **Evidence:** registry history only.
 
-This identifier historically summarized
-parts of `S-26`, `S-29`, and `S-30`; its referent remains resolvable.
+**Former proposition:** Linear behavior spans 0.0042 lx to about 1 klx.
 
-**Relevance: retired.**
+No `S-nn` carries this compound summary. `S-26`, `S-29`, and `S-30` retain its
+independently sourced inputs.
 
 ### S-37
 
@@ -600,10 +606,11 @@ and Table 7 adds nothing. The condition is application-note-only.
 
 **Kind:** registry tombstone. **State:** superseded. **Evidence:** registry history only.
 
-This row formerly combined
-persistence sufficiency and partial-run behavior. Its meaning is retained
-here; the two independently correctable device propositions are now
-`S-49` and `S-50`.
+**Former proposition:** Whether the stated condition is sufficient, and what a
+non-qualifying measurement does to a partial run.
+
+The two independently correctable device propositions are now `S-49` and
+`S-50`.
 
 ### S-49
 

@@ -61,19 +61,28 @@ establishes agreement only within the stated trace.
 `read_threshold_status` is called only to assert the model's exact
 `UndefinedQualificationRule` error. No successful status semantics are claimed.
 
+The model returns an error for register `0x06` in every configuration: its
+enabled reaction cites `S-39`, `S-49`, and `S-50`, and its disabled reaction
+cites `S-10`, `S-42`, and `S-54`. Driver status decoding is therefore
+unreachable through model conformance; scripted driver tests cover that decoder
+instead.
+
 ### Configuration domain
 
-| Domain | Exercised | Not exercised or unsupported |
+| Domain | Trace coverage | Not exercised or unsupported |
 | --- | --- | --- |
-| Gain | ×1, ×2, ×1/8 | ×1/4 |
+| Gain | ×1 active conversion/read; ×2 and ×1/8 selected | ×1/4 |
 | Integration time | 25 ms, 100 ms | 50, 200, 400, 800 ms |
 | Persistence | 1 and 4 programming | 2 and 8; qualification at every value is unsupported |
-| Power-saving mode | Mode 1, Mode 2 | Mode 3, Mode 4 |
+| Power-saving mode | Mode 2 enabled; Mode 1 observed only while disabled | Mode 1 enabled, Mode 3, Mode 4 |
 | Threshold qualification | none | low and high status semantics |
 
 Threshold qualification is an evidence boundary, not a missing test. `S-39`,
 `S-49`, and `S-50` do not support a complete oracle, so the model returns
 `Unsupported` rather than manufacturing coverage.
+
+Enabled cadence is traced only at gain ×2. The model's reaction to `S-22`
+declines enabled cadence at other gains rather than inventing independence.
 
 ## Canonical gate
 

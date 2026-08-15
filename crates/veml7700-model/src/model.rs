@@ -360,9 +360,10 @@ impl Veml7700Model {
     }
 
     const fn read_status(&self, pointer: u8) -> Result<u16, TransportError> {
-        // While monitoring, the evidence does not support a qualification
-        // oracle at any protect number (`S-39`, `S-49`, `S-50`). Waiting cannot
-        // turn that undefined rule into model knowledge.
+        // This model has no successful status oracle. The enabled reaction cites
+        // `S-39`, `S-49`, and `S-50`; the disabled reaction cites `S-10`,
+        // `S-42`, and `S-54`. `docs/VERIFICATION.md` records the conformance
+        // consequence.
         if threshold_monitor_is_enabled(self.configuration) {
             return Err(TransportError::Unsupported(
                 Unsupported::UndefinedQualificationRule {
@@ -370,9 +371,9 @@ impl Veml7700Model {
                 },
             ));
         }
-        Err(TransportError::Unsupported(Unsupported::NoQualifiedStatus(
-            pointer,
-        )))
+        Err(TransportError::Unsupported(
+            Unsupported::StatusReadWhileMonitorDisabled(pointer),
+        ))
     }
 
     const fn write_threshold(&mut self, pointer: u8, word: u16) -> Result<(), TransportError> {

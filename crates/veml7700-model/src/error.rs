@@ -40,8 +40,11 @@ pub enum Unsupported {
     NoCompletedConversion(u8),
     /// A threshold register was read before this model had observed it written.
     NoProgrammedThreshold(u8),
-    /// Threshold status was read while this model had no supported status result.
-    NoQualifiedStatus(u8),
+    /// Threshold status was read while the monitor was disabled.
+    ///
+    /// This is the model's unsupported reaction to `S-10`, `S-42`, and `S-54`;
+    /// it does not mean that waiting will produce a value.
+    StatusReadWhileMonitorDisabled(u8),
     /// Threshold status was read while monitoring, but `S-39`, `S-49`, and
     /// `S-50` do not support a complete qualification oracle.
     ///
@@ -112,9 +115,9 @@ impl fmt::Display for Unsupported {
                 f,
                 "threshold register 0x{pointer:02X} has no programmed value in this model"
             ),
-            Self::NoQualifiedStatus(pointer) => write!(
+            Self::StatusReadWhileMonitorDisabled(pointer) => write!(
                 f,
-                "threshold-status register 0x{pointer:02X} has no qualified status in this model"
+                "threshold-status register 0x{pointer:02X} was read while the monitor was disabled"
             ),
             Self::UndefinedQualificationRule { configuration } => write!(
                 f,
