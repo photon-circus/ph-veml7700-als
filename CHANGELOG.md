@@ -20,10 +20,9 @@ describes the candidate's current surface, not changes from a prior version.
 
 ### Clarified
 
-- `AlsCounts::is_max_code` reports the exact maximum-word observation;
-  `is_saturated` remains a conservative compatibility alias. Neither by itself
-  establishes physical clipping, overrange, or a scene lower bound (`S-51`,
-  `S-52`).
+- `AlsCounts::is_max_code` reports the exact maximum-word observation. It does
+  not establish physical clipping, overrange, or a scene lower bound (`S-51`,
+  `S-52`), so no accessor on this type is named for saturation.
 - Threshold-status reads are raw observations. The driver performs no explicit
   clearing operation and promises no flag history or freshness semantics (`S-38`,
   `S-42`).
