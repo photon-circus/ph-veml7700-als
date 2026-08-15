@@ -305,7 +305,7 @@ reconfiguration and is unaffected.
 
 This is not a defensive choice. The vendor's own software flow sets `ALS_SD = 1`
 before any reconfiguration, changes gain or integration time while shut down,
-and clears `ALS_SD` afterwards. `docs/HARDWARE_CONTRACT.md` §5 records it as an
+and clears `ALS_SD` afterwards. `docs/HARDWARE_CONTRACT.md` `S-19` records it as an
 owner-verified row. It is a positive requirement, not an absence of permission
 to write while active, and that distinction is what settled the question.
 
@@ -719,3 +719,74 @@ of deliberate review.
 Consequently #58's integration-time observation is no longer the means of
 discovering an unpublished figure. It is optional characterization — evidence
 about parts on a bench, against a tolerance the vendor already states.
+
+## D-033 — Source claims are cited, not restated
+
+**Date:** 2026-08-15 **Status:** Current
+
+D-032 made absence claims checkable. It did nothing about how many places carry
+one, and that turned out to be the expensive part.
+
+Four corrections in a row measured it: the ±30 % tolerance lived in six files
+(#65), the `0x03` power-on word in four (#71), the persistence rule in **nine**
+(#73). Two of the persistence sites were `pub` rustdoc, so a disproven claim was
+being published rather than merely recorded. Correcting one claim meant finding
+every copy by hand, and nothing detected a copy left behind.
+
+They rotted in two ways, both observed. The claim itself went stale — seven
+restatements of the persistence rule were wrong at once. And the *pointer* went
+stale: two citations said §8 for a row that had moved to §9, and had read as
+correct for revisions.
+
+### The rule
+
+`docs/HARDWARE_CONTRACT.md` is the registry. Every row carries a stable `S-nn`,
+the third instance of a convention this repository already runs twice, for
+`D-nn` and `I-nn`. Everywhere else **cites the identifier**; a section number is
+a position, and positions move.
+
+`scripts/ci.sh` enforces three things, and the third is the one that pays for
+itself:
+
+1. identifiers are unique, so one number names one row;
+2. every cited identifier resolves, so a retired or mistyped citation fails
+   loudly instead of quietly naming the wrong claim;
+3. any statement about what the sources do not say, outside the registry, cites
+   an `S-nn`.
+
+The third converts "find every copy" from a grep someone has to get right into a
+mechanical list. `DECISIONS.md` and `CHANGELOG.md` are exempt: they discuss
+claims historically, including claims since corrected, and rewriting history to
+satisfy a citation rule would defeat the point of keeping it.
+
+The check reads paragraphs with whitespace collapsed rather than lines. Every
+tracked document here is hard-wrapped, so a line-oriented search cannot see a
+phrase spanning a line break — which is exactly how the packaged README kept a
+disproven claim through an audit that believed itself exhaustive.
+
+### What this does not do, on purpose
+
+**It does not deduplicate the driver and the model.** `CONTRIBUTING.md` requires
+the model to derive from this contract rather than from driver code, because if
+the two share a mistake neither can catch it. If they shared a prose fragment or
+a constant for a device fact, the model would stop being an independent
+derivation and conformance would stop being an oracle.
+
+So driver/model duplication is **load-bearing**, and the goal is not one copy. It
+is one *edit point for the claim* with independent derivations on each side, both
+traceable to the same `S-nn`. A future change that collapses them into a shared
+source of device facts would satisfy a tidiness instinct and destroy the reason
+the model exists.
+
+### What it costs
+
+The registry is a thing to keep true, and D-021 declined a `docs/README.md` on
+exactly that reasoning — an index of seven documents is a seventh thing to keep
+true. The answer is that this index is machine-checked in both directions, which
+the rejected one would not have been. An unchecked index rots; a checked one
+fails the build.
+
+Identifiers also make the document less readable in one specific way: allocation
+order stops matching document order the first time a row is added. That is
+accepted, because the alternative is renumbering, and renumbering is precisely
+what breaks every citation elsewhere.

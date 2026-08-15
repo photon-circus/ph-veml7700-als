@@ -28,7 +28,7 @@ pub const WAKE_UP_DELAY_US: u32 = 2_500;
 /// freshness guarantee fails silently — a stale value is indistinguishable from
 /// a new one.
 ///
-/// `docs/HARDWARE_CONTRACT.md` §7 records the source location, and #58 carries
+/// `docs/HARDWARE_CONTRACT.md` `S-24` records the source location, and #58 carries
 /// the optional characterization that would measure the spread directly.
 pub const INTEGRATION_TOLERANCE_PERCENT: u32 = 30;
 /// Additional software margin beyond wake-up and maximum integration time.

@@ -153,6 +153,13 @@ A claim that a source is **silent** on something needs a located negative —
 which document, revision, and sections were read — not an argument that the
 figure is the kind of thing vendors do not publish. See D-032.
 
+**Cite claims, do not restate them.** Every row in `docs/HARDWARE_CONTRACT.md`
+carries a stable identifier, `S-nn`. Anywhere else — rustdoc, crate READMEs,
+tests — say what the code does and cite the identifier for what the sources say.
+Never cite a section number: sections move and citations to them rot silently.
+`scripts/ci.sh` fails on a dangling identifier and on any assertion of source
+silence that cites none. See D-033.
+
 Related wording rules:
 
 - Never call a snapshot fresh. Snapshot methods state that data may be retained

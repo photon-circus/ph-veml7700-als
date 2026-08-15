@@ -514,7 +514,7 @@ impl Veml7700Model {
     /// measurement does to a partial run. Counting requires both. This model
     /// therefore establishes nothing above one, and `read_status` reports
     /// `UndefinedQualificationRule` rather than a value derived from the half
-    /// nobody wrote down. See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
+    /// nobody wrote down. See D-030 and `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
     ///
     /// At one, the reset half is vacuous — no sequence, nothing to reset — which
     /// is why this model still qualifies there. The sufficiency half is not

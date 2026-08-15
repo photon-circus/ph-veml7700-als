@@ -112,7 +112,7 @@ impl IntegrationTime {
 /// the refresh cadence — that calculation needs sufficiency and a reset rule,
 /// and the sources give neither.
 ///
-/// `docs/HARDWARE_CONTRACT.md` §9 records both halves; D-030 records why the
+/// `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40` record both halves; D-030 says why the
 /// driver stays silent here rather than assuming.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -250,7 +250,7 @@ impl MeasurementConfig {
     /// begin at the lowest gain — ×1/8 or ×1/4 — so strong sunlight cannot
     /// overload the sensor, and that an integration time below 100 ms may be
     /// needed to show such a value. Both are recorded in
-    /// `docs/HARDWARE_CONTRACT.md` §8.
+    /// `docs/HARDWARE_CONTRACT.md` `S-34`.
     ///
     /// The cost is resolution: 2.1504 lx per count, the coarsest the part
     /// offers. Once the ambient range is known, a longer integration time or
@@ -434,7 +434,7 @@ mod tests {
         );
     }
 
-    /// Literal words from `docs/HARDWARE_CONTRACT.md` §5, not round trips.
+    /// Literal words from `docs/HARDWARE_CONTRACT.md` `S-12` / `S-14` / `S-15`, not round trips.
     ///
     /// The exhaustive round-trip test below proves the encoder and decoder agree
     /// with each other. It cannot detect them agreeing on the *wrong* bit

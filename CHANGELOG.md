@@ -41,10 +41,11 @@ than a change from a prior version.
   host tests, lints with warnings denied, rustdoc, five bare-metal targets,
   dependency and license policy, package construction and inspection, and tests
   against the unpacked distributable package.
-- Two claim checks in that gate, so the repository's load-bearing promises fail
-  loudly rather than drift: vendor documents must not be tracked, and the
-  required status disclosure must be identical in the root README, the packaged
-  crate README, and the crate documentation.
+- Three claim checks in that gate, so the repository's load-bearing promises fail
+  loudly rather than drift: vendor documents must not be tracked; the required
+  status disclosure must be identical in the root README, the packaged crate
+  README, and the crate documentation; and every statement about what the vendor
+  sources do not say must cite a contract claim identifier.
 - One version across both workspace crates, `0.1.0-incubating.1`, with the gate
   failing on divergence and asserting the lifecycle-matching prerelease without
   storing a second copy of the literal.
@@ -765,6 +766,29 @@ than a change from a prior version.
   application note does not give. Those justifications now say which half they
   cover; the model's behavior is unchanged pending #78, because narrowing it
   would withdraw the modeled monitor surface entirely.
+
+- **Gave every source claim one edit point and a gate that enforces it** (#75).
+  `docs/HARDWARE_CONTRACT.md` is now a registry: all 43 rows carry a stable
+  `S-nn`, in the same convention as `D-nn` and `I-nn`. Everything else cites the
+  identifier. Recorded as D-033.
+- `scripts/ci.sh` gains a third claim check — identifiers are unique, every
+  cited identifier resolves, and any assertion outside the registry about what
+  the sources do not say must cite one. It reads paragraphs with whitespace
+  collapsed rather than lines, because every tracked document here is
+  hard-wrapped and a line-oriented search cannot see a phrase that spans a break.
+  That is not hypothetical: it is how the packaged README kept a disproven claim
+  through an audit that believed itself exhaustive.
+- Retargeted all eleven cross-references from section numbers to identifiers.
+  Two of them had already rotted, citing §8 for a row that moved to §9. Section
+  numbers are positions; identifiers are names.
+- Turning the check on found **seven** uncited absence claims that no hand grep
+  had reported, in `DRIVER_CONTRACT.md`, `driver.rs`, both crate READMEs, and the
+  model's `Unsupported` documentation. Each now cites the row it depends on.
+- **Driver and model duplication is deliberately left in place.** The model must
+  derive from the contract rather than from driver code, so a shared fragment or
+  constant for a device fact would end its independence and make conformance
+  stop being an oracle. One edit point for the *claim*, two independent
+  derivations, both cited — not one copy.
 
 ### Known issues
 

@@ -167,7 +167,7 @@ fn threshold_monitor_public_operations_qualify_at_protect_number_one() {
     // nothing to reset -- so this is the persistence value at which driver-model
     // agreement means something. Whether the sources also license asserting the
     // flag at all is a separate question, open as #78; it is not vacuous at one.
-    // See D-030 and `docs/HARDWARE_CONTRACT.md` §9.
+    // See D-030 and `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
     let (mut sensor, model) = connected_model(250, 0);
     let thresholds = Thresholds::new(AlsCounts::from_counts(100), AlsCounts::from_counts(200))
         .expect("ordered thresholds");

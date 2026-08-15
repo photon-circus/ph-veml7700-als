@@ -44,7 +44,7 @@ pub enum Unsupported {
     NoQualifiedStatus(u8),
     /// Threshold status was read while the selected persistence protect number
     /// is above one, for which the sources do not declare a complete
-    /// qualification rule.
+    /// qualification rule — `docs/HARDWARE_CONTRACT.md` `S-39` / `S-40`.
     ///
     /// This is not "not yet" — waiting longer never resolves it. Table 1
     /// establishes `ALS_PERS` and its four values, and the vendor's application

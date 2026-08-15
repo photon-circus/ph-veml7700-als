@@ -146,7 +146,7 @@ impl core::error::Error for PowerSavingDecodeError {}
 mod tests {
     use super::*;
 
-    /// Literal words from `docs/HARDWARE_CONTRACT.md` §6 (Table 4), not round
+    /// Literal words from `docs/HARDWARE_CONTRACT.md` `S-20` (Table 4), not round
     /// trips.
     ///
     /// Same reasoning as the configuration vectors: the exhaustive round trip
