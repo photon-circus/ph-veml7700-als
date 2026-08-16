@@ -77,17 +77,29 @@ checksum, because Cargo will build a different archive.
 
 Only after the release pull request is approved and merged:
 
-1. verify the release commit and rerun `CI_PROFILE=release scripts/ci.sh`,
-   confirming the same commit and archive SHA-256 as the reviewed evidence;
+1. regenerate the evidence on the merged release commit by rerunning
+   `CI_PROFILE=release scripts/ci.sh`, then diff its per-entry digest table
+   against the reviewed record. Every entry must match except
+   `.cargo_vcs_info.json`, and the entry set must be identical. Do not expect
+   the archive SHA-256 to match: the archive embeds the commit it was built
+   from, so a squash merge necessarily changes it, which is why the per-entry
+   digests rather than the archive checksum carry the comparison here. Do not
+   compare compressed sizes either — DEFLATE output depends on byte values, so
+   a restamp alone can change the size. Any entry digest that moves, or any
+   entry that appears or disappears, is edited content rather than a restamp
+   and stops the release. The regenerated record supersedes the reviewed one;
 2. tag that commit with the matching `v`-prefixed version, as
    `v0.1.0-incubating.1` was tagged;
 3. publish from that same unchanged clean tree;
 4. create a GitHub Release from the same tag using the matching changelog
    section and mark it as a prerelease while the lifecycle is Incubating;
-5. download the published `.crate` from crates.io and verify its checksum, file
-   inventory, normalized manifest, licence, and README against the recorded
-   evidence — this is the only step that establishes what the registry actually
-   holds; and
+5. download the published `.crate` from crates.io and verify its checksum,
+   per-entry digests, normalized manifest, licence, and README against the
+   regenerated record from step 1 — this is the only step that establishes what
+   the registry actually holds, and here the archive checksum must match
+   exactly, including `.cargo_vcs_info.json`, because the registry receives the
+   archive built from the tagged commit rather than one restamped afterward;
+   and
 6. verify crates.io ownership, the repository and documentation links, and the
    docs.rs build before announcing availability.
 
