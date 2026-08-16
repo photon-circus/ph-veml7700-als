@@ -40,11 +40,10 @@ cargo fetch --locked
 ./scripts/ci.sh
 ```
 
-`full` is the default and authoritative pre-PR gate. On Windows, run the same
-script in Git Bash, or invoke Git Bash from PowerShell or Command Prompt with
-`bash scripts/ci.sh`. `bounded` is hosted feedback and names every skipped step;
-a skip is not a pass. `release` adds clean-tree and artifact identity checks but
-performs no publishing action.
+`full` is the default and authoritative pre-PR gate. On Windows, open Git Bash
+in the repository and run the same `./scripts/ci.sh` command there. `bounded` is
+hosted feedback and names every skipped step; a skip is not a pass. `release`
+adds clean-tree and artifact identity checks but performs no publishing action.
 
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) owns the test-layer boundaries,
 exact driver-versus-model inventory, and profile details. A

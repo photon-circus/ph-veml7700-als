@@ -58,9 +58,8 @@ met.
 ## Validation and reserved actions
 
 Run `./scripts/ci.sh`; the default `full` profile is the authoritative local
-gate. On Windows, run the same script from Git Bash (or as
-`bash scripts/ci.sh`). `bounded` is non-authoritative feedback. Do not run
-`release` during ordinary development.
+gate. On Windows, run the same script from within Git Bash. `bounded` is
+non-authoritative feedback. Do not run `release` during ordinary development.
 
 Do not change repository visibility, enable crates.io publication, publish,
 add credentials, tag, or create a release. Visibility and publication remain
