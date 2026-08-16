@@ -12,7 +12,7 @@ documentation = "https://docs.rs/ph-veml7700-als"
 homepage = "https://github.com/photon-circus/ph-veml7700-als"
 keywords = ["ambient-light", "veml7700", "embedded", "no-std", "i2c"]
 categories = ["embedded", "no-std", "hardware-support"]
-publish = false
+publish = ["crates-io"]
 
 [dependencies]
 embedded-hal-async = { version = "1.0.0", default-features = false }
