@@ -4,13 +4,14 @@
 [![MSRV](https://img.shields.io/badge/MSRV-1.92.0-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/Cargo.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/LICENSE)
 
-This repository-only, unpublished model is an independent executable projection
-of the shared VEML7700 evidence. It exists to challenge the driver derivation in
-support of user trust, not to make the repository appear complete. A passing
-trace establishes only agreement between two derivations within that trace; it
-is not silicon evidence, hardware qualification, optical calibration, or
-coverage of an untraced API. When evidence cannot support autonomous behavior,
-the model uses explicit input, unknown state, or an `Unsupported` result.
+This repository-only, never-published model is an independent executable
+projection of the shared VEML7700 evidence. It exists to challenge the driver
+derivation in support of user trust, not to make the repository appear
+complete. A passing trace establishes only agreement between two derivations
+within that trace; it is not silicon evidence, hardware qualification, optical
+calibration, or coverage of an untraced API. When evidence cannot support
+autonomous behavior, the model uses explicit input, unknown state, or an
+`Unsupported` result.
 
 The exact conformance inventory lives only in
 [`docs/VERIFICATION.md`](../../docs/VERIFICATION.md). This file does not copy it.

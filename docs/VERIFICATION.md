@@ -14,10 +14,11 @@
 | Model-only | the model's declared behavior and unsupported boundaries | agreement with the driver or silicon |
 | Driver-versus-model | agreement between independent derivations for named traces | untraced operations, configurations, initial states, or hardware behavior |
 
-The model and conformance packages are repository-only and unpublished. The
-driver package has no model dependency, so its standalone tests cannot be
-presented as model conformance. Package-archive tests likewise establish only
-that the distributable driver builds and passes its own tests.
+The model and conformance packages are repository-only and never published, so
+no consumer of the released driver can reach them. The driver package has no
+model dependency, so its standalone tests cannot be presented as model
+conformance. Package-archive tests likewise establish only that the published
+driver builds and passes its own tests.
 
 ## Model conformance coverage
 

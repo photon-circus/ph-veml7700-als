@@ -33,10 +33,11 @@ any publication action.
 
 ## D-018 — Visibility and publication remain explicit and independent
 
-Candidate preparation does not authorize a repository visibility change.
-Visibility does not authorize crates.io publication, and neither authorizes
-tagging or release creation. Those decisions remain maintainer-only and are not
-inferred from readiness, test results, issue closure, or pull-request approval.
+Repository visibility, crates.io publication, tagging, and release creation are
+separate decisions. None is inferred from readiness, test results, issue
+closure, or pull-request approval, and settling one does not settle the next:
+that the repository is public and the driver is published authorizes no further
+registry action by itself. Each remains maintainer-only.
 
 ## D-028 — One authority per subject
 

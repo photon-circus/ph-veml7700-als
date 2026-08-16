@@ -10,8 +10,8 @@ light sensor.
 > [!WARNING]
 > This repository is incubating. The
 > [driver crate README](crates/veml7700/README.md) owns consumer status and
-> limitations; [`RELEASING.md`](RELEASING.md) owns the separately reserved
-> repository-visibility and crates.io decisions.
+> limitations; [`RELEASING.md`](RELEASING.md) owns the release procedure and the
+> maintainer-reserved crates.io decision, which each version requires again.
 
 The packaged driver README is included verbatim by `lib.rs`, so Git hosting and
 docs.rs do not maintain competing consumer narratives.
@@ -22,8 +22,8 @@ This page is for people working *on* the repository.
 
 | Path | Contents |
 | --- | --- |
-| `crates/veml7700` | The driver crate; its packaged README is the consumer source of truth. |
-| `crates/veml7700-model` | Independent behavioral model. **Repository-only and unpublished** — a test oracle, not a dependency. |
+| `crates/veml7700` | The driver crate, published as `ph-veml7700-als`; its packaged README is the consumer source of truth. |
+| `crates/veml7700-model` | Independent behavioral model. **Repository-only and never published** — a test oracle, not a dependency. |
 | `docs/` | Shared evidence, driver semantics, verification, concise rationale, and vendor provenance. |
 | `scripts/ci.sh` | The canonical local gate, including on Windows through Git Bash. |
 

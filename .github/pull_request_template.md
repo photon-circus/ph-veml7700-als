@@ -27,6 +27,5 @@ Commands and results. A skipped check is not a passed check.
 What is intentionally outside this change? Name an issue, decision, or follow-up
 only when the maintainer has already requested it.
 
-Approval does not authorize crates.io publication, a repository-visibility
-change, credentials, tags, or a release. Those remain separate maintainer
-decisions.
+Approval does not authorize crates.io publication, credentials, tags, or a
+release. Those remain separate maintainer decisions.

@@ -126,7 +126,7 @@ review owns semantic correctness.
 | `docs/VERIFICATION.md` | contributor procedure and exact conformance inventory |
 | `docs/DECISIONS.md` | non-normative durable rationale only |
 | `RELEASING.md` | release procedure and reserved decisions |
-| `CHANGELOG.md` | current unreleased user-visible surface |
+| `CHANGELOG.md` | released versions and the current unreleased user-visible surface |
 
 Other documents give only the minimum audience-specific summary and link to the
 authority. A behavior change updates its protecting tests and authority in the
@@ -145,9 +145,9 @@ same pull request. An evidence correction does not require new durable rationale
 5. Update `CHANGELOG.md` only for user-visible behavior.
 6. Run the full gate and paste its final line.
 
-Do not change repository visibility or registry publication state, add
-credentials, publish packages, or create tags or releases. Those remain
-separate maintainer decisions in `RELEASING.md`.
+Do not publish packages, add credentials, or create tags or releases. The crate
+being on crates.io does not make the next version routine; each release remains
+a separate maintainer decision in `RELEASING.md`.
 
 Do not commit vendor PDFs. Redistribution permission has not been established;
 `docs/vendor/README.md` records source identity and digests.
