@@ -1,5 +1,9 @@
 # VEML7700 device behavioral model
 
+[![Lifecycle: Incubating](https://img.shields.io/badge/lifecycle-incubating-orange.svg)](https://github.com/photon-circus/.github/blob/main/REPOSITORY_STANDARDS.md#31-lifecycle-values)
+[![MSRV](https://img.shields.io/badge/MSRV-1.92.0-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/Cargo.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/LICENSE)
+
 This repository-only, unpublished model is an independent executable projection
 of the shared VEML7700 evidence. It exists to challenge the driver derivation in
 support of user trust, not to make the repository appear complete. A passing
