@@ -3,6 +3,10 @@
 An async, allocation-free `no_std` VEML7700 ambient-light driver over a
 caller-provided `embedded-hal-async` I²C bus.
 
+[![Lifecycle: Incubating](https://img.shields.io/badge/lifecycle-incubating-orange.svg)](https://github.com/photon-circus/.github/blob/main/REPOSITORY_STANDARDS.md#31-lifecycle-values)
+[![MSRV](https://img.shields.io/badge/MSRV-1.92.0-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/Cargo.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/crates/veml7700/LICENSE)
+
 > [!WARNING]
 > **Lifecycle:** Incubating. **Distribution:** Unpublished; the manifest retains
 > `publish = false`. **Verification:** Driver-versus-model agreement is bounded

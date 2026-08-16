@@ -3,6 +3,10 @@
 Async, `no_std`, allocation-free Rust driver for the Vishay VEML7700 ambient-
 light sensor.
 
+[![Lifecycle: Incubating](https://img.shields.io/badge/lifecycle-incubating-orange.svg)](https://github.com/photon-circus/.github/blob/main/REPOSITORY_STANDARDS.md#31-lifecycle-values)
+[![MSRV](https://img.shields.io/badge/MSRV-1.92.0-blue.svg)](Cargo.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 > [!WARNING]
 > This repository is incubating. The
 > [driver crate README](crates/veml7700/README.md) owns consumer status and
