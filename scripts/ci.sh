@@ -562,6 +562,26 @@ else
             | sed "s|^ph-veml7700-als-$driver_version/||" \
             | grep -v '^$' | sort)
         package_file_count=$(printf '%s\n' "$package_inventory" | wc -l | tr -d ' ')
+
+        # Digest every entry, not just its name. The archive embeds
+        # `.cargo_vcs_info.json`, so rebuilding the same content at a different
+        # commit changes the archive checksum; a reviewer comparing two records
+        # therefore cannot use that checksum and is left with names. Names alone
+        # cannot tell a commit restamp from a file that was edited but kept its
+        # path, so the record has to carry content identity per entry.
+        package_digests=$(printf '%s\n' "$package_inventory" | while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            entry_sha=$(tar -xzOf "$package_archive" \
+                "ph-veml7700-als-$driver_version/$entry" | sha256_of -)
+            printf '%s  %s\n' "$entry_sha" "$entry"
+        done)
+        package_digest_count=$(printf '%s\n' "$package_digests" | wc -l | tr -d ' ')
+        if [ "$package_digest_count" != "$package_file_count" ]; then
+            printf 'digested %s entries but the archive lists %s\n' \
+                "$package_digest_count" "$package_file_count" >&2
+            exit 1
+        fi
+
         printf '        archive %s\n' "$(basename "$package_archive")"
         printf '        sha256  %s\n' "$package_sha"
         printf '        %s files in the archive\n' "$package_file_count"
@@ -579,13 +599,19 @@ else
         evidence "- SHA-256: \`$package_sha\`"
         evidence "- Files: $package_file_count"
         evidence ""
-        evidence "### File inventory"
+        evidence "### File inventory and per-entry digests"
         evidence ""
         evidence "Read from the \`.crate\` archive, not from the unpacked directory: the"
         evidence "unpacked copy accumulates \`target/\` output once its tests run."
         evidence ""
+        evidence "SHA-256 of each entry's contents. Comparing two records entry by entry"
+        evidence "is what distinguishes a commit restamp from edited content, because"
+        evidence "the archive checksum changes in both cases and the file names change"
+        evidence "in neither. Only \`.cargo_vcs_info.json\` may differ between records"
+        evidence "for the same reviewed tree."
+        evidence ""
         evidence '```text'
-        printf '%s\n' "$package_inventory" >> "$evidence_file"
+        printf '%s\n' "$package_digests" >> "$evidence_file"
         evidence '```'
         evidence ""
         evidence "### Normalized manifest"
