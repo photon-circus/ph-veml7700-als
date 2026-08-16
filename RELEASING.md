@@ -77,17 +77,24 @@ checksum, because Cargo will build a different archive.
 
 Only after the release pull request is approved and merged:
 
-1. verify the release commit and rerun `CI_PROFILE=release scripts/ci.sh`,
-   confirming the same commit and archive SHA-256 as the reviewed evidence;
+1. regenerate the evidence on the merged release commit by rerunning
+   `CI_PROFILE=release scripts/ci.sh`, then confirm the new archive differs
+   from the reviewed record in nothing but `.cargo_vcs_info.json`. Do not
+   expect the SHA-256 to match: the archive embeds the commit it was built
+   from, so a squash merge necessarily changes it. The file inventory,
+   normalized manifest, and compressed size must be unchanged, and a
+   difference in any of those is a real discrepancy rather than a restamp.
+   The regenerated record supersedes the reviewed one;
 2. tag that commit with the matching `v`-prefixed version, as
    `v0.1.0-incubating.1` was tagged;
 3. publish from that same unchanged clean tree;
 4. create a GitHub Release from the same tag using the matching changelog
    section and mark it as a prerelease while the lifecycle is Incubating;
 5. download the published `.crate` from crates.io and verify its checksum, file
-   inventory, normalized manifest, licence, and README against the recorded
-   evidence — this is the only step that establishes what the registry actually
-   holds; and
+   inventory, normalized manifest, licence, and README against the regenerated
+   record from step 1 — this is the only step that establishes what the registry
+   actually holds, and here the checksum must match exactly, because the
+   registry receives the archive built from the tagged commit; and
 6. verify crates.io ownership, the repository and documentation links, and the
    docs.rs build before announcing availability.
 
