@@ -40,19 +40,23 @@ That decision is never inferred from candidate readiness, a green gate, issue
 closure, or pull-request approval. If publication is approved, open a focused
 release pull request that:
 
-1. changes the distribution disclosure to the exact crates.io prerelease;
-2. moves accumulated changes into a dated changelog section for that version
+1. confirms the driver manifest permits publication as `publish =
+   ["crates-io"]`. `cargo publish` refuses a `publish = false` package outright,
+   so a dry run cannot even report on the candidate until this holds; the first
+   release is what changed it;
+2. changes the distribution disclosure to the exact crates.io prerelease;
+3. moves accumulated changes into a dated changelog section for that version
    while preserving an `Unreleased` section, and writes a value statement
    immediately below the release heading stating why the capability was added,
    which limitation it addresses, what value it provides, and which cost or
    constraint it introduces. A list of APIs is not a value statement; the
    organization changelog standard requires one for any release introducing
    substantial capability;
-3. runs `CI_PROFILE=release scripts/ci.sh` from a clean tree, which refuses
+4. runs `CI_PROFILE=release scripts/ci.sh` from a clean tree, which refuses
    release-relevant dirtiness, packages without `--allow-dirty`, and writes
    `target/release-evidence/evidence.md`;
-4. runs `cargo publish --dry-run` from that same unchanged tree; and
-5. attaches the evidence record — commit, archive name and SHA-256, file
+5. runs `cargo publish --dry-run` from that same unchanged tree; and
+6. attaches the evidence record — commit, archive name and SHA-256, file
    inventory, normalized manifest, and VCS metadata — for maintainer review.
 
 Registry credentials and `cargo publish` remain outside ordinary CI.
