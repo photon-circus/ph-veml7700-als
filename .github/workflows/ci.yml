@@ -4,20 +4,17 @@
 #
 # The bounded profile reports the checks it drops as explicit skips. A green run
 # here is not a green release gate: the full local run remains authoritative,
-# and that stays true after the repository becomes public.
+# and public visibility does not change that.
 name: ci
 
-# Dispatch-only while the repository is private. Uncomment the triggers below
-# as part of the visibility change; see issue #6.
 on:
   workflow_dispatch:
-  # pull_request:
-  # push:
-  #   branches: [main]
+  pull_request:
+  push:
+    branches: [main]
 
 # Cancel superseded pull-request runs. Runs on `main` are left alone so the
-# recorded history of the default branch stays complete. This takes effect when
-# the automatic triggers above are restored.
+# recorded history of the default branch stays complete.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

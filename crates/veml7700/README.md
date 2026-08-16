@@ -8,10 +8,10 @@ caller-provided `embedded-hal-async` I²C bus.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/photon-circus/ph-veml7700-als/blob/main/crates/veml7700/LICENSE)
 
 > [!WARNING]
-> **Lifecycle:** Incubating. **Distribution:** Unpublished; the manifest retains
-> `publish = false`. **Verification:** Driver-versus-model agreement is bounded
-> to the traces in the [verification record]. No physical-hardware or
-> calibrated-optical evidence has been recorded.
+> **Lifecycle:** Incubating. **Distribution:** Published on crates.io as the
+> `0.1.0-incubating.1` prerelease. **Verification:** Driver-versus-model
+> agreement is bounded to the traces in the [verification record]. No
+> physical-hardware or calibrated-optical evidence has been recorded.
 
 The driver keeps board policy with the application and avoids hidden cached
 device state. It distinguishes observational snapshots from a controlled
@@ -61,8 +61,17 @@ public values and errors; firmware supplies its own logger and panic symbols.
 
 ## Installing
 
-This crate is not available from crates.io. Publication is a separate maintainer
-decision; the manifest intentionally prevents it today.
+```sh
+cargo add ph-veml7700-als@0.1.0-incubating.1
+```
+
+Name the prerelease explicitly. Cargo will not select `0.1.0-incubating.1` from
+a plain `0.1` requirement, so a dependency without a prerelease in its own
+version requirement resolves to nothing.
+
+Availability on crates.io is a distribution fact and nothing more. It does not
+imply complete model conformance, physical observation, hardware qualification,
+or promotion out of Incubating; the status disclosure above still governs.
 
 ## Requirements
 

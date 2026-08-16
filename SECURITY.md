@@ -51,16 +51,19 @@ concern the code in this repository:
 | Version | Status |
 | --- | --- |
 | `main` | Best-effort fixes |
-| Any published release | None yet — nothing has been published |
+| `0.1.0-incubating.1` | Newest prerelease; superseded by the next one |
+| Any earlier version | None |
 
-The crate is Incubating and unpublished. It has no supported release series, so
-there is nothing to backport to. When a release is published, this table will
-identify the supported versions explicitly.
+The crate is Incubating, so only the newest prerelease is supported and there is
+no backport series. Crates.io versions are permanent: a defective version is
+superseded by a higher one, never replaced in place. This table names the
+supported version explicitly and is updated with each release.
 
 ## Disclosure
 
 Coordinated disclosure is preferred: report privately, allow a fix to land, then
-publish. Because there is no release series, a fix normally reaches consumers as
-a commit on `main` rather than as a patch release. If you intend to disclose
+publish. Because the lifecycle is Incubating and carries no patch series, a fix
+lands on `main` and reaches consumers in the next prerelease rather than as a
+backport to an already published version. If you intend to disclose
 publicly on a fixed date, say so in your first message so the timeline is shared
 rather than assumed.

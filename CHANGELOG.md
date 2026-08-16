@@ -5,8 +5,19 @@ debate belong in their authoritative records, not in the changelog.
 
 ## [Unreleased]
 
-Nothing in this repository has been released or published. This section
-describes the candidate's current surface, not changes from a prior version.
+Nothing user-visible has changed since `0.1.0-incubating.1`.
+
+## [0.1.0-incubating.1] — 2026-08-16
+
+Embedded applications targeting the VEML7700 previously chose between blocking
+drivers and ones that quietly present nominal arithmetic as calibrated light.
+This release adds an async, allocation-free `no_std` driver whose value is that
+it refuses to overstate what it knows: observational reads stay separate from a
+controlled one-shot capture, partial-operation context survives in errors, and
+integer scaling is labelled nominal rather than product lux. The cost is that
+the caller retains calibration, optical policy, scheduling, and bus recovery,
+and that several device behaviors return `Unsupported` or `None` where the
+shared evidence cannot justify an answer.
 
 ### Added
 
