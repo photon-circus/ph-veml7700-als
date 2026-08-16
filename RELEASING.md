@@ -26,7 +26,7 @@ unpublished.
 2. Retain `publish = false` until publication is separately approved.
 3. Keep the README, crate documentation, changelog, security policy, and model
    declaration consistent with the actual distribution and evidence state.
-4. Run `./scripts/ci.sh` or `./tools/check.ps1` and inspect the generated
+4. Run `./scripts/ci.sh` (with Git Bash on Windows) and inspect the generated
    package contents.
 5. Review the exact candidate through a pull request.
 

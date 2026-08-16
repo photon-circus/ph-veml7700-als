@@ -86,7 +86,7 @@ declines enabled cadence at other gains rather than inventing independence.
 
 ## Canonical gate
 
-Run `CI_PROFILE=full sh scripts/ci.sh` before a pull request. The script performs
+Run `./scripts/ci.sh` before a pull request. The default `full` profile performs
 the structural claim checks, formatting, host tests/checks, clippy, Rustdoc,
 doctests, five bare-metal builds, dependency policy, package verification, and
 tests against the unpacked driver package.

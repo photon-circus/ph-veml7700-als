@@ -31,19 +31,19 @@ hardware infrastructure are out of scope.
 | --- | --- |
 | Rust 1.92.0, clippy, rustfmt, five targets | `rust-toolchain.toml` |
 | `cargo-deny` 0.20.2 | asserted by the gate |
-| POSIX shell | Git Bash is supported on Windows |
+| POSIX shell | Git Bash on Windows |
 
 ```sh
 git clone https://github.com/photon-circus/ph-veml7700-als
 cd ph-veml7700-als
 cargo fetch --locked
-CI_PROFILE=full sh scripts/ci.sh
+./scripts/ci.sh
 ```
 
-`full` is the authoritative pre-PR gate. `bounded` is hosted feedback and names
-every skipped step; a skip is not a pass. `release` adds clean-tree and artifact
-identity checks but performs no publishing action. `tools/check.ps1` is a thin
-Windows launcher for the same script.
+`full` is the default and authoritative pre-PR gate. On Windows, open Git Bash
+in the repository and run the same `./scripts/ci.sh` command there. `bounded` is
+hosted feedback and names every skipped step; a skip is not a pass. `release`
+adds clean-tree and artifact identity checks but performs no publishing action.
 
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) owns the test-layer boundaries,
 exact driver-versus-model inventory, and profile details. A
