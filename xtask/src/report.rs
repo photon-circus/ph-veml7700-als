@@ -46,14 +46,25 @@ impl Reporter {
 
 pub fn print_footer(
     profile: &str,
+    only: Option<&str>,
     steps: u32,
     skipped: u32,
     evidence_path: Option<&str>,
     release_commit: Option<&str>,
     package_sha: Option<&str>,
 ) {
-    println!("\n[ci] PASS ({profile}): {steps} steps, {skipped} skipped.");
-    if profile == "bounded" {
+    // A single-step run carries the profile name but establishes almost none of
+    // what that profile means. Label it so a pasted footer cannot be read as the
+    // authoritative gate.
+    match only {
+        Some(id) => {
+            println!("\n[ci] PASS ({profile} --only {id}): {steps} steps, {skipped} skipped.");
+            println!("[ci] This ran one selected step, not the {profile} gate. It establishes");
+            println!("[ci] that step alone; the complete run remains authoritative.");
+        }
+        None => println!("\n[ci] PASS ({profile}): {steps} steps, {skipped} skipped."),
+    }
+    if only.is_none() && profile == "bounded" {
         println!("[ci] This is a partial gate. It covers only part of the release gate;");
         println!("[ci] the full local run remains authoritative.");
     }

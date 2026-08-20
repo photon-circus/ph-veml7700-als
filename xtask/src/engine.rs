@@ -28,7 +28,10 @@ pub fn run_ci(profile: Option<&str>, only: Option<&str>) -> Result<()> {
     }
 
     let host_triple = cargo_cmd::host_triple()?;
-    println!("[ci] profile: {profile}");
+    match only {
+        Some(id) => println!("[ci] profile: {profile} (--only {id})"),
+        None => println!("[ci] profile: {profile}"),
+    }
 
     let evidence = EvidenceWriter::new(
         profile == "release",
@@ -93,6 +96,7 @@ pub fn run_ci(profile: Option<&str>, only: Option<&str>) -> Result<()> {
     let evidence_path = ctx.evidence.relative_to(&ctx.repo_root);
     report::print_footer(
         profile,
+        only,
         reporter.step_number(),
         reporter.skipped(),
         (profile == "release").then_some(evidence_path.as_str()),
