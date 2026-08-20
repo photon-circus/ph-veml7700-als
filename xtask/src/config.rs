@@ -42,7 +42,6 @@ pub struct Paths {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    pub require_clean_worktree: bool,
     pub package_allow_dirty: bool,
     pub skip_steps: Vec<String>,
     pub skip_notes: BTreeMap<String, String>,
@@ -66,7 +65,6 @@ pub struct Step {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Gate {
-    #[allow(dead_code)]
     pub default_profile: String,
     pub profiles: BTreeMap<String, Profile>,
     pub steps: Vec<Step>,

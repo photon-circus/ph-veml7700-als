@@ -26,6 +26,5 @@ pub fn run(ctx: &mut GateCtx, reporter: &mut Reporter) -> Result<()> {
     ctx.evidence.line(&format!("- Commit: `{commit}`"))?;
     ctx.evidence.line(&ctx.evidence_copy.worktree_clean)?;
     ctx.release_commit = Some(commit);
-    let _ = ctx.profile_cfg.require_clean_worktree;
     Ok(())
 }

@@ -12,8 +12,10 @@ pub enum Command {
     /// Run the canonical verification gate.
     Ci {
         /// `full` (default), `bounded`, or `release`.
-        #[arg(long, default_value = "full")]
-        profile: String,
+        ///
+        /// Unset resolves to `default_profile` in `gate.ron`.
+        #[arg(long)]
+        profile: Option<String>,
         /// Run a single step id from `gate.ron`.
         #[arg(long)]
         only: Option<String>,

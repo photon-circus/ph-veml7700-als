@@ -54,9 +54,11 @@ fn check_conformance_manifest(ctx: &GateCtx) -> Result<()> {
             ctx.paths.conformance_manifest
         );
     }
-    let sentinel =
-        Regex::new(r#"^[[:space:]]*version[[:space:]]*=[[:space:]]*"0\.0\.0"[[:space:]]*$"#)
-            .expect("sentinel regex");
+    let sentinel = Regex::new(&format!(
+        r#"^[[:space:]]*version[[:space:]]*=[[:space:]]*"{}"[[:space:]]*$"#,
+        regex::escape(&ctx.packages.conformance_sentinel)
+    ))
+    .expect("sentinel regex");
     if !text.lines().any(|line| sentinel.is_match(line)) {
         bail!(
             "the conformance package must pin the literal {} sentinel in {}",

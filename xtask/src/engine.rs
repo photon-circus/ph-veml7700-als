@@ -6,15 +6,26 @@ use crate::config::{self, Config};
 use crate::evidence::EvidenceWriter;
 use crate::report::{self, Reporter};
 
-pub fn run_ci(profile: &str, only: Option<&str>) -> Result<()> {
+pub fn run_ci(profile: Option<&str>, only: Option<&str>) -> Result<()> {
     let repo_root = config::repo_root()?;
     std::env::set_current_dir(&repo_root)?;
 
     let config = Config::load(&repo_root)?;
+    let selected = profile.unwrap_or(&config.gate.default_profile).to_string();
+    let profile = selected.as_str();
     let Some(profile_cfg) = config.gate.profiles.get(profile).cloned() else {
         let names: Vec<_> = config.gate.profiles.keys().map(String::as_str).collect();
         bail!("profile must be one of {}: {profile}", names.join(", "));
     };
+
+    // A release run resets the evidence directory, so a partial run would
+    // replace a reviewed record with a stub that still reads as a complete
+    // document. Release evidence is only meaningful for the whole step set.
+    if only.is_some() && profile == "release" {
+        bail!(
+            "--only cannot be combined with the release profile: release evidence records the whole gate"
+        );
+    }
 
     let host_triple = cargo_cmd::host_triple()?;
     println!("[ci] profile: {profile}");

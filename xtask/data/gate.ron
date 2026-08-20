@@ -2,14 +2,12 @@
     default_profile: "full",
     profiles: {
         "full": (
-            require_clean_worktree: false,
             package_allow_dirty: true,
             skip_steps: [],
             skip_notes: {},
             bare_metal: AllToolchainTargets,
         ),
         "bounded": (
-            require_clean_worktree: false,
             package_allow_dirty: true,
             skip_steps: ["deny", "xtask_deny", "package"],
             skip_notes: {
@@ -21,7 +19,6 @@
             bare_metal: Selected(["thumbv7em-none-eabihf"]),
         ),
         "release": (
-            require_clean_worktree: true,
             package_allow_dirty: false,
             skip_steps: [],
             skip_notes: {},

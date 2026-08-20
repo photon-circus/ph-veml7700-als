@@ -2,7 +2,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 
 pub struct EvidenceWriter {
     path: PathBuf,
@@ -14,6 +14,24 @@ impl EvidenceWriter {
         if enabled {
             if let Some(dir) = path.parent() {
                 if dir.exists() {
+                    // The directory reset here is inferred from a configured
+                    // file path, so refuse anything that is not a dedicated
+                    // evidence directory. Retargeting `evidence_file` at, say,
+                    // `target/evidence.md` must not recursively delete the
+                    // whole build directory.
+                    for entry in fs::read_dir(dir)
+                        .with_context(|| format!("failed to read {}", dir.display()))?
+                    {
+                        let entry =
+                            entry.with_context(|| format!("failed to read {}", dir.display()))?;
+                        if entry.path() != path {
+                            bail!(
+                                "{} is not a dedicated evidence directory: it also holds {}",
+                                dir.display(),
+                                entry.file_name().to_string_lossy()
+                            );
+                        }
+                    }
                     fs::remove_dir_all(dir)
                         .with_context(|| format!("failed to reset {}", dir.display()))?;
                 }

@@ -40,7 +40,13 @@ pub fn run(ctx: &GateCtx, reporter: &mut Reporter) -> Result<()> {
         );
     }
 
-    let named = covered_test_names(block, &ctx.paths.covered_start, &ctx.paths.covered_end);
+    let named = covered_test_names(block, &ctx.paths.covered_start, &ctx.paths.covered_end)
+        .with_context(|| {
+            format!(
+                "no `{}` .. `{}` table found in {}",
+                ctx.paths.covered_start, ctx.paths.covered_end, ctx.paths.verification
+            )
+        })?;
     let actual_set: Vec<_> = actual.iter().map(String::as_str).collect();
     let missing_from_tests: Vec<_> = named
         .iter()
@@ -91,18 +97,30 @@ fn is_test_fn(func: &syn::ItemFn) -> bool {
 }
 
 pub fn section_between<'a>(text: &'a str, start: &str, end: &str) -> Option<&'a str> {
-    let start_idx = text.find(start)?;
-    let from_start = &text[start_idx..];
-    let end_rel = from_start[start.len()..].find(end)?;
-    Some(&from_start[..start.len() + end_rel])
+    let start_idx = find_at_line_start(text, start, 0)?;
+    let end_idx = find_at_line_start(text, end, start_idx + start.len())?;
+    Some(&text[start_idx..end_idx])
 }
 
-pub fn covered_test_names(matrix_block: &str, start: &str, end: &str) -> Vec<String> {
+/// Match a heading marker only where a line begins. A plain substring search
+/// finds `## Canonical gate` inside `### Canonical gate`, which would move a
+/// section boundary onto an unrelated deeper heading.
+fn find_at_line_start(text: &str, marker: &str, from: usize) -> Option<usize> {
+    let mut search = from;
+    while let Some(offset) = text[search..].find(marker) {
+        let idx = search + offset;
+        if idx == 0 || text.as_bytes()[idx - 1] == b'\n' {
+            return Some(idx);
+        }
+        search = idx + 1;
+    }
+    None
+}
+
+pub fn covered_test_names(matrix_block: &str, start: &str, end: &str) -> Option<Vec<String>> {
     static TICK: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"`([a-z0-9_]+)`").expect("tick regex"));
-    let Some(covered) = section_between(matrix_block, start, end) else {
-        return Vec::new();
-    };
+    let covered = section_between(matrix_block, start, end)?;
     let mut names = Vec::new();
     for line in covered.lines() {
         let fields: Vec<_> = line.split('|').collect();
@@ -116,7 +134,7 @@ pub fn covered_test_names(matrix_block: &str, start: &str, end: &str) -> Vec<Str
     }
     names.sort();
     names.dedup();
-    names
+    Some(names)
 }
 
 #[cfg(test)]
@@ -154,8 +172,18 @@ mod tests {
 | `probe` | reset | — | `trace_one` |
 ### Untraced public operations
 ";
-        let names = covered_test_names(block, "### Covered", "### Untraced public operations");
+        let names = covered_test_names(block, "### Covered", "### Untraced public operations")
+            .expect("covered table");
         assert_eq!(names, vec!["trace_one", "trace_two"]);
+    }
+
+    #[test]
+    fn a_missing_end_heading_is_not_an_empty_table() {
+        let block = "### Covered\n| a | b | c | d | `trace_one` |\n";
+        assert_eq!(
+            covered_test_names(block, "### Covered", "### Untraced public operations"),
+            None
+        );
     }
 
     #[test]
@@ -164,6 +192,15 @@ mod tests {
         assert_eq!(
             section_between(text, "## Start", "## End"),
             Some("## Start\nkeep\n")
+        );
+    }
+
+    #[test]
+    fn a_deeper_heading_does_not_close_the_section() {
+        let text = "## Start\nkeep\n### End extra\nalso\n## End\ndrop\n";
+        assert_eq!(
+            section_between(text, "## Start", "## End"),
+            Some("## Start\nkeep\n### End extra\nalso\n")
         );
     }
 }

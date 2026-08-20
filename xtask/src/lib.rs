@@ -30,7 +30,7 @@ pub fn run() -> ExitCode {
 
 fn execute(xtask: Xtask) -> anyhow::Result<()> {
     match xtask.command {
-        Command::Ci { profile, only } => engine::run_ci(&profile, only.as_deref()),
+        Command::Ci { profile, only } => engine::run_ci(profile.as_deref(), only.as_deref()),
     }
 }
 

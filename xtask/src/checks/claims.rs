@@ -90,6 +90,9 @@ fn duplicate_ids(sorted: &[String]) -> Vec<String> {
     dups
 }
 
+// This file is itself a tracked `*.rs` source the check above scans, so any
+// backticked identifier in these fixtures is a real citation. Use identifiers
+// the contract registry defines, or the gate fails on its own test data.
 #[cfg(test)]
 mod tests {
     use super::{citations, claim_ids, duplicate_ids};
@@ -102,13 +105,13 @@ mod tests {
 
     #[test]
     fn ignores_inline_mentions_as_definitions() {
-        let text = "See `S-1` in prose.\n### Not-a-claim\n";
+        let text = "See `S-01` in prose.\n### Not-a-claim\n";
         assert!(claim_ids(text).is_empty());
     }
 
     #[test]
     fn extracts_backticked_citations() {
-        assert_eq!(citations("cites `S-1` and `S-22`."), vec!["S-1", "S-22"]);
+        assert_eq!(citations("cites `S-01` and `S-22`."), vec!["S-01", "S-22"]);
     }
 
     #[test]

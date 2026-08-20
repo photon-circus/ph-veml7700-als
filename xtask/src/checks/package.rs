@@ -83,13 +83,6 @@ fn record_archive(ctx: &mut GateCtx, reporter: &mut Reporter, package_dir: &Path
         .iter()
         .map(|(name, data)| format!("{}  {name}", sha256_hex(data)))
         .collect();
-    if digests.len() != entries.len() {
-        bail!(
-            "digested {} entries but the archive lists {}",
-            digests.len(),
-            entries.len()
-        );
-    }
 
     reporter.note(&format!("archive {archive_name}"));
     reporter.note(&format!("sha256  {package_sha}"));
@@ -184,8 +177,10 @@ fn crate_entries(archive_path: &Path, prefix: &str) -> Result<Vec<(String, Vec<u
             .replace('\\', "/");
         let rel = path.strip_prefix(prefix).unwrap_or(path.as_str());
         let rel = rel.trim_start_matches('/');
+        // Every file entry must reach the inventory. Skipping one silently
+        // would understate the archive the evidence record describes.
         if rel.is_empty() {
-            continue;
+            bail!("crate archive holds a file entry with no path under {prefix}: {path}");
         }
         let mut data = Vec::new();
         entry

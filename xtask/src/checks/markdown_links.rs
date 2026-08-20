@@ -53,6 +53,9 @@ fn check_target(repo_root: &Path, markdown_file: &str, target: &str) -> Check {
     let (target_path, target_anchor) = split_anchor(target);
     let resolved = resolve_path(markdown_file, target_path);
     let resolved = collapse_dotdot(&resolved);
+    if resolved.split('/').next() == Some("..") {
+        return Check::Broken;
+    }
     let full = repo_root.join(&resolved);
     if !full.exists() {
         return Check::Broken;
@@ -107,8 +110,13 @@ pub fn collapse_dotdot(path: &str) -> String {
             continue;
         }
         if component == ".." {
-            if !parts.is_empty() {
+            // Keep a `..` that has nothing to cancel. Dropping it would move a
+            // link that escapes the repository back inside it, and report a
+            // target that resolves here but 404s on the forge.
+            if matches!(parts.last(), Some(&last) if last != "..") {
                 parts.pop();
+            } else {
+                parts.push("..");
             }
             continue;
         }
@@ -262,5 +270,11 @@ mod tests {
             "docs/HARDWARE_CONTRACT.md"
         );
         assert_eq!(collapse_dotdot("./README.md"), "README.md");
+    }
+
+    #[test]
+    fn keeps_parent_segments_that_escape_the_root() {
+        assert_eq!(collapse_dotdot("../README.md"), "../README.md");
+        assert_eq!(collapse_dotdot("docs/../../README.md"), "../README.md");
     }
 }

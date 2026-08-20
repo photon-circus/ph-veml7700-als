@@ -30,6 +30,8 @@ pub fn tests(ctx: &GateCtx) -> Result<()> {
             &ctx.paths.xtask_manifest,
             "--target-dir",
             &ctx.paths.xtask_check_target,
+            "--target",
+            &ctx.host_triple,
             "--lib",
         ],
         INCREMENTAL_OFF,
