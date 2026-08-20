@@ -57,9 +57,9 @@ met.
 
 ## Validation and reserved actions
 
-Run `./scripts/ci.sh`; the default `full` profile is the authoritative local
-gate. On Windows, run the same script from within Git Bash. `bounded` is
-non-authoritative feedback. Do not run `release` during ordinary development.
+Run `cargo xtask ci`; the default `full` profile is the authoritative local
+gate. `bounded` is non-authoritative feedback. Do not run `release` during
+ordinary development.
 
 Do not publish to crates.io, add credentials, tag, or create a release. The
 repository is public and the driver is published; neither fact authorizes a
