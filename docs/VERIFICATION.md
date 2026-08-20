@@ -87,11 +87,11 @@ declines enabled cadence at other gains rather than inventing independence.
 
 ## Canonical gate
 
-Run `./scripts/ci.sh` before a pull request. The default `full` profile performs
+Run `cargo xtask ci` before a pull request. The default `full` profile performs
 the structural claim checks, formatting, host tests/checks, clippy, Rustdoc,
 doctests, five bare-metal builds, dependency policy, package verification, and
 tests against the unpacked driver package.
 
-`CI_PROFILE=bounded` is a hosted-feedback subset. It names every skipped step; a
-skip is not a pass. `CI_PROFILE=release` adds artifact identity and is reserved
-for a separately authorized release workflow.
+`cargo xtask ci --profile bounded` is a hosted-feedback subset. It names every
+skipped step; a skip is not a pass. `cargo xtask ci --profile release` adds
+artifact identity and is reserved for a separately authorized release workflow.

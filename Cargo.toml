@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/veml7700", "crates/veml7700-model", "tests/conformance"]
+exclude = ["xtask"]
 resolver = "3"
 
 [workspace.package]

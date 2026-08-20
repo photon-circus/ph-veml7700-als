@@ -31,23 +31,21 @@ hardware infrastructure are out of scope.
 | --- | --- |
 | Rust 1.92.0, clippy, rustfmt, five targets | `rust-toolchain.toml` |
 | `cargo-deny` 0.20.2 | asserted by the gate |
-| POSIX shell | Git Bash on Windows |
 
 ```sh
 git clone https://github.com/photon-circus/ph-veml7700-als
 cd ph-veml7700-als
 cargo fetch --locked
-./scripts/ci.sh
+cargo xtask ci
 ```
 
-`full` is the default and authoritative pre-PR gate. On Windows, open Git Bash
-in the repository and run the same `./scripts/ci.sh` command there. `bounded` is
-hosted feedback and names every skipped step; a skip is not a pass. `release`
-adds clean-tree and artifact identity checks but performs no publishing action.
+`full` is the default and authoritative pre-PR gate. `bounded` is hosted
+feedback and names every skipped step; a skip is not a pass. `release` adds
+clean-tree and artifact identity checks but performs no publishing action.
 
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) owns the test-layer boundaries,
 exact driver-versus-model inventory, and profile details. A
-maintainer-authorized check belongs in `scripts/ci.sh`, not a second workflow
+maintainer-authorized check belongs in `cargo xtask ci`, not a second workflow
 implementation. Do not widen CI with prose classifiers or evidence-sufficiency
 heuristics.
 
@@ -111,7 +109,7 @@ Outside the registry, do not quote or paraphrase a proposition, vendor
 coordinate, or hardware observation. State only the local component consequence
 and cite every applicable `S-nn` in that paragraph, table row, or code comment.
 The stable ID is the shared meaning; each registry row is directly linkable as
-`#s-nn`. `scripts/ci.sh` checks only that IDs are unique and references resolve;
+`#s-nn`. `cargo xtask ci` checks only that IDs are unique and references resolve;
 review owns semantic correctness.
 
 ## Document authority

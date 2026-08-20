@@ -27,7 +27,7 @@ This page is for people working *on* the repository.
 | `crates/veml7700` | The driver crate, published as `ph-veml7700-als`; its packaged README is the consumer source of truth. |
 | `crates/veml7700-model` | Independent behavioral model. **Repository-only and never published** — a test oracle, not a dependency. |
 | `docs/` | Shared evidence, driver semantics, verification, concise rationale, and vendor provenance. |
-| `scripts/ci.sh` | The canonical local gate, including on Windows through Git Bash. |
+| `xtask/` | The canonical local gate (`cargo xtask ci`). Policy lives in `xtask/data/*.ron`. |
 
 Document authority varies and is routed by [`CONTRIBUTING.md`](CONTRIBUTING.md)
 — not everything under `docs/` is normative.
@@ -35,13 +35,13 @@ Document authority varies and is routed by [`CONTRIBUTING.md`](CONTRIBUTING.md)
 ## Verifying a change
 
 ```sh
-./scripts/ci.sh
+cargo xtask ci
 ```
 
 `full` is authoritative. `bounded` is the subset hosted CI runs and is never
 authoritative — a skipped check is not a passed check. `release` adds artifact
 identity and refuses a dirty worktree. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
-for setup, Windows invocation, and the pinned toolchain.
+for setup and the pinned toolchain.
 
 ## License
 

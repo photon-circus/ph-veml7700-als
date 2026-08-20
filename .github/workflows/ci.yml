@@ -1,5 +1,5 @@
 # Bounded contributor feedback. This workflow runs the `bounded` profile of
-# `scripts/ci.sh`, the same script maintainers run locally, so there is no
+# `cargo xtask ci`, the same gate maintainers run locally, so there is no
 # second implementation of the gate to drift.
 #
 # The bounded profile reports the checks it drops as explicit skips. A green run
@@ -42,9 +42,7 @@ jobs:
           rustc --version
 
       - name: Run the bounded profile of the canonical gate
-        env:
-          CI_PROFILE: bounded
-        run: sh scripts/ci.sh
+        run: cargo xtask ci --profile bounded
 
   # One stable aggregate result for branch protection to require. It reports
   # even when the gate fails or is cancelled, so the required check never hangs

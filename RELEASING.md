@@ -25,8 +25,7 @@ version on crates.io is a distribution fact and nothing more.
    published one. `0.1.0-incubating.1` was the first.
 2. Keep the README, crate documentation, changelog, security policy, and model
    declaration consistent with the actual distribution and evidence state.
-3. Run `./scripts/ci.sh` (with Git Bash on Windows) and inspect the generated
-   package contents.
+3. Run `cargo xtask ci` and inspect the generated package contents.
 4. Review the exact candidate through a pull request.
 
 `crates/veml7700-model` and the conformance package keep `publish = false`
@@ -52,7 +51,7 @@ release pull request that:
    constraint it introduces. A list of APIs is not a value statement; the
    organization changelog standard requires one for any release introducing
    substantial capability;
-4. runs `CI_PROFILE=release scripts/ci.sh` from a clean tree, which refuses
+4. runs `cargo xtask ci --profile release` from a clean tree, which refuses
    release-relevant dirtiness, packages without `--allow-dirty`, and writes
    `target/release-evidence/evidence.md`;
 5. runs `cargo publish --dry-run` from that same unchanged tree; and
@@ -78,7 +77,7 @@ checksum, because Cargo will build a different archive.
 Only after the release pull request is approved and merged:
 
 1. regenerate the evidence on the merged release commit by rerunning
-   `CI_PROFILE=release scripts/ci.sh`, then diff its per-entry digest table
+   `cargo xtask ci --profile release`, then diff its per-entry digest table
    against the reviewed record. Every entry must match except
    `.cargo_vcs_info.json`, and the entry set must be identical. Do not expect
    the archive SHA-256 to match: the archive embeds the commit it was built

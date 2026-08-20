@@ -26,10 +26,10 @@ records source identity and digests while leaving the vendor files untracked.
 
 ## D-017 — One local verification implementation is authoritative
 
-One script owns verification so hosted and local workflows cannot silently
-implement different rules. `full` is authoritative, `bounded` reports every
-skip, and `release` adds clean-tree and artifact-identity checks without taking
-any publication action.
+One gate implementation owns verification so hosted and local workflows cannot
+silently implement different rules. `full` is authoritative, `bounded` reports
+every skip, and `release` adds clean-tree and artifact-identity checks without
+taking any publication action.
 
 ## D-018 — Visibility and publication remain explicit and independent
 
