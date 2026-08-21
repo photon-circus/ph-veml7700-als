@@ -442,8 +442,9 @@ const INHERITED: [&str; 6] = [
 ///
 /// This check is load-bearing rather than decorative. Every other check in
 /// this module looks at source entries and the entry set, and a dependency
-/// added to the normalized manifest alone disturbs neither -- the archive
-/// would ship a dependency that exists in no commit and still verify.
+/// or `[lib].path` added to the normalized manifest alone disturbs neither --
+/// the archive would ship a different crate root or dependency that exists
+/// in no commit and still verify.
 pub fn check_manifest_surface(
     normalized: &str,
     source: &str,
@@ -566,6 +567,13 @@ pub fn check_manifest_surface(
         ));
     }
 
+    // `[lib]` and the `[[bin]]` / `[[example]]` / `[[test]]` / `[[bench]]`
+    // arrays decide what Cargo compiles from the packaged crate. A retarget
+    // of `[lib].path` to another tracked file leaves the entry set and every
+    // blob untouched, so nothing else here would see it.
+    failures.extend(compare_lib(&normalized, &source, package));
+    failures.extend(compare_target_arrays(&normalized, &source));
+
     failures
 }
 
@@ -653,6 +661,152 @@ fn field_of(value: &toml::Value, field: &str) -> Option<toml::Value> {
         toml::Value::String(_) => None,
         other => other.get(field).cloned(),
     }
+}
+
+/// Cargo writes `[lib] name` and `[lib] path` into every normalized library
+/// manifest, even when the commit declares neither. Fill those two so a
+/// retarget is compared against the default rather than skipped; any other
+/// key is compared only if a side actually declares it.
+fn implied_lib(declared: Option<&toml::value::Table>, package: &str) -> toml::value::Table {
+    let mut table = declared.cloned().unwrap_or_default();
+    table
+        .entry(String::from("name"))
+        .or_insert_with(|| toml::Value::String(package.replace('-', "_")));
+    table
+        .entry(String::from("path"))
+        .or_insert_with(|| toml::Value::String(String::from("src/lib.rs")));
+    table
+}
+
+fn compare_lib(normalized: &toml::Value, source: &toml::Value, package: &str) -> Vec<String> {
+    let Some(normalized_lib) = normalized.get("lib") else {
+        return if source.get("lib").is_some() {
+            vec![String::from(
+                "[lib] is absent from the archive, but the commit's manifest declares it",
+            )]
+        } else {
+            Vec::new()
+        };
+    };
+    let Some(normalized_lib) = normalized_lib.as_table() else {
+        return vec![String::from(
+            "[lib] is present in the archive but is not a table",
+        )];
+    };
+    let source_lib = match source.get("lib") {
+        None => None,
+        Some(value) => {
+            let Some(table) = value.as_table() else {
+                return vec![String::from(
+                    "[lib] is present in the commit's manifest but is not a table",
+                )];
+            };
+            Some(table)
+        }
+    };
+    compare_table_keys(normalized_lib, &implied_lib(source_lib, package), "lib")
+}
+
+const TARGET_ARRAYS: [&str; 4] = ["bin", "example", "test", "bench"];
+
+fn compare_target_arrays(normalized: &toml::Value, source: &toml::Value) -> Vec<String> {
+    let mut failures = Vec::new();
+    for kind in TARGET_ARRAYS {
+        match (
+            target_tables(normalized.get(kind), kind, "the archive"),
+            target_tables(source.get(kind), kind, "the commit's manifest"),
+        ) {
+            (Err(failure), _) | (_, Err(failure)) => failures.push(failure),
+            (Ok(normalized_targets), Ok(source_targets)) => {
+                let names: BTreeSet<&String> = normalized_targets
+                    .keys()
+                    .chain(source_targets.keys())
+                    .collect();
+                for name in names {
+                    match (normalized_targets.get(name), source_targets.get(name)) {
+                        (None, Some(_)) => failures.push(format!(
+                            "[[{kind}]] omits {name}, which the commit's manifest declares"
+                        )),
+                        (Some(_), None) => failures.push(format!(
+                            "[[{kind}]] holds {name}, which the commit's manifest does not declare"
+                        )),
+                        (Some(left), Some(right)) => failures.extend(compare_table_keys(
+                            left,
+                            right,
+                            &format!("{kind}.{name}"),
+                        )),
+                        (None, None) => {}
+                    }
+                }
+            }
+        }
+    }
+    failures
+}
+
+/// Index `[[bin]]` (and the other target arrays) by `name`, falling back to
+/// `path`. A target with neither is a shape we refuse to invent an identity
+/// for, rather than skip.
+fn target_tables<'a>(
+    value: Option<&'a toml::Value>,
+    kind: &str,
+    side: &str,
+) -> Result<BTreeMap<String, &'a toml::value::Table>, String> {
+    let Some(value) = value else {
+        return Ok(BTreeMap::new());
+    };
+    let Some(array) = value.as_array() else {
+        return Err(format!("{side} [[{kind}]] is not an array"));
+    };
+    let mut out = BTreeMap::new();
+    for (index, item) in array.iter().enumerate() {
+        let Some(table) = item.as_table() else {
+            return Err(format!("{side} [[{kind}]] entry {index} is not a table"));
+        };
+        let Some(id) = table
+            .get("name")
+            .and_then(toml::Value::as_str)
+            .or_else(|| table.get("path").and_then(toml::Value::as_str))
+        else {
+            return Err(format!(
+                "{side} [[{kind}]] entry {index} has no name or path; refusing to compare it"
+            ));
+        };
+        if out.insert(id.to_string(), table).is_some() {
+            return Err(format!("{side} [[{kind}]] declares {id} more than once"));
+        }
+    }
+    Ok(out)
+}
+
+/// Union of the keys either table declares. An omitted commit-declared key is
+/// a mismatch; a key only the archive carries is an addition.
+fn compare_table_keys(
+    normalized: &toml::value::Table,
+    source: &toml::value::Table,
+    label: &str,
+) -> Vec<String> {
+    let normalized_keys: BTreeSet<_> = normalized.keys().cloned().collect();
+    let source_keys: BTreeSet<_> = source.keys().cloned().collect();
+    let mut failures = Vec::new();
+    for added in normalized_keys.difference(&source_keys) {
+        failures.push(format!(
+            "[{label}] holds {added}, which the commit's manifest does not declare"
+        ));
+    }
+    for removed in source_keys.difference(&normalized_keys) {
+        failures.push(format!(
+            "[{label}] omits {removed}, which the commit's manifest declares"
+        ));
+    }
+    for key in normalized_keys.intersection(&source_keys) {
+        if normalized[key] != source[key] {
+            failures.push(format!(
+                "[{label}] {key} differs from the commit's manifest"
+            ));
+        }
+    }
+    failures
 }
 
 /// The packaged lock is a subset of the workspace lock by construction, so any
@@ -802,6 +956,166 @@ default-features = false
             failures.iter().any(|f| f.contains("description")),
             "{failures:?}"
         );
+    }
+
+    // Same class of hole as the dependency-table findings: surrounding checks
+    // read source entries and the entry set, so a manifest-only retarget of
+    // what Cargo builds is invisible unless the surface comparison covers it.
+
+    #[test]
+    fn manifest_surface_detects_a_retargeted_lib_path() {
+        let tampered =
+            format!("{NORMALIZED}\n[lib]\nname = \"demo\"\npath = \"src/register.rs\"\n");
+        let failures =
+            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(failures.iter().any(|f| f.contains("path")), "{failures:?}");
+    }
+
+    #[test]
+    fn manifest_surface_detects_an_omitted_lib_key() {
+        let source = format!("{SOURCE}\n[lib]\npath = \"src/lib.rs\"\ncrate-type = [\"lib\"]\n");
+        let tampered = format!("{NORMALIZED}\n[lib]\nname = \"demo\"\npath = \"src/lib.rs\"\n");
+        let failures =
+            check_manifest_surface(&tampered, &source, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(
+            failures.iter().any(|f| f.contains("crate-type")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_detects_an_injected_bin() {
+        let tampered =
+            format!("{NORMALIZED}\n[[bin]]\nname = \"backdoor\"\npath = \"src/register.rs\"\n");
+        let failures =
+            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(
+            failures.iter().any(|f| f.contains("backdoor")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_detects_a_retargeted_bin_path() {
+        let source = format!("{SOURCE}\n[[bin]]\nname = \"tool\"\npath = \"src/main.rs\"\n");
+        let tampered =
+            format!("{NORMALIZED}\n[[bin]]\nname = \"tool\"\npath = \"src/register.rs\"\n");
+        let failures =
+            check_manifest_surface(&tampered, &source, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(failures.iter().any(|f| f.contains("path")), "{failures:?}");
+    }
+
+    /// The normalized `[lib]` Cargo actually wrote for `0.1.0-incubating.1`.
+    /// The in-repo crate still declares no `[lib]`; Cargo synthesizes `name`
+    /// and `path`.
+    const PUBLISHED_LIB: &str = r#"
+[package]
+name = "ph-veml7700-als"
+version = "0.1.0-incubating.1"
+description = "a demo"
+
+[lib]
+name = "ph_veml7700_als"
+path = "src/lib.rs"
+"#;
+
+    const SOURCE_WITHOUT_LIB: &str = r#"
+[package]
+name = "ph-veml7700-als"
+version.workspace = true
+description = "a demo"
+"#;
+
+    #[test]
+    fn manifest_surface_accepts_the_synthesized_published_lib() {
+        let failures = check_manifest_surface(
+            PUBLISHED_LIB,
+            SOURCE_WITHOUT_LIB,
+            WORKSPACE,
+            "ph-veml7700-als",
+            "0.1.0-incubating.1",
+        );
+        assert!(failures.is_empty(), "{failures:?}");
+    }
+
+    /// The real packaged `Cargo.toml` from `0.1.0-incubating.1`, compared to
+    /// the in-repo crate and workspace manifests. This is the false-positive
+    /// case that matters: Cargo synthesized `[lib]` and the `auto*` keys.
+    const PUBLISHED_0_1_0_INCUBATING_1: &str = r#"
+[package]
+edition = "2024"
+rust-version = "1.92.0"
+name = "ph-veml7700-als"
+version = "0.1.0-incubating.1"
+authors = ["Steven Giacomelli"]
+build = false
+publish = ["crates-io"]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Async no_std VEML7700 ambient-light driver with explicit one-shot and threshold-monitor semantics"
+homepage = "https://github.com/photon-circus/ph-veml7700-als"
+documentation = "https://docs.rs/ph-veml7700-als"
+readme = "README.md"
+keywords = [
+    "ambient-light",
+    "veml7700",
+    "embedded",
+    "no-std",
+    "i2c",
+]
+categories = [
+    "embedded",
+    "no-std",
+    "hardware-support",
+]
+license = "MIT"
+repository = "https://github.com/photon-circus/ph-veml7700-als"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs",
+]
+
+[features]
+default = []
+defmt = ["dep:defmt"]
+
+[lib]
+name = "ph_veml7700_als"
+path = "src/lib.rs"
+
+[dependencies.defmt]
+version = "1.1.1"
+optional = true
+
+[dependencies.embedded-hal-async]
+version = "1.0.0"
+default-features = false
+
+[dev-dependencies.futures]
+version = "0.3"
+features = [
+    "std",
+    "executor",
+]
+default-features = false
+"#;
+
+    #[test]
+    fn manifest_surface_accepts_the_published_0_1_0_incubating_1_manifest() {
+        let failures = check_manifest_surface(
+            PUBLISHED_0_1_0_INCUBATING_1,
+            include_str!("../../crates/veml7700/Cargo.toml"),
+            include_str!("../../Cargo.toml"),
+            "ph-veml7700-als",
+            "0.1.0-incubating.1",
+        );
+        assert!(failures.is_empty(), "{failures:?}");
     }
 
     #[test]

@@ -115,9 +115,10 @@ Only after the release pull request is approved and merged:
    packaged source entry against the Git blobs of the tag it resolves —
    `v<version>` unless `--rev` says otherwise. It also checks that
    `.cargo_vcs_info.json` names that commit and was not packaged from a dirty
-   tree, that the normalized manifest's dependency and feature surface matches
-   the commit's manifests, and that the packaged lock pins no version the
-   commit's lock does not. Do not expect the published archive's SHA-256 to
+   tree, that the normalized manifest's dependency, feature, and target
+   surface matches the commit's manifests, and that the packaged lock pins
+   no version the commit's lock does not. Do not expect the published
+   archive's SHA-256 to
    equal the one in the evidence record: `cargo publish` repackages from the
    working tree. End-of-line-only entries are a pass. A mismatched entry, an
    entry with no blob at the tag, a tracked file missing from the archive, or a
