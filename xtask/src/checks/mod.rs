@@ -17,6 +17,7 @@ mod markdown_links;
 mod package;
 mod targets;
 mod vendor;
+mod verify_package;
 mod version;
 mod worktree;
 mod xtask_self;
@@ -59,6 +60,7 @@ pub fn run(id: &str, ctx: &mut GateCtx, reporter: &mut Reporter) -> Result<()> {
         "deny" => deny::product(ctx, reporter),
         "xtask_deny" => xtask_self::deny(ctx, reporter),
         "package" => package::run(ctx, reporter),
+        "verify_package" => verify_package::run(ctx, reporter),
         other => anyhow::bail!("unknown step id in gate.ron: {other}"),
     }
 }

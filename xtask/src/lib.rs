@@ -1,5 +1,6 @@
 //! Canonical repository gate. Policy lives in `data/*.ron`; this crate runs it.
 
+mod archive;
 mod cargo_cmd;
 mod checks;
 mod cli;
@@ -7,7 +8,10 @@ mod config;
 mod engine;
 mod evidence;
 mod git;
+mod registry;
 mod report;
+mod verify;
+mod verify_cmd;
 
 use std::process::ExitCode;
 
@@ -31,6 +35,19 @@ pub fn run() -> ExitCode {
 fn execute(xtask: Xtask) -> anyhow::Result<()> {
     match xtask.command {
         Command::Ci { profile, only } => engine::run_ci(profile.as_deref(), only.as_deref()),
+        Command::VerifyPackage {
+            archive,
+            version,
+            rev,
+            sha256,
+            download_dir,
+        } => verify_cmd::run(verify_cmd::Args {
+            archive,
+            version,
+            rev,
+            sha256,
+            download_dir,
+        }),
     }
 }
 

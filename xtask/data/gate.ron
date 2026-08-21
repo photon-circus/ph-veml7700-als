@@ -48,5 +48,6 @@
         (id: "deny", title: "dependency advisory and license policy", profiles: ["full", "bounded", "release"]),
         (id: "xtask_deny", title: "xtask dependency advisory and license policy", profiles: ["full", "bounded", "release"]),
         (id: "package", title: "package construction, inspection, and unpacked test", profiles: ["full", "bounded", "release"]),
+        (id: "verify_package", title: "the archive matches the reviewed commit", profiles: ["release"]),
     ],
 )

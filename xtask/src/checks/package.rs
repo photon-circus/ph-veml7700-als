@@ -1,12 +1,9 @@
-use std::fs::{self, File};
-use std::io::Read;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use flate2::read::GzDecoder;
-use sha2::{Digest, Sha256};
-use tar::Archive;
 
+use crate::archive::{self, sha256_file, sha256_hex};
 use crate::cargo_cmd;
 use crate::report::Reporter;
 
@@ -77,7 +74,7 @@ fn record_archive(ctx: &mut GateCtx, reporter: &mut Reporter, package_dir: &Path
         );
     }
     let prefix = format!("{}-{version}/", ctx.packages.driver);
-    let entries = crate_entries(&archive, &prefix)?;
+    let entries = archive::entries(&archive, &prefix)?;
     let package_sha = sha256_file(&archive)?;
     let digests: Vec<String> = entries
         .iter()
@@ -157,52 +154,4 @@ fn find_unpacked(package_dir: &Path, driver: &str) -> Result<PathBuf> {
             package_dir.display()
         )
     })
-}
-
-fn crate_entries(archive_path: &Path, prefix: &str) -> Result<Vec<(String, Vec<u8>)>> {
-    let file = File::open(archive_path)
-        .with_context(|| format!("failed to open {}", archive_path.display()))?;
-    let decoder = GzDecoder::new(file);
-    let mut archive = Archive::new(decoder);
-    let mut entries = Vec::new();
-    for entry in archive.entries().context("failed to read crate archive")? {
-        let mut entry = entry.context("failed to read crate entry")?;
-        if entry.header().entry_type().is_dir() {
-            continue;
-        }
-        let path = entry
-            .path()
-            .context("crate entry path")?
-            .to_string_lossy()
-            .replace('\\', "/");
-        let rel = path.strip_prefix(prefix).unwrap_or(path.as_str());
-        let rel = rel.trim_start_matches('/');
-        // Every file entry must reach the inventory. Skipping one silently
-        // would understate the archive the evidence record describes.
-        if rel.is_empty() {
-            bail!("crate archive holds a file entry with no path under {prefix}: {path}");
-        }
-        let mut data = Vec::new();
-        entry
-            .read_to_end(&mut data)
-            .context("failed to read crate entry contents")?;
-        entries.push((rel.to_string(), data));
-    }
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(entries)
-}
-
-fn sha256_file(path: &Path) -> Result<String> {
-    let data = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
-    Ok(sha256_hex(&data))
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write;
-        let _ = write!(out, "{byte:02x}");
-    }
-    out
 }

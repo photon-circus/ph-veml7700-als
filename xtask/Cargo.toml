@@ -26,7 +26,13 @@ flate2 = "1.0"
 regex = "1.11"
 ron = "0.10"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.10"
 syn = { version = "2.0", features = ["full"] }
 tar = "0.4"
 toml = "0.8"
+# Read-only registry access for `verify-package`: the sparse index and the
+# published archive. Blocking, matching the rest of this crate, and `rustls`
+# rather than `native-tls` so Linux needs no system OpenSSL. Default features
+# (gzip, json, cookies, charset) are all unused.
+ureq = { version = "3", default-features = false, features = ["rustls"] }

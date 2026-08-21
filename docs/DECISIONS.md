@@ -75,3 +75,32 @@ coordinates, or artifact creates competing meanings and defeats the graph.
 CI enforces only closed structural facts such as identifier uniqueness and
 resolution. It does not classify prose, judge evidence strength, infer meaning,
 or manufacture follow-up work.
+
+## D-034 — Published artifacts are verified against the commit, not against a local archive
+
+`cargo publish` repackages from the working tree, so a `.crate`'s bytes are a
+property of the publishing machine — its platform, its checkout's end-of-line
+configuration, its Cargo version — as well as of the commit. Comparing a
+downloaded archive against a locally built one therefore fails for correct
+releases and cannot distinguish a line-ending difference from edited content.
+
+Verification re-derives each packaged source entry from the Git blobs of the
+commit the archive declares, treats an end-of-line-only difference as a pass,
+and asserts the declared commit, dependency and feature surface, and locked
+versions of the three Cargo-generated entries, which exist in no commit.
+`.gitattributes` pins `eol=lf` so future checkouts stop introducing the
+difference; the commit-anchored comparison is what makes archives published
+before that change verifiable at all.
+
+## D-035 — The verifier may read the registry; the gate may not
+
+Establishing what crates.io holds requires fetching what crates.io holds.
+`cargo xtask verify-package --version` performs unauthenticated read-only GETs
+of the sparse index and the published archive, and takes no registry action: no
+publish, no tag, no release, no credential.
+
+The canonical gate stays offline and verifies only the archive it just built,
+so a green gate never depends on network reachability or on registry state. The
+accepted cost is a TLS dependency tree in the host tool, four additional
+licences in a policy that allowed three, and the advisory surface that comes
+with both.
