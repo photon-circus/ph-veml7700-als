@@ -493,8 +493,18 @@ pub fn check_manifest_surface(
         } else {
             Some(declared)
         };
-        let (Some(expected), Some(actual)) = (expected, normalized_pkg.and_then(|p| p.get(key)))
-        else {
+        let Some(expected) = expected else {
+            failures.push(format!(
+                "package.{key} is declared at the commit but resolves to nothing; the workspace root does not define it"
+            ));
+            continue;
+        };
+        // A key the commit declares and the archive omits is a loss of
+        // metadata, not an absence of evidence.
+        let Some(actual) = normalized_pkg.and_then(|p| p.get(key)) else {
+            failures.push(format!(
+                "package.{key} is absent from the archive, but the commit's manifests declare {expected}"
+            ));
             continue;
         };
         if expected != actual {
@@ -512,17 +522,40 @@ pub fn check_manifest_surface(
         "keywords",
         "categories",
     ] {
-        let expected = source_pkg.and_then(|p| p.get(key));
-        let actual = normalized_pkg.and_then(|p| p.get(key));
-        if let (Some(expected), Some(actual)) = (expected, actual)
-            && expected != actual
-        {
-            failures.push(format!("package.{key} differs from the commit's manifest"));
+        // Only keys the commit declares: Cargo synthesizes others (`build`,
+        // `autolib`, the `auto*` family) that appear in no source manifest.
+        let Some(expected) = source_pkg.and_then(|p| p.get(key)) else {
+            continue;
+        };
+        match normalized_pkg.and_then(|p| p.get(key)) {
+            None => failures.push(format!(
+                "package.{key} is absent from the archive, but the commit's manifest declares it"
+            )),
+            Some(actual) if actual != expected => {
+                failures.push(format!("package.{key} differs from the commit's manifest"))
+            }
+            Some(_) => {}
         }
     }
 
-    for table in ["dependencies", "dev-dependencies", "build-dependencies"] {
-        failures.extend(compare_dependency_table(&normalized, &source, table));
+    // Every dependency table, including the target-specific ones. A
+    // `[target.'cfg(...)'.dependencies]` entry reaches a consumer's build
+    // exactly as `[dependencies]` does, and a packaged lock written before
+    // such an edit still matches the commit's lock, so nothing else here
+    // would see it.
+    let normalized_tables = dependency_tables(&normalized);
+    let source_tables = dependency_tables(&source);
+    let empty = toml::value::Table::new();
+    let labels: BTreeSet<&String> = normalized_tables
+        .keys()
+        .chain(source_tables.keys())
+        .collect();
+    for label in labels {
+        failures.extend(compare_dependency_table(
+            normalized_tables.get(label).copied().unwrap_or(&empty),
+            source_tables.get(label).copied().unwrap_or(&empty),
+            label,
+        ));
     }
 
     let normalized_features = normalized.get("features");
@@ -536,23 +569,47 @@ pub fn check_manifest_surface(
     failures
 }
 
+const DEP_TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
+
+/// Every dependency table in a manifest, labelled by where it came from, so
+/// `[target.'cfg(unix)'.dependencies]` is compared as carefully as
+/// `[dependencies]`.
+fn dependency_tables(value: &toml::Value) -> BTreeMap<String, &toml::value::Table> {
+    let mut out = BTreeMap::new();
+    for table in DEP_TABLES {
+        if let Some(found) = value.get(table).and_then(toml::Value::as_table) {
+            out.insert(table.to_string(), found);
+        }
+    }
+    if let Some(targets) = value.get("target").and_then(toml::Value::as_table) {
+        for (cfg, spec) in targets {
+            for table in DEP_TABLES {
+                if let Some(found) = spec.get(table).and_then(toml::Value::as_table) {
+                    out.insert(format!("target.{cfg}.{table}"), found);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The keys a dependency declaration carries. A bare version string is the
+/// shorthand for a table holding only `version`.
+fn dependency_keys(value: &toml::Value) -> BTreeSet<String> {
+    match value {
+        toml::Value::String(_) => BTreeSet::from([String::from("version")]),
+        toml::Value::Table(table) => table.keys().cloned().collect(),
+        _ => BTreeSet::new(),
+    }
+}
+
 /// Cargo rewrites inline dependency tables into `[dependencies.<name>]`
 /// sections, so this compares parsed values and never text.
 fn compare_dependency_table(
-    normalized: &toml::Value,
-    source: &toml::Value,
+    normalized: &toml::value::Table,
+    source: &toml::value::Table,
     table: &str,
 ) -> Vec<String> {
-    let empty = toml::value::Table::new();
-    let normalized = normalized
-        .get(table)
-        .and_then(toml::Value::as_table)
-        .unwrap_or(&empty);
-    let source = source
-        .get(table)
-        .and_then(toml::Value::as_table)
-        .unwrap_or(&empty);
-
     let normalized_names: BTreeSet<_> = normalized.keys().cloned().collect();
     let source_names: BTreeSet<_> = source.keys().cloned().collect();
     let mut failures = Vec::new();
@@ -570,9 +627,15 @@ fn compare_dependency_table(
     for name in normalized_names.intersection(&source_names) {
         let left = &normalized[name];
         let right = &source[name];
-        for field in ["version", "features", "optional", "default-features"] {
-            let (l, r) = (field_of(left, field), field_of(right, field));
-            if l != r {
+        // Compare the union of the keys either side declares, rather than a
+        // fixed list. `package` redirects a dependency to a different crate
+        // under the same alias, and `git`, `registry`, and `path` all change
+        // where the code comes from; enumerating fields would keep missing
+        // whichever one was not thought of.
+        let mut fields = dependency_keys(left);
+        fields.extend(dependency_keys(right));
+        for field in fields {
+            if field_of(left, &field) != field_of(right, &field) {
                 failures.push(format!(
                     "[{table}.{name}] {field} differs from the commit's manifest"
                 ));
@@ -675,6 +738,71 @@ default = []
 version = "1.0.0"
 default-features = false
 "#;
+
+    // Reported by Codex on #94. Each of the three is an edit that reaches a
+    // consumer's build and that the surrounding checks cannot see: the source
+    // entries are untouched, the entry set is unchanged, and a packaged lock
+    // written before the edit still matches the commit's lock.
+
+    #[test]
+    fn manifest_surface_detects_an_injected_target_dependency() {
+        let tampered = format!(
+            "{NORMALIZED}\n[target.\"cfg(all())\".dependencies.backdoor]\nversion = \"1.0\"\n"
+        );
+        let failures =
+            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(
+            failures.iter().any(|f| f.contains("backdoor")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_detects_a_redirected_dependency() {
+        let tampered = NORMALIZED.replace(
+            "[dependencies.embedded-hal-async]\nversion = \"1.0.0\"",
+            "[dependencies.embedded-hal-async]\npackage = \"impostor\"\nversion = \"1.0.0\"",
+        );
+        let failures =
+            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(
+            failures.iter().any(|f| f.contains("package")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_detects_dropped_inherited_metadata() {
+        let source = format!("{SOURCE}\n[package.extra]\n");
+        let source = source.replace(
+            "version.workspace = true",
+            "version.workspace = true\nlicense.workspace = true",
+        );
+        let workspace = format!("{WORKSPACE}license = \"MIT\"\n");
+        // The normalized manifest simply omits the licence the commit declares.
+        let failures = check_manifest_surface(
+            NORMALIZED,
+            &source,
+            &workspace,
+            "demo",
+            "0.1.0-incubating.1",
+        );
+        assert!(
+            failures.iter().any(|f| f.contains("license")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_detects_dropped_descriptive_metadata() {
+        let tampered = NORMALIZED.replace("description = \"a demo\"\n", "");
+        let failures =
+            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        assert!(
+            failures.iter().any(|f| f.contains("description")),
+            "{failures:?}"
+        );
+    }
 
     #[test]
     fn maps_the_manifest_between_its_two_names() {
