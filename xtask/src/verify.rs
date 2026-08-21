@@ -200,6 +200,14 @@ pub fn verify(req: &VerifyRequest) -> Result<VerifyReport> {
     let prefix = format!("{}-{}/", req.package, req.version);
     let entries = archive::entries(req.archive, &prefix)?;
 
+    let missing_generated = missing_generated_entries(&entries);
+    if !missing_generated.is_empty() {
+        bail!(
+            "the archive omits required Cargo-generated entries: {}",
+            missing_generated.join(", ")
+        );
+    }
+
     let vcs_raw = entries
         .iter()
         .find(|(name, _)| name == ".cargo_vcs_info.json")
@@ -242,7 +250,14 @@ pub fn verify(req: &VerifyRequest) -> Result<VerifyReport> {
         let content_sha = archive::content_digest(data);
 
         if GENERATED.contains(&name.as_str()) {
-            let notes = check_generated(req, name, data, &resolved_commit, &path_in_vcs)?;
+            let notes = check_generated(
+                req,
+                name,
+                data,
+                &resolved_commit,
+                &path_in_vcs,
+                expected.contains_key("build.rs"),
+            )?;
             let failed = !notes.is_empty();
             for note in &notes {
                 failures.push(format!("{name}: {note}"));
@@ -325,6 +340,13 @@ pub fn verify(req: &VerifyRequest) -> Result<VerifyReport> {
     })
 }
 
+fn missing_generated_entries(entries: &[(String, Vec<u8>)]) -> Vec<&'static str> {
+    GENERATED
+        .into_iter()
+        .filter(|required| !entries.iter().any(|(name, _)| name == required))
+        .collect()
+}
+
 /// Compare a packaged entry against the commit's blob. Both sides are
 /// normalized: the blob side is LF today, but a future `-text` attribute would
 /// change that, and normalizing only one side would be a silent asymmetry.
@@ -395,6 +417,7 @@ fn check_generated(
     data: &[u8],
     commit: &str,
     path_in_vcs: &str,
+    has_default_build_script: bool,
 ) -> Result<Vec<String>> {
     match name {
         // Already asserted in check_vcs_info, before the entry loop.
@@ -409,6 +432,7 @@ fn check_generated(
                 &String::from_utf8_lossy(&workspace),
                 req.package,
                 req.version,
+                has_default_build_script,
             ))
         }
         "Cargo.lock" => {
@@ -451,6 +475,7 @@ pub fn check_manifest_surface(
     workspace: &str,
     package: &str,
     version: &str,
+    has_default_build_script: bool,
 ) -> Vec<String> {
     let mut failures = Vec::new();
     let (normalized, source, workspace) = match (
@@ -480,6 +505,27 @@ pub fn check_manifest_surface(
 
     let source_pkg = source.get("package");
     let workspace_pkg = workspace.get("workspace").and_then(|w| w.get("package"));
+
+    let expected_build = source_pkg
+        .and_then(|package| package.get("build"))
+        .cloned()
+        .unwrap_or_else(|| {
+            if has_default_build_script {
+                toml::Value::String(String::from("build.rs"))
+            } else {
+                toml::Value::Boolean(false)
+            }
+        });
+    match normalized_pkg.and_then(|package| package.get("build")) {
+        None => failures.push(String::from(
+            "package.build is absent from the archive, so its build-script target cannot be verified",
+        )),
+        Some(actual) if actual != &expected_build => failures.push(format!(
+            "package.build is {actual}, but the commit's manifest and tree imply {expected_build}"
+        )),
+        Some(_) => {}
+    }
+
     for key in INHERITED {
         let Some(declared) = source_pkg.and_then(|p| p.get(key)) else {
             continue;
@@ -523,8 +569,9 @@ pub fn check_manifest_surface(
         "keywords",
         "categories",
     ] {
-        // Only keys the commit declares: Cargo synthesizes others (`build`,
-        // `autolib`, the `auto*` family) that appear in no source manifest.
+        // Only keys the commit declares: Cargo synthesizes `autolib` and the
+        // `auto*` family that appear in no source manifest. `build` is checked
+        // separately above because its implied value depends on the tree.
         let Some(expected) = source_pkg.and_then(|p| p.get(key)) else {
             continue;
         };
@@ -858,7 +905,8 @@ pub fn check_lock_subset(packaged: &str, root: &str, package: &str, version: &st
 #[cfg(test)]
 mod tests {
     use super::{
-        Verdict, archive_name_for, check_lock_subset, check_manifest_surface, compare, git_name_for,
+        Verdict, archive_name_for, check_lock_subset, check_manifest_surface, compare,
+        git_name_for, missing_generated_entries,
     };
 
     const SOURCE: &str = r#"
@@ -884,6 +932,7 @@ version = "0.1.0-incubating.1"
 name = "demo"
 version = "0.1.0-incubating.1"
 description = "a demo"
+build = false
 
 [features]
 default = []
@@ -903,8 +952,14 @@ default-features = false
         let tampered = format!(
             "{NORMALIZED}\n[target.\"cfg(all())\".dependencies.backdoor]\nversion = \"1.0\"\n"
         );
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("backdoor")),
             "{failures:?}"
@@ -917,8 +972,14 @@ default-features = false
             "[dependencies.embedded-hal-async]\nversion = \"1.0.0\"",
             "[dependencies.embedded-hal-async]\npackage = \"impostor\"\nversion = \"1.0.0\"",
         );
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("package")),
             "{failures:?}"
@@ -940,6 +1001,7 @@ default-features = false
             &workspace,
             "demo",
             "0.1.0-incubating.1",
+            false,
         );
         assert!(
             failures.iter().any(|f| f.contains("license")),
@@ -950,12 +1012,51 @@ default-features = false
     #[test]
     fn manifest_surface_detects_dropped_descriptive_metadata() {
         let tampered = NORMALIZED.replace("description = \"a demo\"\n", "");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("description")),
             "{failures:?}"
         );
+    }
+
+    #[test]
+    fn manifest_surface_detects_a_retargeted_build_script() {
+        let tampered = NORMALIZED.replace("build = false", "build = \"src/lib.rs\"");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("package.build")),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_surface_accepts_an_implied_default_build_script() {
+        let normalized = NORMALIZED.replace("build = false", "build = \"build.rs\"");
+        let failures = check_manifest_surface(
+            &normalized,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            true,
+        );
+        assert!(failures.is_empty(), "{failures:?}");
     }
 
     // Same class of hole as the dependency-table findings: surrounding checks
@@ -966,8 +1067,14 @@ default-features = false
     fn manifest_surface_detects_a_retargeted_lib_path() {
         let tampered =
             format!("{NORMALIZED}\n[lib]\nname = \"demo\"\npath = \"src/register.rs\"\n");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(failures.iter().any(|f| f.contains("path")), "{failures:?}");
     }
 
@@ -975,8 +1082,14 @@ default-features = false
     fn manifest_surface_detects_an_omitted_lib_key() {
         let source = format!("{SOURCE}\n[lib]\npath = \"src/lib.rs\"\ncrate-type = [\"lib\"]\n");
         let tampered = format!("{NORMALIZED}\n[lib]\nname = \"demo\"\npath = \"src/lib.rs\"\n");
-        let failures =
-            check_manifest_surface(&tampered, &source, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            &source,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("crate-type")),
             "{failures:?}"
@@ -987,8 +1100,14 @@ default-features = false
     fn manifest_surface_detects_an_injected_bin() {
         let tampered =
             format!("{NORMALIZED}\n[[bin]]\nname = \"backdoor\"\npath = \"src/register.rs\"\n");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("backdoor")),
             "{failures:?}"
@@ -1000,8 +1119,14 @@ default-features = false
         let source = format!("{SOURCE}\n[[bin]]\nname = \"tool\"\npath = \"src/main.rs\"\n");
         let tampered =
             format!("{NORMALIZED}\n[[bin]]\nname = \"tool\"\npath = \"src/register.rs\"\n");
-        let failures =
-            check_manifest_surface(&tampered, &source, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            &source,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(failures.iter().any(|f| f.contains("path")), "{failures:?}");
     }
 
@@ -1013,6 +1138,7 @@ default-features = false
 name = "ph-veml7700-als"
 version = "0.1.0-incubating.1"
 description = "a demo"
+build = false
 
 [lib]
 name = "ph_veml7700_als"
@@ -1034,6 +1160,7 @@ description = "a demo"
             WORKSPACE,
             "ph-veml7700-als",
             "0.1.0-incubating.1",
+            false,
         );
         assert!(failures.is_empty(), "{failures:?}");
     }
@@ -1114,6 +1241,7 @@ default-features = false
             include_str!("../../Cargo.toml"),
             "ph-veml7700-als",
             "0.1.0-incubating.1",
+            false,
         );
         assert!(failures.is_empty(), "{failures:?}");
     }
@@ -1124,6 +1252,15 @@ default-features = false
         assert_eq!(git_name_for("Cargo.toml.orig"), "Cargo.toml");
         assert_eq!(archive_name_for("src/lib.rs"), "src/lib.rs");
         assert_eq!(git_name_for("src/lib.rs"), "src/lib.rs");
+    }
+
+    #[test]
+    fn requires_every_cargo_generated_entry() {
+        let entries = vec![(String::from(".cargo_vcs_info.json"), Vec::new())];
+        assert_eq!(
+            missing_generated_entries(&entries),
+            vec!["Cargo.lock", "Cargo.toml"]
+        );
     }
 
     #[test]
@@ -1148,16 +1285,28 @@ default-features = false
 
     #[test]
     fn manifest_surface_accepts_the_normalized_form() {
-        let failures =
-            check_manifest_surface(NORMALIZED, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            NORMALIZED,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(failures.is_empty(), "{failures:?}");
     }
 
     #[test]
     fn manifest_surface_detects_an_added_dependency() {
         let tampered = format!("{NORMALIZED}\n[dependencies.backdoor]\nversion = \"1.0\"\n");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("backdoor")),
             "{failures:?}"
@@ -1167,8 +1316,14 @@ default-features = false
     #[test]
     fn manifest_surface_detects_a_changed_version_requirement() {
         let tampered = NORMALIZED.replace("version = \"1.0.0\"", "version = \"9.9.9\"");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(
             failures.iter().any(|f| f.contains("embedded-hal-async")),
             "{failures:?}"
@@ -1178,8 +1333,14 @@ default-features = false
     #[test]
     fn manifest_surface_detects_an_uninherited_version() {
         let tampered = NORMALIZED.replace("0.1.0-incubating.1", "0.2.0-incubating.1");
-        let failures =
-            check_manifest_surface(&tampered, SOURCE, WORKSPACE, "demo", "0.1.0-incubating.1");
+        let failures = check_manifest_surface(
+            &tampered,
+            SOURCE,
+            WORKSPACE,
+            "demo",
+            "0.1.0-incubating.1",
+            false,
+        );
         assert!(!failures.is_empty());
     }
 
