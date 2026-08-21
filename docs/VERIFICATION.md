@@ -94,4 +94,10 @@ tests against the unpacked driver package.
 
 `cargo xtask ci --profile bounded` is a hosted-feedback subset. It names every
 skipped step; a skip is not a pass. `cargo xtask ci --profile release` adds
-artifact identity and is reserved for a separately authorized release workflow.
+artifact identity and is reserved for a separately authorized release workflow;
+it re-derives every packaged source entry from the release commit's Git blobs,
+so a line-ending difference is reported as such and only edited content fails.
+
+`cargo xtask verify-package` applies that same comparison to a published
+archive. [`RELEASING.md`](../RELEASING.md) owns when it is run and what its
+verdicts oblige.

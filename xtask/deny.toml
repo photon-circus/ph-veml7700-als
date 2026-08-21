@@ -8,9 +8,25 @@ allow-wildcard-paths = true
 
 [licenses]
 confidence-threshold = 0.93
-# Host-only: clap/syn pull unicode-ident, which carries Unicode-3.0.
-# The product workspace deny.toml does not allow this license.
-allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+# Host-only. The product workspace deny.toml allows none of these additions.
+#
+# Unicode-3.0        clap/syn pull unicode-ident.
+# ISC                ring, rustls-webpki, untrusted -- the TLS stack `ureq`
+#                    needs to read the crates.io sparse index and archive.
+# BSD-3-Clause       subtle, via ring.
+# CDLA-Permissive-2.0  webpki-roots, the bundled trust store. It was MPL-2.0
+#                    through 0.26.8 and has been CDLA-Permissive-2.0 since.
+#
+# Each entry was added from what `cargo deny check licenses` actually named,
+# not from what the dependency tree was expected to carry.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-3.0",
+    "ISC",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+]
 
 [sources]
 unknown-registry = "deny"

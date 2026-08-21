@@ -12,6 +12,7 @@
     xtask_deny: "xtask/deny.toml",
     xtask_check_target: "target/xtask-check",
     crates_dir: "crates",
+    driver_package_dir: "crates/veml7700",
     coverage_start: "## Model conformance coverage",
     coverage_end: "## Canonical gate",
     covered_start: "### Covered",

@@ -1,5 +1,13 @@
-* text=auto
-*.sh text eol=lf
+# Pinned to LF so a checkout produces the same working-tree bytes on every
+# platform, and `cargo package` therefore produces the same archive bytes.
+# This moves no stored blob: every tracked file is already LF in the object
+# store, so `git add --renormalize .` is an empty commit. It changes the
+# working tree at the next checkout.
+#
+# Release verification does not depend on this. It compares packaged entries
+# against the commit's blobs, so a CRLF checkout still verifies. This stops
+# the divergence arising in the first place.
+* text=auto eol=lf
 *.bin binary
 *.pdf binary
 
